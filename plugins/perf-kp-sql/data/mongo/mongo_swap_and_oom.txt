@@ -1,0 +1,41 @@
+MongoDB Swap 与 OOM Killer 防护指南
+======================================
+
+1. 为什么数据库服务器必须控制 Swap
+----------------------------------
+MongoDB 的 WiredTiger 引擎依赖 mmap 进行内存映射 IO。当 OS 将数据库缓存页换出到 Swap 分区时，
+后续访问会产生严重的磁盘随机读，导致查询延迟从微秒级跳到毫秒甚至秒级。
+
+在生产环境中，Swap 活动是 MongoDB 性能抖动的头号杀手。
+
+2. vm.swappiness 参数
+---------------------
+- 默认值: 60（表示内核倾向于积极使用 Swap）
+- 推荐值: 1（仅在物理内存极度不足时才使用 Swap）
+- 设置方法:
+  sysctl -w vm.swappiness=1
+  echo "vm.swappiness=1" >> /etc/sysctl.conf
+
+注意: 设置为 0 在某些 Linux 版本中可能导致 OOM Killer 过早触发。
+
+3. OOM Killer 防护
+------------------
+Linux OOM Killer 在内存不足时会杀死占用内存最多的进程。数据库进程通常是首选目标。
+
+防护方法:
+  # 降低 mongod 被 OOM Kill 的优先级
+  echo -17 > /proc/$(pgrep mongod)/oom_adj
+
+  # 或使用 oom_score_adj (新版内核)
+  echo -1000 > /proc/$(pgrep mongod)/oom_score_adj
+
+4. 内存规划建议
+--------------
+- WiredTiger Cache: 不超过物理内存的 60%
+- 预留 OS Cache: 至少 20% 给文件系统缓存
+- 预留其他进程: 至少 10%
+- Swap 分区: 建议保留但设置 swappiness=1
+
+参考来源:
+- MongoDB Production Notes: https://www.mongodb.com/docs/manual/administration/production-notes/
+- Linux vm.swappiness: https://www.kernel.org/doc/Documentation/sysctl/vm.txt

@@ -1,0 +1,11 @@
+node_modules/
+*.log
+.DS_Store
+dist/
+.tmp/
+.npmrc
+
+# sqlite WAL / SHM ephemeral files (the .sqlite itself IS committed)
+*.sqlite-wal
+*.sqlite-shm
+*.sqlite-journal

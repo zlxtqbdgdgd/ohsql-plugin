@@ -1,0 +1,27 @@
+{
+  "name": "perf-kp-sql",
+  "version": "0.5.0",
+  "description": "Kunpeng + MongoDB/MySQL/Redis joint perf diagnosis. SshExec collect + 411 baseline rules + sqlite RAG knowledge base + flamegraph integration.",
+  "author": {
+    "name": "zlxtqbdgdgd",
+    "url": "https://github.com/zlxtqbdgdgd"
+  },
+  "homepage": "https://github.com/zlxtqbdgdgd/ohsql-plugin",
+  "repository": "https://github.com/zlxtqbdgdgd/ohsql-plugin",
+  "license": "MIT",
+  "keywords": [
+    "sql",
+    "perf",
+    "mongo",
+    "mysql",
+    "redis",
+    "kunpeng",
+    "ssh"
+  ],
+  "x-ohsql-min": ">=0.38.0",
+  "x-ohsql-dependencies": {
+    "cpu-flamegraph": "^0.2.0"
+  },
+  "x-ohsql-setup-skill": "perf-kp-sql-setup",
+  "x-ohsql-needs-npm-install": true
+}

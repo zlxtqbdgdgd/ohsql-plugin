@@ -1,0 +1,162 @@
+#!/usr/bin/env bash
+# perf-kp-sql native dependency health check
+#
+# Probes:
+#   - Node.js >= 18
+#   - better-sqlite3 (require + ABI compat)
+#   - sqlite-vec (require + extension load + vec_version())
+#   - ssh2 (require)
+#   - @xenova/transformers (dynamic import)
+#   - data/knowledge.sqlite (file + readable + schema)
+#
+# Output style mirrors EveryInc/ce-setup/check-health: 🟢/🔴/🟡 per item,
+# with hints to fix.
+
+set -o pipefail
+
+PLUGIN_ROOT="${OHSQL_PLUGIN_ROOT:-}"
+if [ -z "$PLUGIN_ROOT" ]; then
+  # Fallback: derive from script location (skills/perf-kp-sql-setup/scripts/check-health)
+  PLUGIN_ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
+fi
+
+if [ ! -d "$PLUGIN_ROOT" ]; then
+  echo "🔴  Cannot resolve plugin root (\$OHSQL_PLUGIN_ROOT='${OHSQL_PLUGIN_ROOT:-unset}')"
+  exit 1
+fi
+
+cd "$PLUGIN_ROOT" || exit 1
+
+ok()    { echo "  🟢  $1"; }
+warn()  { echo "  🟡  $1"; }
+fail()  { echo "  🔴  $1"; }
+hint()  { echo "      → $1"; }
+header(){ echo ""; echo " $1"; }
+
+issues=0
+
+header "Plugin"
+ok "root: $PLUGIN_ROOT"
+ok "name: ${OHSQL_PLUGIN_NAME:-(env unset)}"
+ok "version: ${OHSQL_PLUGIN_VERSION:-(env unset)}"
+
+header "Runtime"
+NODE_VERSION="$(node --version 2>/dev/null | sed 's/v//')"
+if [ -z "$NODE_VERSION" ]; then
+  fail "Node.js not found"
+  hint "install node >= 18"
+  issues=$((issues + 1))
+else
+  MAJOR="${NODE_VERSION%%.*}"
+  if [ "$MAJOR" -lt 18 ]; then
+    fail "Node.js $NODE_VERSION (need >= 18)"
+    issues=$((issues + 1))
+  else
+    ok "node v$NODE_VERSION"
+  fi
+fi
+
+header "Native dependencies"
+
+# ----- better-sqlite3 -----
+err="$(node -e "require('better-sqlite3')" 2>&1)"
+if [ -z "$err" ]; then
+  abi_err="$(node -e "const D=require('better-sqlite3'); new D(':memory:').prepare('SELECT 1').get();" 2>&1)"
+  if [ -z "$abi_err" ]; then
+    ok "better-sqlite3"
+  else
+    fail "better-sqlite3 ABI mismatch"
+    hint "$abi_err"
+    hint "fix: cd '$PLUGIN_ROOT' && npm rebuild better-sqlite3"
+    issues=$((issues + 1))
+  fi
+else
+  fail "better-sqlite3 missing"
+  hint "fix: cd '$PLUGIN_ROOT' && npm install better-sqlite3@^11.7"
+  issues=$((issues + 1))
+fi
+
+# ----- sqlite-vec (extension load) -----
+vec_err="$(node -e "
+const D = require('better-sqlite3');
+const v = require('sqlite-vec');
+const db = new D(':memory:');
+v.load(db);
+const r = db.prepare('SELECT vec_version() AS v').get();
+process.stdout.write(r.v);
+" 2>&1)"
+if [[ "$vec_err" =~ ^v[0-9] ]]; then
+  ok "sqlite-vec ($vec_err)"
+else
+  fail "sqlite-vec extension load failed"
+  hint "$vec_err"
+  hint "fix: cd '$PLUGIN_ROOT' && npm install sqlite-vec@^0.1"
+  issues=$((issues + 1))
+fi
+
+# ----- ssh2 -----
+err="$(node -e "require('ssh2')" 2>&1)"
+if [ -z "$err" ]; then
+  ok "ssh2"
+else
+  warn "ssh2 missing (optional fallback when ohsql SshExec is unavailable)"
+  hint "fix: cd '$PLUGIN_ROOT' && npm install ssh2@^1.17"
+fi
+
+# ----- @xenova/transformers -----
+err="$(node --input-type=module -e "import('@xenova/transformers').then(()=>{process.stdout.write('ok')}).catch(e=>{process.stderr.write(String(e));process.exit(1)})" 2>&1)"
+if [ "$err" = "ok" ]; then
+  ok "@xenova/transformers"
+else
+  fail "@xenova/transformers missing or broken"
+  hint "fix: cd '$PLUGIN_ROOT' && npm install @xenova/transformers@^2.17"
+  issues=$((issues + 1))
+fi
+
+header "Data"
+
+# ----- knowledge.sqlite -----
+KB="$PLUGIN_ROOT/data/knowledge.sqlite"
+if [ ! -f "$KB" ]; then
+  fail "data/knowledge.sqlite missing"
+  hint "fix: /plugin reinstall perf-kp-sql"
+  issues=$((issues + 1))
+else
+  schema_err="$(node -e "
+  const D = require('better-sqlite3');
+  const db = new D('$KB', { readonly: true });
+  for (const t of ['knowledge','rules','flame_patterns']) {
+    const r = db.prepare(\`SELECT count(*) AS c FROM \${t}\`).get();
+    if (typeof r.c !== 'number') throw new Error(t + ' missing');
+  }
+  process.stdout.write('ok');
+  " 2>&1)"
+  if [ "$schema_err" = "ok" ]; then
+    ok "knowledge.sqlite (schema verified)"
+  else
+    fail "knowledge.sqlite corrupt or schema mismatch"
+    hint "$schema_err"
+    hint "fix: /plugin reinstall perf-kp-sql"
+    issues=$((issues + 1))
+  fi
+fi
+
+# ----- model cache (informational) -----
+HF_CACHE="${HF_HOME:-$HOME/.cache/huggingface}"
+if [ -d "$HF_CACHE" ] && find "$HF_CACHE" -name "*MiniLM*" -type d 2>/dev/null | grep -q .; then
+  ok "MiniLM-L6-v2 cached at $HF_CACHE"
+else
+  warn "MiniLM-L6-v2 not cached (~25MB; downloads on first KB query)"
+  hint "warmup: node '$PLUGIN_ROOT/scripts/kb.mjs' --op embed --text warmup"
+fi
+
+# ----- summary -----
+echo ""
+if [ "$issues" = 0 ]; then
+  echo " ✅ All required dependencies present."
+else
+  echo " 🔴 $issues issue(s) need attention."
+fi
+echo ""
+
+exit "$issues"

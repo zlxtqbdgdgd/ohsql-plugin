@@ -1,0 +1,6 @@
+# Binary data files (KB sqlite, etc.) — keep out of diffs.
+plugins/perf-kp-sql/data/*.sqlite binary linguist-generated=true
+
+# CI-built esbuild bundles — committed for zero-install plugin runtime,
+# but treat them as generated so PR diffs stay readable.
+plugins/*/scripts/*.mjs linguist-generated=true

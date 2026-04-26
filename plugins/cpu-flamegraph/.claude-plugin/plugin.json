@@ -1,0 +1,13 @@
+{
+  "name": "cpu-flamegraph",
+  "version": "0.2.0",
+  "description": "Capture and analyze CPU flamegraphs over SSH. Pure local ssh CLI + Perl flamegraph.pl — harness-agnostic, works in stock Claude Code.",
+  "author": {
+    "name": "zlxtqbdgdgd",
+    "url": "https://github.com/zlxtqbdgdgd"
+  },
+  "homepage": "https://github.com/zlxtqbdgdgd/ohsql-plugin",
+  "repository": "https://github.com/zlxtqbdgdgd/ohsql-plugin",
+  "license": "MIT",
+  "keywords": ["perf", "flamegraph", "cpu", "ssh", "linux", "macos"]
+}

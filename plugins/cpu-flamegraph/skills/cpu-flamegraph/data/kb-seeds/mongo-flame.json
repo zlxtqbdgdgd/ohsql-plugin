@@ -1,0 +1,137 @@
+[
+  {
+    "id": "wt-eviction",
+    "scope": "function",
+    "regex": "^(__wt_evict|__evict_|__wt_cache_eviction).*",
+    "semantic_group": "wt-eviction",
+    "snippet": "WiredTiger eviction 由 eviction server 和 worker 线程管理 · 遍历页树找可驱逐候选 · 近似 LRU 排序。关键慢路径:cache 超过 eviction_trigger(默认 95%)时 · 应用线程被迫参与驱逐 · 这是用户查询延迟放大最常见的根因。调优方向:调大 wiredTigerCacheSizeGB · 降 eviction_trigger 提前启动驱逐 · 增加 eviction worker 数 eviction=(threads_min=4,threads_max=8)。",
+    "source_url": "https://source.wiredtiger.com/mongodb-7.0/arch-eviction.html",
+    "source_authority": "official"
+  },
+  {
+    "id": "wt-cache",
+    "scope": "function",
+    "regex": "^__wt_cache_(?!eviction_).*",
+    "semantic_group": "wt-cache",
+    "snippet": "WiredTiger cache 是内存中存储最近访问或修改数据的副本 · 按需将 B-tree 页加载到内存 · 不足时通过驱逐删除不需要的页。火焰图中 __wt_cache_* 前缀族合计占比高 · 意味着 cache 压力 · 常见触发原因 cacheSizeGB 太小或 working set 超物理内存。调优方向:调大 wiredTigerCacheSizeGB 到 (RAM-1)*0.5 · 减 working set · 加物理内存。",
+    "source_url": "https://source.wiredtiger.com/mongodb-7.0/arch-cache.html",
+    "source_authority": "official"
+  },
+  {
+    "id": "wt-checkpoint",
+    "scope": "function",
+    "regex": "^(__wt_txn_checkpoint|__checkpoint|__wt_checkpoint|__rec_).*",
+    "semantic_group": "wt-checkpoint",
+    "snippet": "WiredTiger checkpoint 是崩溃恢复的已知时间点 · 把 cache 内所有脏页同步到磁盘 · MongoDB 默认每 60 秒触发一次。5 阶段:准备→数据文件 checkpoint→历史存储 checkpoint→文件刷盘→元数据更新。火焰图频繁出现说明 checkpoint 时间长 · 检查 IO 带宽和脏页比例 · 调优:减脏页量 · 升级 NVMe SSD · 调 checkpoint=(wait=N) 间隔。",
+    "source_url": "https://source.wiredtiger.com/mongodb-7.0/arch-checkpoint.html",
+    "source_authority": "official"
+  },
+  {
+    "id": "wt-transaction",
+    "scope": "function",
+    "regex": "^(__wt_txn_|__txn_).*",
+    "semantic_group": "wt-transaction",
+    "snippet": "WiredTiger 用 MVCC 快照模型实现事务 · 每事务启动时取全局快照 · 通过 txn id 和 timestamp 判可见性。提交成本取决于持久化策略:启用 journal 同步刷日志(commit-level)· 未启用靠 checkpoint(checkpoint-level)。火焰图 __wt_txn_* 前缀族占比高 · 检查事务粒度是否过细 · 或 oplog 写放大。",
+    "source_url": "https://source.wiredtiger.com/mongodb-7.0/arch-transaction.html",
+    "source_authority": "official"
+  },
+  {
+    "id": "wt-logging",
+    "scope": "function",
+    "regex": "^(__wt_log_|__log_).*",
+    "semantic_group": "wt-logging",
+    "snippet": "WiredTiger logging(WAL/journal)记录每笔数据变更用于崩溃恢复 · write-heavy 场景 __wt_log_* 栈占比显著。性能受 fsync 延迟影响 · journal 刷盘延迟 = 写延迟下界。调优:启用 prealloc=true 减运行期分配 · NVMe/SSD 减 fsync 延迟 · 检查 write_lsn 推进是否被慢盘卡住。",
+    "source_url": "https://source.wiredtiger.com/mongodb-7.0/arch-logging.html",
+    "source_authority": "official"
+  },
+  {
+    "id": "wt-rts",
+    "scope": "function",
+    "regex": "^(__wt_rts_|__rollback_to_stable).*",
+    "semantic_group": "wt-rts",
+    "snippet": "WiredTiger Rollback-to-Stable (RTS) 在启动 / 关闭 / 副本集切主时运行 · 保留仅稳定(durable_timestamp <= stable_timestamp)的修改 · 从 cache 删不稳定内存更新 · 从 history store 删不稳定历史版本。火焰图频繁出现说明频繁副本集状态切换 · 检查网络抖动和心跳超时。",
+    "source_url": "https://source.wiredtiger.com/mongodb-7.0/arch-rts.html",
+    "source_authority": "official"
+  },
+  {
+    "id": "wt-history-store",
+    "scope": "function",
+    "regex": "^(__wt_hs_|__hs_).*",
+    "semantic_group": "wt-history-store",
+    "snippet": "WiredTiger History Store (WiredTigerHS.wt) 是独立表 · 存所有用户表的历史版本 · 页 reconcile 时最新版留用户表 · 旧版写入 HS。作用:长运行事务和旧版本读取无需访问最新数据就能拿到历史版本。火焰图 __wt_hs_* 占比高说明长事务多或 oldest_timestamp 推进慢 · 检查应用是否有长事务。",
+    "source_url": "https://source.wiredtiger.com/mongodb-7.0/arch-hs.html",
+    "source_authority": "official"
+  },
+  {
+    "id": "wt-cursor",
+    "scope": "function",
+    "regex": "^(__wt_cursor_|__curfile_|__curtable_|__curindex_|__wt_btcur_).*",
+    "semantic_group": "wt-cursor",
+    "snippet": "WiredTiger cursor 是 K-V 数据访问接口 · 所有 read/write 都经过 cursor · 包括 search/next/prev/insert/update/remove。火焰图 __wt_cursor_search 占比高常表示查询层频繁扫描 B-tree · 检查是否缺索引或存在 COLLSCAN · 用 explain(executionStats) 看 docsExamined / nReturned 比值。",
+    "source_url": "https://source.wiredtiger.com/mongodb-7.0/arch-cursor.html",
+    "source_authority": "official"
+  },
+  {
+    "id": "wt-block-manager",
+    "scope": "function",
+    "regex": "^(__wt_block_|__bm_).*",
+    "semantic_group": "wt-block-manager",
+    "snippet": "WiredTiger Block Manager 是磁盘 IO 层 · 管理每个 .wt 文件的 block 读写 · 追加写模式避免崩溃时状态不确定。每个 block 由 address cookie(offset+file id+size+checksum) 定位 · checksum 默认开启保护数据完整性。火焰图 __wt_block_* 占比高 · 检查磁盘 IO 性能 · 考虑 NVMe 升级。",
+    "source_url": "https://source.wiredtiger.com/mongodb-7.0/arch-block.html",
+    "source_authority": "official"
+  },
+  {
+    "id": "module-compression",
+    "scope": "module",
+    "regex": "^lib(z|zstd|snappy)",
+    "semantic_group": "compression",
+    "snippet": "火焰图 module 归属 libz / libzstd / libsnappy · 表示压缩算法本身在吃 CPU。MongoDB WiredTiger collection 默认压缩 snappy(CPU 最便宜) · 可选 zstd(均衡) · zlib(CPU 最贵·压缩率最高)。若 libz 热意味选了 zlib · 建议切回 snappy 或 zstd · 调整 storage.wiredTiger.collectionConfig.blockCompressor。",
+    "source_url": "https://www.mongodb.com/docs/manual/core/wiredtiger/#compression",
+    "source_authority": "official"
+  },
+  {
+    "id": "module-tls",
+    "scope": "module",
+    "regex": "^lib(ssl|crypto)",
+    "semantic_group": "tls",
+    "snippet": "火焰图 module 归属 libssl / libcrypto · 表示 TLS/SSL 握手或加解密在吃 CPU。若 TLS 仅用于内网或本机通信 · 可考虑关闭(net.tls.mode=disabled) · 或切 ECDSA 证书(比 RSA 快数倍) · 或启用 session resumption 降低重握手频率。",
+    "source_url": "https://www.mongodb.com/docs/manual/core/security-transport-encryption/",
+    "source_authority": "official"
+  },
+  {
+    "id": "module-kernel",
+    "scope": "module",
+    "regex": "^(\\[kernel|\\[unknown\\]|vmlinux)",
+    "semantic_group": "kernel",
+    "snippet": "火焰图 module 归属 [kernel] / vmlinux · 表示大量时间在内核态。常见原因:syscall 频次过高(上下文切换贵) · IO 调度竞争 · THP 后台回收 · 内存回收 kswapd。建议先看 syscall 分布(strace -c) · 查 THP 是否 enabled 应改 never · 看 IO scheduler 是否 mq-deadline。",
+    "source_url": "https://www.mongodb.com/docs/manual/administration/production-notes/",
+    "source_authority": "official"
+  },
+  {
+    "id": "module-glibc-malloc",
+    "scope": "module",
+    "regex": "^libc",
+    "semantic_group": "glibc-malloc",
+    "snippet": "火焰图 module 归属 libc(malloc / free / _int_malloc) · 表示内存分配器在吃 CPU。MongoDB 默认使用 tcmalloc(7.0+ 可选 tcmalloc_google) · 若火焰图里是 glibc malloc 说明未用 tcmalloc。建议:检查 mongod 启动时是否 LD_PRELOAD tcmalloc · 或 MongoDB 版本是否 tcmalloc build。",
+    "source_url": "https://www.mongodb.com/docs/manual/reference/parameters/",
+    "source_authority": "official"
+  },
+  {
+    "id": "module-jemalloc",
+    "scope": "module",
+    "regex": "^libjemalloc",
+    "semantic_group": "jemalloc",
+    "snippet": "火焰图 module 归属 libjemalloc · 表示使用了 jemalloc 分配器。通常比默认 tcmalloc 在高并发下更稳定 · 但若热点在 jemalloc 内部(非业务代码)说明分配频次过高。建议:检查 MALLOC_CONF 环境变量 · 常用 narenas / tcache 调优 · 或对比不同 arena 数下的吞吐。",
+    "source_url": "https://jemalloc.net/jemalloc.3.html#tuning",
+    "source_authority": "community"
+  },
+  {
+    "id": "module-pthread",
+    "scope": "module",
+    "regex": "^libpthread",
+    "semantic_group": "pthread",
+    "snippet": "火焰图 module 归属 libpthread / futex_wait / pthread_mutex · 表示线程同步等待。常见:连接池不足致 waiter 堆积 · 或 WiredTiger session mutex 竞争。建议:on-CPU futex(trylock 高频抢锁)增大 maxPoolSize · off-CPU futex(线程真 blocked)看具体阻塞栈和 oplog 锁竞争。",
+    "source_url": "https://www.mongodb.com/docs/manual/reference/connection-string-options/#connection-pool-options",
+    "source_authority": "official"
+  }
+]

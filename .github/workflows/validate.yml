@@ -1,0 +1,40 @@
+name: validate
+
+on:
+  pull_request:
+    paths:
+      - "plugins/**"
+      - ".claude-plugin/**"
+      - "tools/build/**"
+      - "package.json"
+      - ".github/workflows/validate.yml"
+  push:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Validate marketplace + plugin manifests
+        run: node tools/build/validate.mjs
+      - name: Verify required artifacts
+        run: |
+          set -e
+          # Each plugin must have its plugin.json, README, and at least one skill
+          for plugin in plugins/*/; do
+            test -f "${plugin}.claude-plugin/plugin.json" || { echo "Missing $plugin/.claude-plugin/plugin.json"; exit 1; }
+            test -f "${plugin}README.md" || echo "Warn: $plugin missing README.md"
+            ls "${plugin}skills/" >/dev/null
+          done
+          # perf-kp-sql specifics
+          test -f plugins/perf-kp-sql/data/knowledge.sqlite
+          test -x plugins/perf-kp-sql/skills/perf-kp-sql-setup/scripts/check-health
+          test -f plugins/cpu-flamegraph/skills/cpu-flamegraph/scripts/capture.mjs
+          test -f plugins/cpu-flamegraph/skills/cpu-flamegraph/vendor/flamegraph.pl
+          test -f plugins/perf-kp-sql/scripts/diagnose.mjs
+          test -f plugins/perf-kp-sql/scripts/kb.mjs
+          echo "All required artifacts present."
