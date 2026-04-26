@@ -168,6 +168,42 @@ password 前 3 + `***` + 后 3 脱敏。后续 SSH 命令的 host/user/port/pass
 2. 发现漏传 → 同 turn 重试
 3. 全传齐仍空 → 走紧凑二次收集
 
+### 1.2bis · DB 凭据预询问(凭据缺时前置)
+
+**触发**:DB 凭据缺(按 engine 已知/未知分两种判断):
+- engine 已显式(`mongo|mysql|redis`):对应必需凭据缺 — mongo 缺 `mongo_user` 或 `mongo_password`;mysql 缺 db 用户/密码;redis 缺 AUTH 密码
+- engine 缺省 / `=auto`:任意 DB 凭据相关字段都缺
+
+任何一种命中本步触发。如果用户 slash args 已经把对应凭据传齐 → 跳过本步,直接进 1.3。
+
+**为什么前置**:不问就跑 1.3 探测 + 全量采集会浪费 ~105s,等到 Step 2.7 DB 连不上才反向问 — 用户体验差。这里给用户一个**主动选择**的入口。
+
+ask the user(topic = `数据库连接信息`):
+
+```
+━ 数据库连接信息 ━
+当前未提供数据库凭据。请选:
+  1. 我现在补全凭据(engine + db_user + db_password [+ auth_db for mongo])
+     → 现在收齐后进入采集,采集时凭据直接生效
+  2. 跳过,先做自动探测
+     → 1.3 探测远端进程,命中后展示实例并向你确认凭据,再进采集
+请回复 1 / 2 或直接给参数。
+```
+
+Stop and wait for the next turn。
+
+**用户选 1(补全)**:
+- 如果 engine 仍缺,先确定 engine(`mongo|mysql|redis`)
+- 按 engine 收对应凭据:
+  - mongo:`mongo_user` / `mongo_password` / `auth_db`(默认 admin)
+  - mysql:`user` / `password`
+  - redis:`password`
+- 全收齐 → 进 1.3。1.3 探测仍跑,只是后续不再问凭据
+
+**用户选 2(自动探测)**:直接进 1.3,凭据由 1.3bis 在探测命中后再问
+
+**用户直接给参数(不答 1/2 而是直接补字段)**:把字段并入参数集,等价于"选 1"路径
+
 ### 1.3 · 环境探测(无条件 · 一次 SSH 全做完)
 
 **触发**:无条件跑(不管 `engine=auto` / 显式 / 缺省)。本步是采集阶段唯一前置 — 拿到 engine + 实例(pid/bind/port)+ 火焰图工具能力(perf / offcputime-bpfcc)三类信号,锁住后 Step 2 采集阶段绝对禁止任何探测性 SSH。
@@ -251,7 +287,71 @@ Stop and wait for the next turn。用户选定后继续。
 
 #### 锁定的状态
 
-`engine` + `bind` + `port` + `pid` + `flame_capable` 在内存里保留。**Step 2 全部子步骤共享这套状态,绝不重新探测**。火焰图能力公告 + 硬件/OS/实例 识别行**统一推迟到 task 1 收尾(Step 2.6)**,避免 PLAN 阶段抢 task UI 风头。
+`engine` + `bind` + `port` + `pid` + `flame_capable` 在内存里保留。**Step 2 全部子步骤共享这套状态,绝不重新探测**。火焰图能力公告 + 硬件/OS 识别行**统一推迟到 task 1 收尾(Step 2.6)**;**实例识别行**则在下一步 1.3bis 立即出(用户需要在采集前看到探测结果)。
+
+### 1.3bis · 探测结果展示 + 凭据确认
+
+**目标**:
+- 让用户**采集前**就看到 1.3 探测到了什么(实例 + 火焰图能力)
+- 如果对应 engine 的 DB 凭据仍缺,**当场问**(避免 Step 2.7 才反向问)
+
+#### 1.3bis.1 · 展示探测结果
+
+打 2 行(无论凭据是否齐都打):
+```
+  · 数据库实例 · <engine> @ <bind>:<port> (pid=<pid>) [· 默认端口推断]
+  · 火焰图能力 · <on-CPU + off-CPU 双采 | 仅 on-CPU(offcputime-bpfcc 未装) | 不可用 · perf 未装>
+```
+
+#### 1.3bis.2 · 凭据确认(如缺则问)
+
+按 engine 检查必需凭据是否已齐:
+
+| engine | 必需凭据 |
+|---|---|
+| mongo | `mongo_user` + `mongo_password`(`auth_db` 默认 admin 可省) |
+| mysql | db `user` + `password`(注意:这俩是连 DB 用的,不是 SSH 用的) |
+| redis | `password`(可空 = 无 AUTH) |
+
+**齐** → 跳过本子步,直接进 1.4。
+
+**缺** → ask the user(topic = `<engine> 凭据`):
+
+mongo 例:
+```
+━ MongoDB 凭据(已探测命中) ━
+远端检测到 mongod 实例 @ <bind>:<port> (pid=<pid>)。
+连接需要凭据,请提供:
+  - mongo_user(必填,匿名连接绝大多数 mongo 部署会被拒)
+  - mongo_password(必填)
+  - auth_db(默认 admin · 可省)
+直接回 "跳过" = 仍按匿名试一次(失败会在采集阶段反向问)。
+```
+
+mysql 例:
+```
+━ MySQL 凭据(已探测命中) ━
+远端检测到 mysqld 实例 @ <bind>:<port> (pid=<pid>)。
+连接需要凭据,请提供:
+  - user(MySQL 数据库用户)
+  - password
+直接回 "跳过" = 不带凭据试一次(失败会在采集阶段反向问)。
+```
+
+redis 例:
+```
+━ Redis 密码(已探测命中) ━
+远端检测到 redis-server 实例 @ <bind>:<port> (pid=<pid>)。
+请提供 password(空回车 = 无 AUTH 直连)。
+```
+
+Stop and wait for the next turn。
+
+**用户回 "跳过" / 空 / 拒绝** → 标记 `db_creds_skip=true`,进 1.4(Step 2.7 失败仍走"连不上反向问")。
+
+**用户给凭据** → 收齐进 1.4。
+
+> 注意:1.2bis 用户已选 "1. 补全凭据" 时,1.3bis.2 自然跳过(凭据已齐);只 1.3bis.1 的展示行还会打,告诉用户探测命中了什么。
 
 ### 1.4 · 声明 task 清单
 
@@ -264,16 +364,21 @@ The 5 phases (English subject for portability, with Chinese display titles):
 | # | Display title (subject) | Spinner verb (activeForm) | Count placeholder |
 |---|-------------------------|---------------------------|-------------------|
 | 1 | OS/硬件采集 (50 项)     | 采集 OS/硬件              | 50 (fixed) |
-| 2 | 运行时采集 (<N> 项)     | 采集运行时                | <N>:mongo=18; mysql/redis omit `(N 项)` |
+| 2 | <Engine> 运行时采集 (<N> 项) | 采集运行时           | mongo=18 项;mysql/redis 不挂数字;**`<Engine>` 替换为 `MongoDB` / `MySQL` / `Redis`** |
 | 3 | 规则诊断 (<R> 条)       | 诊断规则                  | <R>:mongo=59; mysql=38; redis=39 |
 | 4 | 知识库检索 (54 篇)      | 检索知识库                | 54 (fixed) |
 | 5 | 报告渲染                | 渲染报告                  | (no count) |
 
 **Exactly 5 phases. Do NOT create extras (no "cleanup" or "init" phases).** Do NOT assume sequential IDs (1-5) — use whatever IDs the agent's task tool returns.
 
-**v0.5.1 命名规则**:subject 名词在前 + 动词在后(`X采集` / `X诊断` / `X检索` / `X渲染`)· ≤ 5 字 · activeForm 动词在前(spinner verb 自然中文)· 不挂 engine 前缀。
+**命名规则**:
+- subject 名词在前 + 动词在后(`X采集` / `X诊断` / `X检索` / `X渲染`)
+- activeForm 动词在前(spinner verb 自然中文)
+- **task 2「运行时采集」必须挂 engine 前缀**(`MongoDB 运行时采集` / `MySQL 运行时采集` / `Redis 运行时采集`)— 因为运行时数据完全 engine-specific,不挂前缀语义模糊
+- task 1 / 3 / 4 / 5 **不挂 engine 前缀**(OS、规则诊断流程、KB 检索、报告渲染对所有 engine 一致)
+- 字符长度不强限,task UI 容得下
 
-**数字硬编表**(数据来源 = 实测 · 不要编):
+**phase 项数对照表**(数值来自实测,不要编):
 
 | engine | task 1 (`OS/硬件采集`) | task 2 (`运行时采集`) | task 3 (`规则诊断`) | task 4 (`知识库检索`) |
 |--------|----------------------|---------------------|--------------------|---------------------|
@@ -431,19 +536,19 @@ Bash(command="node ${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/scripts/ssh.mjs --o
 ```
   · 硬件 · <cpu_model> · <arch> · <cpu_cores> core · <GB>
   · 操作系统 · <os_id> <os_version> · Linux <kernel_version> · <virt>
-  · 数据库实例 · <engine> @ <bind>:<port> (pid=<pid>) [· 默认端口推断]
-  · 火焰图采样 · oncpu <N> 帧 · offcpu <M> 帧             # 仅采到时
-  · 火焰图采样 · 跳过(flame_capable=none)                # 跳过时
+  · 火焰图采样 · oncpu <采样窗口> · top1=<func> <pct>%   # 仅采到时
+  · 火焰图采样 · 跳过(perf 未装)                         # 跳过时
 ```
 
 填值规则:
 - `total_mem_mb` 除 1024 得 GB(1 位小数)
 - `numa_nodes ≥ 2` 才显示 NUMA 节点数
 - `cpu_model` 空 → `"CPU 未识别"`
-- `数据库实例` 行字段全部从 Step 1.3 锁定状态拿(bind/port/pid/engine);若 pid 为空(默认端口推断兜底)→ 加 `· 默认端口推断` 后缀
-- 火焰图采样帧数从 flame-json 的 `summary.frames.oncpu` / `summary.frames.offcpu` 读
+- 火焰图采样:从 flame-json 拿 `totalMs` / `top1.name` / `top1.percent`(老版字段)或 `summary` 文本截取
 
-打完识别行后 mark phase 1 as completed and phase 2 (`运行时采集`) as in_progress (single re-send)。
+> ⚠️ **不重复打"数据库实例"行** — Step 1.3bis 已经在 PLAN 阶段就把实例信息打过了,这里 phase 1 收尾只补 OS/硬件/火焰图三类,实例不重复。
+
+打完识别行后 mark phase 1 as completed and phase 2 (`<engine> 运行时采集`) as in_progress (single re-send)。
 
 ### 2.7 · DB 批量采集
 
@@ -521,7 +626,7 @@ Mark phase 3 (`规则诊断 (<R> 条)`) as in_progress in the task list.
   · info <I>     · <代表项 1> / <代表项 2> / <代表项 3> / ...
 ```
 
-数字硬编(实测 · 不要编):
+严重度计数(数值来自实测,不要编):
 
 | engine | 总规则 R | critical C | warning W | info I |
 |--------|--------|----------|-----------|--------|
@@ -647,6 +752,7 @@ results 空 → 模板 B:
 - **Step 2 整段绝对禁止任何探测性 SSH**(`command -v perf` / `pgrep` / `ss -lntp` 等):perf 探测在 1.3 已做、实例发现在 1.3 已做、连接性等到真正采集时才暴露
 - **火焰图采集只发生在 Step 2.5,作为 phase 1 子项展示;Step 3 / Step 4 严禁 SSH;没有"火焰图补采"路径(原 Step 5 已删除)**
 - task 工具可用时(Claude Code / Codex CLI),**只许调 task 工具,不许另外用纯文本渲染 `━ 5 阶段任务清单 ━` / `◻ phase 1 · ...` 重复列出**
+- **不向用户输出内部实现术语**:`数字硬编` / `数据硬编` / `phase X` / `task N` / `step X.Y` 等是 SKILL 给 LLM 看的元词,不要 echo 到用户可见消息(如 "声明 task list(数字硬编)" 这种)。给用户看的中文要自然 — `规则诊断 (59 条)` 直接打,不解释来源
 - 工具失败 → 静默重试 1 次,第 2 次仍失败 → 一行 diagnostic 跳过,cap=2
 - 不道歉 / 不反省 / 不自述内部出错
 
