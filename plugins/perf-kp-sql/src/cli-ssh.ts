@@ -418,14 +418,15 @@ function buildFallbackInstance(engine: Instance["engine"]): Instance {
   } as Instance & { port_source: string };
 }
 
-export function parseInstances(stdout: string, hintEngine: HintEngine = null): Instance[] {
+export function parseInstances(stdout: string, hintEngine: HintEngine = null, sectionMarker: string = "DISCOVERY"): Instance[] {
+  const openMarker = `###${sectionMarker}###`;
   const lines = stdout.split("\n");
   let inDiscovery = false;
   const out: Instance[] = [];
-  // 是否进入过 ###DISCOVERY### 段 · 用于区分"段缺失"与"段在但 PID 全空"两种均触发 G1+ 兜底
+  // 是否进入过段标记 · 用于区分"段缺失"与"段在但 PID 全空"两种均触发 G1+ 兜底
   for (const raw of lines) {
     const line = raw.trim();
-    if (line === "###DISCOVERY###") {
+    if (line === openMarker) {
       inDiscovery = true;
       continue;
     }
@@ -555,6 +556,77 @@ async function runDiscover(argv: Record<string, string | boolean>): Promise<void
 }
 
 // ============================================================================
+// Probe parser · 解析 Step 1.3 落盘的 probe 文件 · 提取 instances + flame_capable
+// ============================================================================
+
+function parseSectionContent(stdout: string, sectionMarker: string): string {
+  const openMarker = `###${sectionMarker}###`;
+  const lines = stdout.split("\n");
+  let inSection = false;
+  const collected: string[] = [];
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (line === openMarker) {
+      inSection = true;
+      continue;
+    }
+    if (!inSection) continue;
+    if (line.startsWith("###")) break;
+    collected.push(line);
+  }
+  return collected.join("\n").trim();
+}
+
+async function runProbeParse(argv: Record<string, string | boolean>): Promise<void> {
+  const probeFile = typeof argv["probe-file"] === "string" ? argv["probe-file"] : undefined;
+  if (!probeFile) {
+    process.stdout.write(JSON.stringify({ ok: false, error: "missing --probe-file" }));
+    process.exit(1);
+  }
+
+  let raw: string;
+  try {
+    raw = await readFile(probeFile!, "utf8");
+  } catch (e) {
+    const baseErr = e instanceof Error ? e.message : String(e);
+    const isMissing = /ENOENT|no such file|does not exist/i.test(baseErr);
+    const hint = isMissing
+      ? " · LLM 可能跳过了 Write 落盘步骤 · 请回查 ssh probe 返回的 stdout 是否调用了 Write(file_path=" + probeFile + ", content=<probeStdout>) · 见 SKILL.md Step 1.3"
+      : "";
+    process.stdout.write(JSON.stringify({ ok: false, error: `failed to read ${probeFile}: ${baseErr}${hint}` }));
+    process.exit(1);
+  }
+
+  const hintRaw = argv["hint-engine"];
+  const hintEngine = normalizeHintEngine(typeof hintRaw === "string" ? hintRaw : "");
+
+  // ENGINES 段:用 parseInstances 复用 PID/PORT/BIND 解析逻辑;过滤掉 fallback(probe 阶段不要默认端口推断,只要真实跑着的进程)
+  const allInstances = parseInstances(raw!, null, "ENGINES");
+  const realInstances = allInstances.filter((i) => (i as Instance).source !== "no-pid-default-engine");
+
+  // PERF / OFFCPU 段:第一行就是 `command -v` 输出 · 内容为 path 或 "MISSING"
+  const perfRaw = parseSectionContent(raw!, "PERF");
+  const offcpuRaw = parseSectionContent(raw!, "OFFCPU");
+  const perfAvailable = !!perfRaw && perfRaw !== "MISSING" && !/MISSING/.test(perfRaw);
+  const offcpuAvailable = !!offcpuRaw && offcpuRaw !== "MISSING" && !/MISSING/.test(offcpuRaw);
+
+  let flame_capable: "oncpu+offcpu" | "oncpu" | "none" = "none";
+  if (perfAvailable && offcpuAvailable) flame_capable = "oncpu+offcpu";
+  else if (perfAvailable) flame_capable = "oncpu";
+
+  process.stdout.write(
+    JSON.stringify({
+      ok: true,
+      instances: realInstances,
+      hint_engine: hintEngine,
+      flame_capable,
+      perf_path: perfAvailable ? perfRaw : null,
+      offcpu_path: offcpuAvailable ? offcpuRaw : null,
+    }),
+  );
+}
+
+// ============================================================================
 // CLI dispatcher
 // ============================================================================
 
@@ -563,9 +635,10 @@ async function main(): Promise<void> {
   const op = typeof argv.op === "string" ? argv.op : "";
   if (op === "exec") return runExec(argv);
   if (op === "discover") return runDiscover(argv);
+  if (op === "probe-parse") return runProbeParse(argv);
   process.stdout.write(JSON.stringify({
     ok: false,
-    err: `unknown --op: ${op || "(missing)"} · expect: exec | discover`,
+    err: `unknown --op: ${op || "(missing)"} · expect: exec | discover | probe-parse`,
   }) + "\n");
   process.exit(2);
 }

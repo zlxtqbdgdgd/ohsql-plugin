@@ -446,13 +446,14 @@ function buildFallbackInstance(engine) {
     port_source: "no-pid-default"
   };
 }
-function parseInstances(stdout, hintEngine = null) {
+function parseInstances(stdout, hintEngine = null, sectionMarker = "DISCOVERY") {
+  const openMarker = `###${sectionMarker}###`;
   const lines = stdout.split("\n");
   let inDiscovery = false;
   const out = [];
   for (const raw of lines) {
     const line = raw.trim();
-    if (line === "###DISCOVERY###") {
+    if (line === openMarker) {
       inDiscovery = true;
       continue;
     }
@@ -552,14 +553,70 @@ async function runDiscover(argv) {
     })
   );
 }
+function parseSectionContent(stdout, sectionMarker) {
+  const openMarker = `###${sectionMarker}###`;
+  const lines = stdout.split("\n");
+  let inSection = false;
+  const collected = [];
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (line === openMarker) {
+      inSection = true;
+      continue;
+    }
+    if (!inSection) continue;
+    if (line.startsWith("###")) break;
+    collected.push(line);
+  }
+  return collected.join("\n").trim();
+}
+async function runProbeParse(argv) {
+  const probeFile = typeof argv["probe-file"] === "string" ? argv["probe-file"] : void 0;
+  if (!probeFile) {
+    process.stdout.write(JSON.stringify({ ok: false, error: "missing --probe-file" }));
+    process.exit(1);
+  }
+  let raw;
+  try {
+    raw = await readFile(probeFile, "utf8");
+  } catch (e) {
+    const baseErr = e instanceof Error ? e.message : String(e);
+    const isMissing = /ENOENT|no such file|does not exist/i.test(baseErr);
+    const hint = isMissing ? " \xB7 LLM 可能跳过了 Write 落盘步骤 \xB7 请回查 ssh probe 返回的 stdout 是否调用了 Write(file_path=" + probeFile + ", content=<probeStdout>) \xB7 见 SKILL.md Step 1.3" : "";
+    process.stdout.write(JSON.stringify({ ok: false, error: `failed to read ${probeFile}: ${baseErr}${hint}` }));
+    process.exit(1);
+  }
+  const hintRaw = argv["hint-engine"];
+  const hintEngine = normalizeHintEngine(typeof hintRaw === "string" ? hintRaw : "");
+  const allInstances = parseInstances(raw, null, "ENGINES");
+  const realInstances = allInstances.filter((i) => i.source !== "no-pid-default-engine");
+  const perfRaw = parseSectionContent(raw, "PERF");
+  const offcpuRaw = parseSectionContent(raw, "OFFCPU");
+  const perfAvailable = perfRaw && perfRaw !== "MISSING" && !/MISSING/.test(perfRaw);
+  const offcpuAvailable = offcpuRaw && offcpuRaw !== "MISSING" && !/MISSING/.test(offcpuRaw);
+  let flame_capable = "none";
+  if (perfAvailable && offcpuAvailable) flame_capable = "oncpu+offcpu";
+  else if (perfAvailable) flame_capable = "oncpu";
+  process.stdout.write(
+    JSON.stringify({
+      ok: true,
+      instances: realInstances,
+      hint_engine: hintEngine,
+      flame_capable,
+      perf_path: perfAvailable ? perfRaw : null,
+      offcpu_path: offcpuAvailable ? offcpuRaw : null
+    })
+  );
+}
 async function main() {
   const argv = parseArgs(process.argv.slice(2));
   const op = typeof argv.op === "string" ? argv.op : "";
   if (op === "exec") return runExec(argv);
   if (op === "discover") return runDiscover(argv);
+  if (op === "probe-parse") return runProbeParse(argv);
   process.stdout.write(JSON.stringify({
     ok: false,
-    err: `unknown --op: ${op || "(missing)"} \xB7 expect: exec | discover`
+    err: `unknown --op: ${op || "(missing)"} \xB7 expect: exec | discover | probe-parse`
   }) + "\n");
   process.exit(2);
 }
