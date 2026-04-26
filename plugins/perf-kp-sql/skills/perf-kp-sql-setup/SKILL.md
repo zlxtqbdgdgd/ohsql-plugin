@@ -1,8 +1,15 @@
 ---
 name: perf-kp-sql-setup
-description: Diagnose and configure perf-kp-sql native dependencies (better-sqlite3 / sqlite-vec / ssh2 / @xenova/transformers + knowledge.sqlite). Run once after `/plugin install perf-kp-sql`, or whenever diagnosis fails with native-addon / ABI errors.
-disable-model-invocation: true
-allowed-tools: [Bash, AskUserQuestion]
+description: Diagnose and install perf-kp-sql native dependencies (better-sqlite3, sqlite-vec, ssh2, @xenova/transformers) and verify knowledge.sqlite schema. Use ONLY when invoked explicitly via `/perf-kp-sql-setup`, after first install of perf-kp-sql, or when perf-kp-sql diagnosis fails with native-addon / ABI / 'module not found' / 'NODE_MODULE_VERSION mismatch' errors. Do NOT auto-invoke based on general user requests.
+compatibility: |
+  Requires Node.js >= 18 and `npm` on the local machine. Installs native modules
+  (better-sqlite3, sqlite-vec, ssh2, @xenova/transformers) into the plugin's
+  per-plugin `node_modules` directory via `npm install --prefix`. Optionally
+  warms up the HuggingFace MiniLM-L6-v2 model (~25MB download) for KB semantic
+  search readiness. Works on Claude Code, OpenAI Codex CLI, and ohsql.
+metadata:
+  generator: "manual"
+  generated_at: "2026-04-26"
 ---
 
 # perf-kp-sql Setup

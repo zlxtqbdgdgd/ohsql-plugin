@@ -1,9 +1,22 @@
 ---
 name: perf-kp-sql
-description: Kunpeng ARM64 + 多数据库(MongoDB / MySQL / Redis)联合性能诊断;SshExec 采集 + 规则引擎评估 + 权威文档可追溯建议 + impact-ranked 报告。要求 OpenHarness-SQL ≥ 0.38.0;首次使用前请跑 `/perf-kp-sql-setup` 安装 native 依赖。
-when-to-use: 用户反映数据库慢 / CPU 高 / 抖动,或做 Kunpeng 迁移/配置审计
-allowed-tools: [Bash, Read, Grep, Glob, Write, SshExec, ToolSearchTool, AskUserQuestion, TaskCreate, TaskUpdate, TaskList]
-argument-hint: "host=<ip> user=<user> (password=<pw>|privateKeyPath=<path>) [engine=<mongo|mysql|redis>] [port=<ssh_port>]"
+description: Kunpeng ARM64 + multi-database (MongoDB / MySQL / Redis) joint performance diagnosis. Runs SSH-based remote collection (50 OS metrics + per-engine runtime), evaluates 59-39 enabled rules from a sqlite knowledge base (FTS5 trigram + sqlite-vec 384-dim semantic search), and emits an impact-ranked HTML report with authoritative citations. Use when users report database slowness, CPU spikes, latency jitter, query timeouts, or are doing Kunpeng migration / config audit. Triggers include '数据库慢' / 'CPU 高' / '抖动' / 'mongo perf' / 'mysql 慢查询' / 'redis 延迟' / 'Kunpeng 性能' / similar phrases. First-time use:run `/perf-kp-sql-setup` to install native deps.
+compatibility: |
+  Requires SSH access to the target host. Two auth modes:
+  - SSH key (recommended, all agents): pass `privateKeyPath=<path>`. Works on
+    Claude Code, OpenAI Codex CLI, ohsql, and any agent with shell access.
+  - SSH password (Claude Code + ohsql only): pass `password=<pw>`. Requires
+    `sshpass` locally; OpenAI Codex CLI sandbox blocks `sshpass` — Codex users
+    must run `ssh-copy-id` once and switch to key auth.
+  Native deps installed via `/perf-kp-sql-setup`: better-sqlite3, sqlite-vec,
+  ssh2, @xenova/transformers (~30MB total + 25MB MiniLM model).
+  Supported database engines: mongo (MongoDB 3.6-7.x), mysql (5.7-8.x),
+  redis (6.x-7.x). Knowledge base: 411 baseline rules + 54 distinct authoritative
+  documents (Anthropic + Kunpeng + WiredTiger + MongoDB official + ...).
+metadata:
+  generator: "manual"
+  generated_at: "2026-04-26"
+argument-hint: "host=<ip> user=<user> (privateKeyPath=<path>|password=<pw>) [engine=mongo|mysql|redis] [port=<ssh_port>]"
 ---
 
 # Pre-flight

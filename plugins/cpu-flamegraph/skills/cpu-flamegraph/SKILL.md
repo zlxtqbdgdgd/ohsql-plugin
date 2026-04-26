@@ -1,8 +1,16 @@
 ---
 name: cpu-flamegraph
-description: 通过 SSH 远程 perf 采样 + 本地解析，产出 CPU/Off-CPU 火焰图与 Top-N 热点函数；命中 KB 时输出函数级权威解读（无 LLM 推测）。仅需本地 ssh CLI，不依赖 ohsql kernel 任何 Tool，stock Claude Code 也可直接使用。
-when-to-use: 用户排查远端进程 CPU 高 / 卡顿 / 响应慢；需要把火焰图作为诊断附件；或拿到一份 perf 火焰图 SVG 想取 Top-N 热点函数
-allowed-tools: [Bash, Read, Write]
+description: Capture and analyze CPU/Off-CPU flamegraphs over SSH. Runs `perf record` on the remote host, parses `perf script` locally, renders SVG via flamegraph.pl, and emits Top-N hotspot functions with KB-backed authoritative interpretation when hotspots are recognized. Use when users investigate remote process CPU spikes, latency jitter, or slow response — or when they have a perf flamegraph SVG and want Top-N hotspot functions extracted. Triggers include 'CPU 高' / '卡顿' / '响应慢' / 'perf record' / 'flamegraph' / similar phrases.
+compatibility: |
+  Requires local `ssh` CLI (OpenSSH or compatible). SSH key auth recommended;
+  password auth works on platforms with `sshpass` available locally
+  (Claude Code + ohsql; OpenAI Codex CLI sandbox blocks `sshpass` — use key auth).
+  Remote host needs `perf` (and optionally `offcputime-bpfcc` for off-CPU sampling).
+  Pure Bash + Perl + JS — no native deps. Works on Claude Code, OpenAI Codex CLI,
+  ohsql, and any agent providing shell + read/write capabilities.
+metadata:
+  generator: "manual"
+  generated_at: "2026-04-26"
 argument-hint: "host=<ip> user=<user> (key=<path>|password=<pw>) [process=<name>] [type=oncpu|offcpu] [duration=<sec>] [port=<n>] [engine=mongo|mysql|redis]"
 ---
 
