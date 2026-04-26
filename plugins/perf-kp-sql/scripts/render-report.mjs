@@ -314,8 +314,15 @@ function mergeThemes(ranked) {
       return (b.impact_score ?? 0) - (a.impact_score ?? 0);
     });
     const primary = sorted[0];
-    const currentParts = sorted.map((r) => r.summary).filter(Boolean);
-    const recommendParts = sorted.map((r) => r.recommendations?.[0]?.action).filter(Boolean);
+    // v1.0 红线收紧:current 取 evidence(CheckFn 真机当前值) · 不取 summary(KB 文档字面)
+    // recommend 优先 threshold_display(KB threshold fact) · 兜底 recommendations[0].action(KB remediation)
+    // 注意 nullish 保护:threshold_display 可能是 null/undefined · 不能让它进字符串拼接
+    const currentParts = sorted
+      .map((r) => r.evidence?.[0]?.value || r.summary || "")
+      .filter((s) => s && s.trim());
+    const recommendParts = sorted
+      .map((r) => (r.threshold_display && r.threshold_display.trim()) || r.recommendations?.[0]?.action || "")
+      .filter((s) => s && s.trim());
     const citationsMerged = dedupBy(sorted.flatMap((r) => r.citations ?? []), (c) => c.url);
     const recommendationsMerged = dedupBy(sorted.flatMap((r) => r.recommendations ?? []), (rec) => rec.action);
     themeCondensed.set(theme.key, {
@@ -364,9 +371,9 @@ const HEALTHY_WHITELIST = [
   { id: "os.net.somaxconn",                  wait_class: "网络",  title: "somaxconn" },
 ];
 
-/** 从单条 finding 解析展示用的"当前值"字符串(去 label 前缀) */
+/** v1.0 红线收紧:"当前值"取 evidence(CheckFn 写的真机值) · 不取 summary(KB 文档字面) */
 function extractCurrent(r) {
-  return (r.summary ?? "").replace(/^[^=]*=/, "");
+  return (r.evidence?.[0]?.value ?? "").replace(/^[^=]*=/, "");
 }
 
 /** v0.4.4 · FootnoteRegistry · 推荐 cell URL → footnote 编号映射器

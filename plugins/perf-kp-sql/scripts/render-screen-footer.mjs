@@ -92,13 +92,30 @@ function reportInputOf(diagJson) {
 }
 const ri = reportInputOf(diagnoseJson);
 
-// 从 md 抽 "建议第一步" —— 取首条 top issue 的 recommendations[0].action + [参考N]
+// v1.0 红线收紧:取首条有 KB recommendations 的 top issue · 跳过 KB 缺 fact 的规则
+// 报告里宁可"未抽到字面"也不展示无角注的 action(避免 [参考N] 跟 action 不对应)
+//
+// 角注编号必须用 footer 自己渲染的 [参考N] 编号空间(不是 buildReportInput 的 evidence_trail
+// 全局编号)· 解析 sectionRefs 里的 url → footer 编号映射后用 fix_url 反查。
+function buildFooterRefMap() {
+  const map = new Map();
+  for (const line of (sectionRefs || "").split("\n")) {
+    const m = line.match(/^\s*\[参考(\d+)\]\s+(\S+)/);
+    if (m) map.set(m[2].trim(), Number(m[1]));
+  }
+  return map;
+}
 function firstStepLine() {
-  const top = (ri.top_issues ?? [])[0];
-  if (!top) return "—";
-  const action = top.recommendations?.[0]?.action ?? top.summary ?? top.title ?? "—";
-  const fn = (top.footnote_refs ?? [])[0];
-  return fn ? `${action}[参考${fn}]` : action;
+  const refMap = buildFooterRefMap();
+  for (const top of (ri.top_issues ?? [])) {
+    const rec = top.recommendations?.[0];
+    if (!rec || !rec.action) continue;
+    const action = rec.action;
+    const url = rec.fix_url ?? top.citations?.[0]?.url;
+    const fn = url ? refMap.get(url) : null;
+    return fn ? `${action}[参考${fn}]` : action;
+  }
+  return "—";
 }
 const firstStep = firstStepOverride ?? firstStepLine();
 
