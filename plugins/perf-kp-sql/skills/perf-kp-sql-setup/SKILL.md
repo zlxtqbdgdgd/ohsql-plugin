@@ -24,7 +24,7 @@ Bootstrap the native dependencies that `perf-kp-sql` relies on. Modeled after Ev
 Bash(command="echo \"PLUGIN_ROOT=${OHSQL_PLUGIN_ROOT:-unset}\"")
 ```
 
-Resolve the plugin root by trying both `${CLAUDE_PLUGIN_ROOT}` (Claude Code) and `${OHSQL_PLUGIN_ROOT}` (ohsql) — whichever is set. If neither is set, the skill is running outside any supported agent's plugin runtime; tell the user:
+Resolve the plugin root by trying both `${CLAUDE_PLUGIN_ROOT}` (Claude Code) and `${OHSQL_PLUGIN_ROOT}` (ohsql) — whichever is set. The fallback expression `${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}` is used in all subsequent shell commands. If neither is set, the skill is running outside any supported agent's plugin runtime; tell the user:
 
 ```
 perf-kp-sql-setup needs to run inside Claude Code, OpenAI Codex CLI, or
@@ -40,7 +40,7 @@ Stop here.
 Display: `perf-kp-sql · checking native dependencies...`
 
 ```
-Bash(command="bash ${OHSQL_PLUGIN_ROOT}/skills/perf-kp-sql-setup/scripts/check-health")
+Bash(command="bash ${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/skills/perf-kp-sql-setup/scripts/check-health")
 ```
 
 The script outputs a colored report covering:
@@ -82,7 +82,7 @@ Ask the user whether to proceed with fixing the missing/broken deps (the propose
 Question: 是否安装 / 修复 perf-kp-sql 的 native 依赖？
 
   Option 1 [recommended]: 是,跑 npm install
-    cd "${OHSQL_PLUGIN_ROOT}"
+    cd "${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}"
     npm install --no-audit --no-fund --loglevel=error \
       better-sqlite3@^11.7 sqlite-vec@^0.1 ssh2@^1.17 @xenova/transformers@^2.17
 
@@ -92,7 +92,7 @@ Question: 是否安装 / 修复 perf-kp-sql 的 native 依赖？
 If user chose Option 1, run:
 
 ```
-Bash(command="cd '${OHSQL_PLUGIN_ROOT}' && npm install --no-audit --no-fund --loglevel=error better-sqlite3@^11.7 sqlite-vec@^0.1 ssh2@^1.17 @xenova/transformers@^2.17")
+Bash(command="cd '${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}' && npm install --no-audit --no-fund --loglevel=error better-sqlite3@^11.7 sqlite-vec@^0.1 ssh2@^1.17 @xenova/transformers@^2.17")
 ```
 
 Display stdout/stderr to the user.
@@ -102,7 +102,7 @@ Display stdout/stderr to the user.
 If `better-sqlite3` is installed but the health check reports `NODE_MODULE_VERSION X != Y`, the user upgraded Node since last install. Run:
 
 ```
-Bash(command="cd '${OHSQL_PLUGIN_ROOT}' && npm rebuild better-sqlite3 sqlite-vec")
+Bash(command="cd '${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}' && npm rebuild better-sqlite3 sqlite-vec")
 ```
 
 ### Step 6: Warm the model cache (optional)
@@ -119,13 +119,13 @@ Question: 提前下载 MiniLM-L6-v2 模型 (~25MB) 缓存到 ~/.cache/huggingfac
 If accepted:
 
 ```
-Bash(command="node '${OHSQL_PLUGIN_ROOT}/scripts/kb.mjs' --op embed --text warmup", timeout=120000)
+Bash(command="node '${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/scripts/kb.mjs' --op embed --text warmup", timeout=120000)
 ```
 
 ### Step 7: Re-run health check + finish
 
 ```
-Bash(command="bash ${OHSQL_PLUGIN_ROOT}/skills/perf-kp-sql-setup/scripts/check-health")
+Bash(command="bash ${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/skills/perf-kp-sql-setup/scripts/check-health")
 ```
 
 If everything is now 🟢, display the success banner from Step 3.

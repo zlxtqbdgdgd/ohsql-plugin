@@ -80,7 +80,7 @@ Each phase transition (in_progress → completed; pending → in_progress) re-se
 
 ## Step 1 · PLAN
 
-**banner 必须在任何远端 tool call(SshExec / FlameGraph)之前渲染。** 本地 Bash / AskUserQuestion 参数收集不受限。
+**banner 必须在任何远端 SSH 命令(or remote `scp` / `node ...flamegraph capture` invocation)之前渲染。** 本地参数收集(history load · prompts to user)不受限。
 
 ### 1.0bis · 历史复用
 
@@ -150,15 +150,15 @@ Stop here and wait for the user's selection in the next turn. Once selected, ful
   · mongo_password=YAN***216 · auth_db=admin
 ```
 
-password 前 3 + `***` + 后 3 脱敏。后续 SshExec 参数必须与 banner 字段一一对应。
+password 前 3 + `***` + 后 3 脱敏。后续 SSH 命令的 host/user/port/password/privateKeyPath 参数必须与 banner 字段一一对应。
 
-### SshExec 参数门
+### SSH 参数门
 
-**Gate 2** — SshExec 的 host/user/port/password 必须与 banner 字面一致。
+**Gate 2** — SSH 命令的 host/user/port/password/privateKeyPath 必须与 banner 字面一致。
 
 **Gate 3** — history 里 password 非空 → 必传;privateKeyPath 非空 → 必传;两者都空 → 先问凭据。
 
-**Gate 4** — SshExec 返 stdout=stderr="" 时:
+**Gate 4** — SSH 命令返 stdout=stderr="" 时:
 1. 打自检行(实发参数 vs history 比对)
 2. 发现漏传 → 同 turn 重试
 3. 全传齐仍空 → 走紧凑二次收集
@@ -220,7 +220,7 @@ Read(file_path="${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/data/collect-cmds.json
 
 ### 2.3 · SSH 跑 OS 采集
 
-SshExec 之前打 4 行分组活动行(v0.5.1 · 跟 task 1 detail 视觉对齐 · 替代旧单行 `· 采集 OS / 硬件 35 项指标 (...)`):
+SSH 命令之前打 4 行分组活动行(v0.5.1 · 跟 task 1 detail 视觉对齐 · 替代旧单行 `· 采集 OS / 硬件 35 项指标 (...)`):
 
 ```
   · 内存 · THP / 大页 / swappiness / ...
@@ -264,11 +264,11 @@ Second failure → expand the detailed troubleshooting checklist (port / firewal
 ```
 Write(
   file_path="/Users/<yourlogin>/.ohsql/tmp/perf-kp-sql-os-<TS>.txt",
-  content="<此处必须填写你从 SshExec 刚拿到的全部 stdout 文本，别漏了>"
+  content="<此处必须填写你从上一步 SSH 命令刚拿到的全部 stdout 文本，别漏了>"
 )
 ```
 
-**Write 顺序硬约束**:SshExec → Write → Bash(discover),三步缺一不可。
+**Write 顺序硬约束**:SSH 命令 → Write 落盘 → discover.mjs,三步缺一不可。
 
 ### 2.4 · 实例发现
 
@@ -286,7 +286,7 @@ Bash(command="node ${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/scripts/ssh.mjs --o
 
 ### 2.5 · DB 批量采集
 
-SshExec 前打分组活动行(v0.5.1 · 跟 task 2 detail 对齐 · 替代旧单行 `· 采集 MongoDB 19 项指标 (...)`):
+SSH 命令之前打分组活动行(v0.5.1 · 跟 task 2 detail 对齐 · 替代旧单行 `· 采集 MongoDB 19 项指标 (...)`):
 
 ```
 # engine=mongo · 3 行
@@ -332,7 +332,7 @@ Stop and wait for the next turn.
 最多 3 轮。拿到 dbStdout → Write 落盘 (同样必须提供 file_path 和 content 参数):
 
 ```
-Write(file_path="/Users/<yourlogin>/.ohsql/tmp/perf-kp-sql-<engine>-db-<TS>.txt", content="<此处填入 SshExec 采集到的全部数据库状态 stdout 文本>")
+Write(file_path="/Users/<yourlogin>/.ohsql/tmp/perf-kp-sql-<engine>-db-<TS>.txt", content="<此处填入上一步 SSH 命令采集到的全部数据库状态 stdout 文本>")
 ```
 
 ### 2.6 · phase1 收尾
@@ -574,12 +574,12 @@ results 空 → 模板 B:
 
 # 红线
 
-- SSH 走 kernel `SshExec`,不自己 `Bash("ssh ...")`
+- SSH 走本地 `ssh` / `scp` CLI(see Architecture · SSH execution pattern); 不调任何 agent 的私有 SSH tool(`SshExec` / `SshUpload` / `FlameGraph` 等)
 - 只读诊断,不修改远端配置
-- 不用 `Bash("python3 -c ...")` 替代 `Write`
+- 不用 `python3 -c ...` 行内 hack 替代写文件
 - 不复制报告全文到对话
-- banner 输出前不调远端 tool
-- AskUserQuestion header 只写具体字段名,不用模糊词
+- banner 输出前不调远端 SSH 命令
+- 问用户时 header / topic 只写具体字段名,不用模糊词
 - 不 `find` 脚本路径;MODULE_NOT_FOUND 唯一根因是缺 build 产物
 - 不用 `/tmp/` 落盘
 - 不跳过 instance discovery

@@ -7,7 +7,7 @@ Official plugin marketplace for [OpenHarness-SQL](https://github.com/zlxtqbdgdgd
 | Plugin | Version | Compatible agents | Description |
 |---|---|---|---|
 | [`cpu-flamegraph`](./plugins/cpu-flamegraph/) | 0.2.1 | Claude Code · Codex CLI · ohsql · any agent with shell + read/write | Capture & analyze CPU flamegraphs over SSH (pure local ssh + Perl flamegraph.pl) |
-| [`perf-kp-sql`](./plugins/perf-kp-sql/) | 0.6.0 | Claude Code · Codex CLI · ohsql ≥ 0.38.0 | Kunpeng + MongoDB/MySQL/Redis joint perf diagnosis (sqlite RAG KB + flamegraph integration) |
+| [`perf-kp-sql`](./plugins/perf-kp-sql/) | 0.6.0 | Claude Code · Codex CLI · ohsql · any standard-compliant agent with shell + read/write | Kunpeng + MongoDB/MySQL/Redis joint perf diagnosis (sqlite RAG KB + flamegraph integration) |
 
 ## Install · Claude Code
 
