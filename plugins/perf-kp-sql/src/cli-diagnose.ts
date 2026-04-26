@@ -1,9 +1,9 @@
 /**
- * cli-diagnose — perf-kp-sql skill 本地分析入口(多 engine 版)。
+ * cli-diagnose — perf-kp-sql skill 本地分析入口(第一期 mongo only)。
  *
  * 用法:
  *   node diagnose.mjs \
- *     --engine mongo|mysql|redis \
+ *     --engine mongo \
  *     --os-file <path>           # SSH osBatchCmd stdout 落盘
  *     --db-file <path>           # SSH dbBatchTemplate stdout 落盘
  *     [--db-stderr-file <path>]
@@ -12,8 +12,6 @@
  *     [--summary-only]           # G4 · stdout 只返 summary/check_catalog/discovered
  *                                # (不含 results[] / report_input · 瘦身 LLM 上下文)
  *                                # 完整 JSON 仍可配合 --out-json 落盘供 render 消费
- *
- * 默认 engine=mongo(向后兼容)。
  *
  * 输出(stdout 一行 JSON):
  *   {
@@ -35,10 +33,6 @@ import { parseOsIntoMetrics, countByWaitClass } from "./shared/utils.js";
 import {
   buildMongoContext,
   mongoChecks,
-  mysqlChecks,
-  parseMysqlStdout,
-  redisChecks,
-  parseRedisStdout,
   engineChecks,
 } from "./engines/index.js";
 import { buildReportInput } from "./report.js";
@@ -47,9 +41,14 @@ import { infoResult, deriveScope } from "./models.js";
 import { templateFixExperiment, type FixExperiment } from "./models.js";
 import {
   type RuleRow,
+  type V2RuleRow,
   parseRuleRow,
+  parseV2RuleRow,
   evaluateRulesAsCheckResults,
+  evaluateV2RulesAsCheckResults,
 } from "./rule-engine.js";
+import { enrichResultsFromKb } from "./kb-enrich.js";
+import { tryLoadBaseline, saveBaseline, snapshotFromServerStatus } from "./baseline-store.js";
 
 interface Inputs {
   engine: string;
@@ -61,6 +60,7 @@ interface Inputs {
   withVerify: boolean;
   outJson?: string;  // v0.3.8 · 替代 shell 重定向 · 避免 kernel Bash `>` 拦截
   summaryOnly: boolean;  // G4 · stdout 只输出 summary+check_catalog+discovered · 瘦身 LLM 上下文
+  saveBaseline: boolean; // Phase 2 step 2 · 跑完把 serverStatus 数值字段存为 baseline 快照
 }
 
 async function main(): Promise<void> {
@@ -81,20 +81,18 @@ async function main(): Promise<void> {
     discovered = built.discovered as unknown as Record<string, unknown>;
     // shared (OS + Kunpeng) + mongo specific
     results = [...runAll(sharedChecks, ctx), ...runAll(mongoChecks, ctx)];
-  } else if (inputs.engine === "mysql") {
-    const osMetrics = parseOsIntoMetrics(inputs.osStdout);
-    const dbMetrics = parseMysqlStdout(inputs.dbStdout);
-    ctx = { os_metrics: osMetrics, db_metrics: dbMetrics, db_type: "mysql" };
-    discovered = extractDiscovery(inputs.osStdout, "mysqld");
-    results = [...runAll(sharedChecks, ctx), ...runAll(mysqlChecks, ctx)];
-  } else if (inputs.engine === "redis") {
-    const osMetrics = parseOsIntoMetrics(inputs.osStdout);
-    const dbMetrics = parseRedisStdout(inputs.dbStdout);
-    ctx = { os_metrics: osMetrics, db_metrics: dbMetrics, db_type: "redis" };
-    discovered = extractDiscovery(inputs.osStdout, "redis-server");
-    results = [...runAll(sharedChecks, ctx), ...runAll(redisChecks, ctx)];
   } else {
-    writeError(`unknown --engine ${inputs.engine} (must be mongo|mysql|redis)`);
+    writeError(`unknown --engine ${inputs.engine} (must be mongo)`);
+  }
+
+  // Phase 2 step 2 · baseline 注入(rule-engine 的 baseline() 函数从 db_metrics.baseline 读)
+  // hostname 取 hostInfo.system.hostname · 缺失则跳过(无 baseline 模式)
+  const hostname = pickHostname(ctx!);
+  if (hostname) {
+    const bl = tryLoadBaseline(hostname);
+    if (bl) {
+      (ctx!.db_metrics as Record<string, unknown>).baseline = bl;
+    }
   }
 
   // Phase 3 · rule-engine 并行路径: 加载 rules 表 → 评估 → 去重合并
@@ -121,6 +119,22 @@ async function main(): Promise<void> {
         scope: deriveScope(ctx!, inputs.engine as EngineName),
         summary: `rule-engine: ${e instanceof Error ? e.message : String(e)}`,
         reason: "rule-engine 加载失败，已使用旧 CheckFn 路径",
+      }),
+    );
+  }
+
+  // 红线收紧 · 用 KB verified facts enrich rationale + recommendations(失败降级)
+  try {
+    results = enrichResultsFromKb(results);
+  } catch (e) {
+    results.push(
+      infoResult({
+        id: "internal.kb_enrich.error",
+        title: "kb-enrich fallback",
+        bucket: 5,
+        scope: deriveScope(ctx!, inputs.engine as EngineName),
+        summary: `kb-enrich: ${e instanceof Error ? e.message : String(e)}`,
+        reason: "KB enrich 失败，结果未注入 rationale/recommendations",
       }),
     );
   }
@@ -171,6 +185,19 @@ async function main(): Promise<void> {
     summary,
     check_catalog: checkCatalog,
   });
+
+  // Phase 2 step 2 · 显式保存 baseline 快照
+  if (inputs.saveBaseline && hostname) {
+    const ss = (ctx!.db_metrics as Record<string, unknown>).serverStatus
+            ?? (ctx!.db_metrics as Record<string, unknown>).t1_serverStatus;
+    if (ss) {
+      const snap = snapshotFromServerStatus(ss);
+      const path = saveBaseline(hostname, snap);
+      process.stderr.write(`[baseline] saved ${Object.keys(snap).length} numeric leaves to ${path}\n`);
+    } else {
+      process.stderr.write(`[baseline] serverStatus 缺失 · 跳过保存\n`);
+    }
+  }
 
   // v0.3.8: 支持 --out-json <path> 避免 shell 重定向(被 kernel 拦截)
   if (inputs.outJson) {
@@ -303,29 +330,67 @@ function runRuleEngine(
     ).get() as { cnt: number };
     if (!hasRules || hasRules.cnt === 0) return [];
 
-    // 加载 enabled=1 且匹配 engine 的规则
+    // 检查是否升级到含 v2_checks 列的 schema
+    const cols = db.prepare(`PRAGMA table_info(rules)`).all() as { name: string }[];
+    const hasV2 = cols.some((c) => c.name === "v2_checks");
+
+    // 加载匹配 engine 的规则 · 表里全是有效规则(无 enabled 列)
     const rows = db.prepare(
-      `SELECT * FROM rules WHERE enabled = 1 AND (engine = ? OR engine = 'any')`,
+      `SELECT * FROM rules WHERE engine = ? OR engine = 'any'`,
     ).all(engineName) as Record<string, unknown>[];
 
-    const rules: RuleRow[] = rows.map(parseRuleRow);
-    if (rules.length === 0) return [];
+    const allResults: CheckResult[] = [];
 
-    // 从 DiagContext 构建 collected Map
-    const collected = new Map<string, string>();
-    const osm = ctx.os_metrics as Record<string, unknown>;
-    const dbm = ctx.db_metrics as Record<string, unknown>;
-    for (const [k, v] of Object.entries(osm)) {
-      if (v !== undefined && v !== null) collected.set(k, String(v));
-    }
-    for (const [k, v] of Object.entries(dbm)) {
-      if (v !== undefined && v !== null) collected.set(k, String(v));
+    if (hasV2) {
+      // 拆分: v2 规则(v2_checks 非空) vs v1 规则
+      const v2Rows: Record<string, unknown>[] = [];
+      const v1Rows: Record<string, unknown>[] = [];
+      for (const r of rows) {
+        if (r.v2_checks && String(r.v2_checks).trim() && r.v2_checks !== "[]") {
+          v2Rows.push(r);
+        } else {
+          v1Rows.push(r);
+        }
+      }
+
+      // v1 路径
+      if (v1Rows.length > 0) {
+        const rules: RuleRow[] = v1Rows.map(parseRuleRow);
+        const collected = buildCollectedMap(ctx);
+        allResults.push(...evaluateRulesAsCheckResults(rules, collected, scope));
+      }
+
+      // v2 路径 · 走 nested raw metrics(serverStatus / hostInfo / getCmdLineOpts)
+      if (v2Rows.length > 0) {
+        const v2Rules: V2RuleRow[] = v2Rows.map(parseV2RuleRow);
+        // db_metrics 已包含 serverStatus / hostInfo / getCmdLineOpts 嵌套对象
+        const dbm = ctx.db_metrics as Record<string, unknown>;
+        allResults.push(...evaluateV2RulesAsCheckResults(v2Rules, dbm, scope));
+      }
+    } else {
+      // 老 schema · 全走 v1
+      const rules: RuleRow[] = rows.map(parseRuleRow);
+      const collected = buildCollectedMap(ctx);
+      allResults.push(...evaluateRulesAsCheckResults(rules, collected, scope));
     }
 
-    return evaluateRulesAsCheckResults(rules, collected, scope);
+    return allResults;
   } finally {
     db.close();
   }
+}
+
+function buildCollectedMap(ctx: DiagContext): Map<string, string> {
+  const collected = new Map<string, string>();
+  const osm = ctx.os_metrics as Record<string, unknown>;
+  const dbm = ctx.db_metrics as Record<string, unknown>;
+  for (const [k, v] of Object.entries(osm)) {
+    if (v !== undefined && v !== null) collected.set(k, String(v));
+  }
+  for (const [k, v] of Object.entries(dbm)) {
+    if (v !== undefined && v !== null) collected.set(k, String(v));
+  }
+  return collected;
 }
 
 function summarize(results: CheckResult[], catalogTotal: number) {
@@ -345,8 +410,6 @@ function summarize(results: CheckResult[], catalogTotal: number) {
 function extractDiscovery(osStdout: string, processName: string): Record<string, unknown> {
   // ###DISCOVERY### block shape:
   //   engine=mongod PID=11 PORT=27017 BIND=127.0.0.1
-  //   engine=mysqld PID=... PORT=3306 BIND=127.0.0.1
-  //   engine=redis-server ...
   const lines = osStdout.split("\n");
   let inDiscovery = false;
   for (const line of lines) {
@@ -376,12 +439,15 @@ function extractDiscovery(osStdout: string, processName: string): Record<string,
 function pickDbVersion(ctx: DiagContext, engine: string): string | undefined {
   const m = ctx.db_metrics as Record<string, unknown>;
   if (engine === "mongo") return (m.version as string) || undefined;
-  if (engine === "mysql") return (m.version as string) || undefined;
-  if (engine === "redis") {
-    const info = m.info as Record<string, string> | undefined;
-    return info?.redis_version;
-  }
   return undefined;
+}
+
+function pickHostname(ctx: DiagContext): string | undefined {
+  const m = ctx.db_metrics as Record<string, unknown>;
+  const hi = m.hostInfo as Record<string, unknown> | undefined;
+  const sys = hi?.system as Record<string, unknown> | undefined;
+  const h = sys?.hostname;
+  return typeof h === "string" && h.length > 0 ? h : undefined;
 }
 
 function numOrUndef(v: unknown): number | undefined {
@@ -419,6 +485,7 @@ async function readInputs(): Promise<Inputs> {
       withVerify: !!argv["with-verify"],
       outJson: argv["out-json"] as string | undefined,
       summaryOnly: !!argv["summary-only"],
+      saveBaseline: !!argv["save-baseline"],
     };
   }
 
@@ -449,6 +516,7 @@ async function readInputs(): Promise<Inputs> {
     withVerify: !!argv["with-verify"],
     outJson: argv["out-json"] as string | undefined,
     summaryOnly: !!argv["summary-only"],
+    saveBaseline: !!argv["save-baseline"],
   };
 }
 

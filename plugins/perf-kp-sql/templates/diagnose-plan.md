@@ -26,7 +26,7 @@
   - 用户未给 port → 写 `root@host:22 (默认)`
   - 用户说 `port 不清楚` / `不知道` → 写 `root@host:22 (默认 · 端口未提供)`
 - `{engine}`:
-  - 用户给 `engine=mongo / mysql / redis` → 直打该 token
+  - 用户给 `engine=mongo` → 直打该 token
   - 用户未给 → 打 `自动识别`
   - **不**填版本(如 `mongod 7.0.31`)· 版本是采集结果 · 不入 banner
 - `{symptom}`:用户原话(如 "数据库卡顿")· **未说就原样打"未提供"**,不要脑补"通用调优审计"等

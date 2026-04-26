@@ -16,7 +16,7 @@ import type { Citation } from "../models.js";
 // 1) NUMERIC · 数字相关的小工具
 // ===========================================================================
 //
-// 规则引擎从 SSH stdout / mongosh / mysql 拿的字段都是 `unknown`
+// 规则引擎从 SSH stdout / mongosh 拿的字段都是 `unknown`
 // (string / number / 混杂),这里把它们安全转成 number,不抛异常,带默认
 // fallback。对标 lodash.toInteger / lodash.toNumber,避免引入完整 lodash 依赖。
 
@@ -85,13 +85,6 @@ export const KUNPENG_REFS = {
     url: "https://docs.openeuler.org/en/docs/22.09/docs/SystemOptimization/mysql-performance-tuning.html",
   } as Citation,
 
-  /** 华为云 Kunpeng BoostKit · Redis 硬件调优(MTU / NIC / IRQ)
-   *  (替代旧 kunpengredishdp_05_0009.html 死链 · 2026-04-25 实测 200 OK) */
-  redisNicTuning: {
-    title: "华为云鲲鹏 BoostKit · Redis 硬件调优(配置 MTU)",
-    url: "https://support.huaweicloud.com/tngg-kunpengbds/kunpengredishdp_05_0011.html",
-  } as Citation,
-
   /** 鲲鹏性能调优 · THP / 内存大页(2026-04-25 新增 · 替代 boostkitMongo 在 OS 级错配) */
   thpTuning: {
     title: "鲲鹏性能优化十板斧 · 调整内存页的大小(THP)",
@@ -118,7 +111,7 @@ export const KUNPENG_REFS = {
 
 export type WaitClass = "CPU" | "I/O" | "内存" | "并发" | "网络" | "其他";
 
-/** rule_id → wait_class 精准映射表 · 覆盖当前 mongo/mysql/redis 全部 CheckFn */
+/** rule_id → wait_class 精准映射表 · 覆盖当前 mongo + 通用 (os/kunpeng/arm64/openeuler) 全部 CheckFn */
 const WAIT_CLASS_MAP: Record<string, WaitClass> = {
   // ---- CPU (CPU 时间 / 调度 / 指令集) ----
   "arm64.lse.cpu_flag": "CPU",
@@ -132,7 +125,6 @@ const WAIT_CLASS_MAP: Record<string, WaitClass> = {
   "openeuler.sched.feature_steal": "CPU",
   "openeuler.cmdline.nohz": "CPU",
   "mongo.config.wt_block_compressor": "CPU",
-  "redis.runtime.slowlog": "CPU",
   "os.cpu.cores_minimum": "CPU",
   "os.kernel.version_rseq": "CPU",
   "os.env.virt_type": "CPU",
@@ -144,9 +136,6 @@ const WAIT_CLASS_MAP: Record<string, WaitClass> = {
   "os.vm.dirty_ratio": "I/O",
   "os.io.disk_await_ms": "I/O",
   "os.io.disk_usage_pct": "I/O",
-  "mysql.config.innodb_flush_log_at_trx_commit": "I/O",
-  "mysql.config.sync_binlog": "I/O",
-  "redis.config.persistence": "I/O",
 
   // ---- 内存 (页表 / 大页 / swap / NUMA 本地性 / cache 命中) ----
   "os.thp.kernel_mode": "内存",
@@ -161,12 +150,6 @@ const WAIT_CLASS_MAP: Record<string, WaitClass> = {
   "mongo.config.wt_cache_vs_memory": "内存",
   "mongo.runtime.wt_cache_hit_rate": "内存",
   "mongo.config.db_cache_vs_total_mem": "内存",
-  "mysql.config.innodb_buffer_pool_size": "内存",
-  "mysql.runtime.buffer_pool_hit_rate": "内存",
-  "mysql.design.schema_sizes": "内存",
-  "redis.config.maxmemory": "内存",
-  "redis.config.maxmemory_policy": "内存",
-  "redis.runtime.mem_fragmentation_ratio": "内存",
   "kunpeng.vm.swappiness_strict": "内存",
   "kunpeng.numa.interleave_recommendation": "内存",
   "mongo.config.wt_cache_pct_kunpeng": "内存",
@@ -176,9 +159,6 @@ const WAIT_CLASS_MAP: Record<string, WaitClass> = {
   // ---- 并发 (连接 / 复制 / 慢日志 / 锁 / 票证) ----
   "mongo.runtime.connection_pool": "并发",
   "mongo.config.oplog_window_hours": "并发",
-  "mysql.config.slow_query_log": "并发",
-  "mysql.runtime.connection_util": "并发",
-  "redis.runtime.connected_clients": "并发",
   "mongo.runtime.wt_ticket_read": "并发",
   "mongo.runtime.wt_ticket_write": "并发",
   "mongo.runtime.global_lock_queue": "并发",
@@ -242,9 +222,9 @@ export const WAIT_CLASS_ORDER: ReadonlyArray<WaitClass> = [
  *   - `openeuler.*` → "os"   · openEuler 内核特性 · 仍属 OS 层
  *   - `arm64.*`     → "硬件" · ARM64 ISA 级
  *   - `kunpeng.*`   → "硬件" · 鲲鹏平台 CPU/NUMA/SMT
- *   - `mongo.*` / `mysql.*` / `redis.*` → 对应 engine 名
+ *   - `mongo.*` → 对应 engine 名
  */
-export type Module = "os" | "硬件" | "mongo" | "mysql" | "redis" | "其他";
+export type Module = "os" | "硬件" | "mongo" | "其他";
 
 export function moduleOf(ruleId: string): Module {
   const prefix = ruleId.split(".", 1)[0];
@@ -257,10 +237,6 @@ export function moduleOf(ruleId: string): Module {
       return "硬件";
     case "mongo":
       return "mongo";
-    case "mysql":
-      return "mysql";
-    case "redis":
-      return "redis";
     default:
       return "其他";
   }
@@ -271,8 +247,6 @@ export const MODULE_ORDER: ReadonlyArray<Module> = [
   "os",
   "硬件",
   "mongo",
-  "mysql",
-  "redis",
   "其他",
 ];
 
@@ -304,8 +278,6 @@ export function countByModuleWaitClass(ruleIds: Iterable<string>): {
     os: empty(),
     硬件: empty(),
     mongo: empty(),
-    mysql: empty(),
-    redis: empty(),
     其他: empty(),
   };
   let total = 0;
@@ -440,9 +412,6 @@ export function parseOsBatch(stdout: string, out: Record<string, unknown>): void
     out["lse_dmesg_has_lse"] = /LSE/i.test(lseDmesg);
   }
 
-  const lseMysqldFirst = getSection(sections, "LSE_MYSQLD").trim().split("\n")[0]?.trim() ?? "";
-  out["lse_mysqld_count"] =
-    lseMysqldFirst === "na" ? null : parseIntOr(lseMysqldFirst, 0);
   const lseMongodFirst = getSection(sections, "LSE_MONGOD").trim().split("\n")[0]?.trim() ?? "";
   out["lse_mongod_count"] =
     lseMongodFirst === "na" ? null : parseIntOr(lseMongodFirst, 0);

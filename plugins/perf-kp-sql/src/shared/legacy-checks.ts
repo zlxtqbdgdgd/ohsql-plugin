@@ -133,10 +133,9 @@ export const check_arm64_lse_kernel: CheckFn = (ctx) => {
 // ARM64-03 · DB 二进制 LSE opcode 计数(objdump)
 // ---------------------------------------------------------------------------
 
-function engineBinary(engine: EngineName): "mysqld" | "mongod" | null {
-  if (engine === "mysql") return "mysqld";
+function engineBinary(engine: EngineName): "mongod" | null {
   if (engine === "mongo") return "mongod";
-  return null; // redis-server 通常无 LSE 编译问题,暂不查
+  return null;
 }
 
 export const check_arm64_lse_binary: CheckFn = (ctx) => {
@@ -147,10 +146,9 @@ export const check_arm64_lse_binary: CheckFn = (ctx) => {
   const engine = scope.engine;
   const bin = engineBinary(engine);
   if (!bin) {
-    return infoResult({ id, title, bucket: 1, scope, summary: `${engine} 不适用`, reason: "仅 mysqld / mongod 需要检查" });
+    return infoResult({ id, title, bucket: 1, scope, summary: `${engine} 不适用`, reason: "仅 mongod 需要检查" });
   }
-  const countKey = bin === "mysqld" ? "lse_mysqld_count" : "lse_mongod_count";
-  const count = osVal<number | null>(ctx, countKey, null);
+  const count = osVal<number | null>(ctx, "lse_mongod_count", null);
   if (count === null) {
     return infoResult({ id, title, bucket: 1, scope, summary: `未找到 ${bin} 二进制`, reason: `command -v ${bin} 无返回(或 nm 不可用)` });
   }
@@ -509,7 +507,6 @@ export const check_irqbalance: CheckFn = (ctx) => {
     ],
     impact: { metric: "latency_p95_ms", value: 10, unit: "percent", confidence: "medium" },
     citations: [
-      KUNPENG_REFS.redisNicTuning,
       { title: "Red Hat Performance Tuning · IRQ balancing", url: "https://access.redhat.com/sites/default/files/attachments/rhel7_numa_perf_brief.pdf" },
     ],
     recommendations: [
@@ -1102,35 +1099,21 @@ export const check_thp: CheckFn = (ctx) => {
     });
   }
 
-  // ---- 每 engine + version + vendor 决定期望值 ----
-  let expected: "never" | "always" | "either" = "never";
+  // ---- mongo · 按版本决定期望值 ----
+  let expected: "never" | "always" = "never";
   let rationaleWhyBad = "";
 
-  if (engine === "mongo") {
-    const major = mongoMajor(scope.engine_version);
-    if (major >= 8) {
-      expected = "always"; // Mongo 8.0+ 反而建议 always(WiredTiger 改造)
-      rationaleWhyBad = `MongoDB ${scope.engine_version ?? "8.0+"} 默认要求 THP=always`;
-    } else {
-      expected = "never"; // Mongo ≤ 7.0
-      rationaleWhyBad = "khugepaged 内存碎片整理会产生硬中断,CPU sys% 飙升";
-    }
-  } else if (engine === "redis") {
-    if (scope.vendor === "ampere") {
-      expected = "either"; // Ampere Altra Redis 指南反而要 always
-    } else {
-      expected = "never";
-      rationaleWhyBad = "THP=always 时 fork+COW 对大页会产生秒级 stall";
-    }
-  } else if (engine === "mysql") {
-    expected = "never";
-    rationaleWhyBad = "THP=always 增加 InnoDB 脏页刷盘和 redo 写的抖动";
+  const major = mongoMajor(scope.engine_version);
+  if (major >= 8) {
+    expected = "always"; // Mongo 8.0+ 反而建议 always(WiredTiger 改造)
+    rationaleWhyBad = `MongoDB ${scope.engine_version ?? "8.0+"} 默认要求 THP=always`;
+  } else {
+    expected = "never"; // Mongo ≤ 7.0
+    rationaleWhyBad = "khugepaged 内存碎片整理会产生硬中断,CPU sys% 飙升";
   }
 
   const okModes =
-    expected === "never" ? ["never", "madvise"]
-      : expected === "always" ? ["always", "madvise"]
-        : ["never", "madvise", "always"];
+    expected === "never" ? ["never", "madvise"] : ["always", "madvise"];
 
   if (okModes.includes(mode)) {
     return okResult({
@@ -1139,9 +1122,7 @@ export const check_thp: CheckFn = (ctx) => {
       bucket: 1,
       scope,
       summary: `THP=${mode}`,
-      reason: expected === "either"
-        ? `vendor=${scope.vendor} · Ampere 下允许 always`
-        : `符合 ${engine}${scope.engine_version ? ` ${scope.engine_version}` : ""} 的建议值`,
+      reason: `符合 mongo${scope.engine_version ? ` ${scope.engine_version}` : ""} 的建议值`,
     });
   }
 
@@ -1151,74 +1132,42 @@ export const check_thp: CheckFn = (ctx) => {
     severity: expected === "always" ? "warning" : "critical",
     bucket: 1,
     scope,
-    summary: `THP=${mode} 不符合 ${engine}${scope.engine_version ? ` ${scope.engine_version}` : ""} 期望`,
-    description: `${engine} 期望 THP=${expected === "either" ? "never/madvise/always" : expected}。` + (rationaleWhyBad ? ` ${rationaleWhyBad}。` : ""),
+    summary: `THP=${mode} 不符合 mongo${scope.engine_version ? ` ${scope.engine_version}` : ""} 期望`,
+    description: `mongo 期望 THP=${expected}。` + (rationaleWhyBad ? ` ${rationaleWhyBad}。` : ""),
     reason: `当前 THP=${mode} · 期望 ${expected} · ${rationaleWhyBad}`,
     evidence: [
       { kind: "config", value: `/sys/kernel/mm/transparent_hugepage/enabled=${raw}` },
     ],
     threshold_display: okModes.join(" / "),
     impact: { metric: "latency_p95_ms", value: 25, unit: "percent", confidence: "high" },
-    citations: engine === "mongo"
-      ? [
-          KUNPENG_REFS.boostkitMongo,
-          { title: "MongoDB Production Notes · Disable THP", url: "https://www.mongodb.com/docs/manual/administration/production-notes/" },
-          ...(mongoMajor(scope.engine_version) >= 8
-            ? [{ title: "MongoDB 8.0 THP Enable Note", url: "https://www.mongodb.com/docs/v8.0/tutorial/transparent-huge-pages/" }]
-            : [{ title: "MongoDB 7.0 Disable THP", url: "https://www.mongodb.com/docs/v7.0/tutorial/transparent-huge-pages/" }]),
-        ]
-      : engine === "redis"
-        ? [
-            { title: "Redis · Latency Diagnostics (THP)", url: "https://redis.io/docs/latest/operate/oss_and_stack/management/optimization/latency/" },
-            ...(scope.vendor === "ampere"
-              ? [{ title: "Ampere Altra Redis Tuning Guide", url: "https://amperecomputing.com/en/tuning-guides/Redis-setup-and-tuning-guide" }]
-              : []),
-          ]
-        : [
-            { title: "Ampere MySQL Tuning Guide · THP", url: "https://amperecomputing.com/tuning-guides/mysql-tuning-guide" },
-          ],
+    citations: [
+      KUNPENG_REFS.boostkitMongo,
+      { title: "MongoDB Production Notes · Disable THP", url: "https://www.mongodb.com/docs/manual/administration/production-notes/" },
+      ...(major >= 8
+        ? [{ title: "MongoDB 8.0 THP Enable Note", url: "https://www.mongodb.com/docs/v8.0/tutorial/transparent-huge-pages/" }]
+        : [{ title: "MongoDB 7.0 Disable THP", url: "https://www.mongodb.com/docs/v7.0/tutorial/transparent-huge-pages/" }]),
+    ],
     recommendations: [
       {
-        action: `echo ${expected === "always" ? "always" : "never"} > /sys/kernel/mm/transparent_hugepage/enabled`,
-        rationale: `将 THP 调整到 ${engine}${scope.engine_version ? ` ${scope.engine_version}` : ""} 推荐模式`,
+        action: `echo ${expected} > /sys/kernel/mm/transparent_hugepage/enabled`,
+        rationale: `将 THP 调整到 mongo${scope.engine_version ? ` ${scope.engine_version}` : ""} 推荐模式`,
         type: "repair",
         fix_cost: "trivial",
         verifiable: true,
       },
     ],
-    rationale: engine === "mongo" && mongoMajor(scope.engine_version) >= 8
+    rationale: major >= 8
       ? {
           summary: "MongoDB 8.0+ 更换了 WiredTiger 内存分配器 · 从 2M 大页获益更明显 · 官方反向调优建议 THP=always · 这是 MongoDB 7→8 的重要行为变化。",
           mechanism: "8.0 之前 WT 频繁 munmap 小块内存 · 2M 大页产生内部碎片 · khugepaged 扫描合并是主要延迟源。8.0 后 WT 改为 arena-style 分配 · 大块驻留 · 2M 大页反而减少 TLB miss 10-20% · khugepaged 扫描代价摊薄。",
           trade_offs: "若仍从 < 7 的 Mongo 升级且保留 THP=never · 会损失 8.0 的内存优化收益(实测 p95 延迟高 10-15%)。反之在 7.0 上误开 THP=always 会明显 CPU sys% 飙。",
           when_to_deviate: "短期混合版本的 replica set(同一集群不同节点版本)可先用 madvise 作过渡 · 升级收尾后 always。",
         }
-      : engine === "mongo"
-      ? {
+      : {
           summary: "MongoDB ≤ 7.0 强制要求 THP=never。khugepaged 后台合并 2M 大页会产生毫秒级 stop-the-world 停顿 · 与 WT fsync 路径上的 page fault 相互放大延迟。",
           mechanism: "khugepaged 周期性扫描 4K 页试图合并成 2M 大页 · 扫描时需要短暂持有 mm->page_table_lock · mongod 的 WT page fault 必须等待。CPU sys% 持续 15-30% · p99 延迟从毫秒跳到百毫秒级。",
           trade_offs: "关 THP 不影响 MongoDB 自身内存使用(WT cache 不依赖大页)。系统上有其他 big-memory workload(如 JVM)时 · 关 THP 可能让那些 workload TLB miss 略升 · 但对 Mongo 是纯收益。",
           when_to_deviate: "madvise 模式在 7.0 也被官方接受(只对显式 madvise 的进程用大页 · mongod 不 madvise)· 实用等价 never。",
-        }
-      : engine === "redis" && scope.vendor === "ampere"
-      ? {
-          summary: "Ampere Altra 文档明确允许 Redis 开 THP · 反驳 Redis 官方 x86 建议。Ampere 硬件对 fork COW + 2M 大页做了优化 · never 反而损失性能。",
-          mechanism: "标准 Redis THP 警告是因为 x86 上 fork() 时若父进程有 THP 页 · 写时分裂 2M→4K 产生 stall。Ampere Altra 的内存控制器对 COW fault 的 2M 分裂有硬件加速 · stall 不再显著 · 反而大页减少 TLB miss 的收益凸显。",
-          trade_offs: "non-Ampere 主板不要照搬 Ampere 指南 · 鲲鹏 / Graviton 下仍应 never。Ampere 上 always 或 madvise 都可。",
-          when_to_deviate: "实例长期稳态无 BGSAVE/fork 操作的场景(AOF-only · 不主备切换)· Ampere 上 always 是最佳。含 BGSAVE 的传统部署 · madvise 稳一点。",
-        }
-      : engine === "redis"
-      ? {
-          summary: "Redis 的 fork() BGSAVE / AOF rewrite 场景下 THP=always 会产生秒级 stall。官方文档明确 never。",
-          mechanism: "Redis 持久化走 fork() 创建子进程 · 子进程写内存时 Linux COW 分裂 2M 大页为 4K · 这是一次昂贵的 break down。若父进程同时还在接客户端请求 · 这些请求被 stall 几十 ms 到秒级。p99 延迟从亚毫秒跳到秒级 · 监控上看是规律性 latency spike。",
-          trade_offs: "关 THP 对 Redis 稳态性能无损(Redis 不依赖大页)。只影响持久化期间的延迟稳定性 · 是纯收益。",
-          when_to_deviate: "Ampere Altra 硬件下官方另有指南(见 ampere 分支)· 其他 ARM64(鲲鹏 / Graviton)仍应 never。",
-        }
-      : {
-          summary: "MySQL InnoDB buffer pool 分配在启动时完成 · 不受 THP 影响 buffer 本身。但 THP=always 开启后 · khugepaged 扫描与 InnoDB 脏页刷盘、redo 写竞争 page table 锁 · 产生抖动。",
-          mechanism: "InnoDB 内部用 4K 页粒度管理 buffer pool · THP 合成 2M 大页后 · 一次 page fault 要处理 512 个 InnoDB 页的一致性检查。同时 innodb_io_capacity 后台线程按 4K 单位做 dirty page flush · 刷盘时大页需要 split。双方竞争导致 p95 抖动。",
-          trade_offs: "MySQL buffer pool 不依赖大页(innodb_large_pages 默认 off)· 关 THP 纯收益。percona 版本有 innodb_use_hugepages 但需显式 SHM huge pages · 与 THP 无关。",
-          when_to_deviate: "madvise 模式实用等价 never(mysqld 不 madvise)。",
         },
   });
 };
@@ -1744,100 +1693,6 @@ export const check_vm_max_map_count: CheckFn = (ctx) => {
 };
 
 // ---------------------------------------------------------------------------
-// O-VM-OVERCOMMIT · Redis 持久化 fork 不 OOM
-// ---------------------------------------------------------------------------
-
-export const check_vm_overcommit: CheckFn = (ctx) => {
-  const id = "os.vm.overcommit_memory";
-  const title = "vm.overcommit_memory";
-  const engine = ctx.db_type as EngineName;
-  const scope = deriveScope(ctx, engine);
-  if (engine !== "redis") {
-    return infoResult({ id, title, bucket: 1, scope, summary: "仅对 Redis 强推", reason: `db_type=${engine}` });
-  }
-  const val = toInt(osVal(ctx, "vm_overcommit_memory", -1), -1);
-  if (val < 0) {
-    return infoResult({ id, title, bucket: 1, scope, summary: "未采集", reason: "sysctl 不可读" });
-  }
-  if (val === 1) {
-    return okResult({ id, title, bucket: 1, scope, summary: "overcommit_memory=1", reason: "Redis fork+BGSAVE/AOFREWRITE 不会 OOM 失败" });
-  }
-  return finding({
-    id,
-    title,
-    severity: "warning",
-    bucket: 1,
-    scope,
-    summary: `overcommit_memory=${val} ≠ 1`,
-    description: "Redis 启动日志通常会警告;在 fork 做 BGSAVE/AOFREWRITE 时,内核保守估算导致 fork 被拒",
-    reason: `vm.overcommit_memory=${val} · Redis 要求 1`,
-    threshold_display: "== 1",
-    evidence: [{ kind: "config", value: `vm.overcommit_memory=${val}` }],
-    impact: { metric: "db_time_pct", value: 15, unit: "percent", confidence: "high" },
-    citations: [
-      KUNPENG_REFS.boostkitMongo,
-      { title: "Redis · Latency troubleshooting (overcommit)", url: "https://redis.io/docs/latest/operate/oss_and_stack/management/optimization/latency/" },
-    ],
-    recommendations: [
-      {
-        action: "sysctl -w vm.overcommit_memory=1",
-        rationale: "让 fork 走 copy-on-write 路径不被内核拒绝",
-        type: "prevent",
-        fix_cost: "trivial",
-        verifiable: true,
-      },
-    ],
-  });
-};
-
-// ---------------------------------------------------------------------------
-// O-NET-TCP-SYN-BACKLOG · Redis 高并发连接
-// ---------------------------------------------------------------------------
-
-export const check_tcp_max_syn_backlog: CheckFn = (ctx) => {
-  const id = "os.net.tcp_max_syn_backlog";
-  const title = "tcp_max_syn_backlog";
-  const engine = ctx.db_type as EngineName;
-  const scope = deriveScope(ctx, engine);
-  if (engine !== "redis") {
-    return infoResult({ id, title, bucket: 1, scope, summary: "仅对 Redis 强推", reason: `db_type=${engine}` });
-  }
-  const val = toInt(osVal(ctx, "tcp_max_syn_backlog", 0), 0);
-  if (val === 0) {
-    return infoResult({ id, title, bucket: 1, scope, summary: "未采集", reason: "sysctl 不可读" });
-  }
-  if (val >= 8192) {
-    return okResult({ id, title, bucket: 1, scope, summary: `tcp_max_syn_backlog=${val}`, reason: "SYN 队列充足" });
-  }
-  return finding({
-    id,
-    title,
-    severity: "warning",
-    bucket: 1,
-    scope,
-    summary: `tcp_max_syn_backlog=${val} < 8192`,
-    description: "Redis 高并发下 SYN 请求被丢弃,新连接出现偶发 timeout",
-    reason: `tcp_max_syn_backlog=${val} · Ampere Redis 建议 ≥ 8192`,
-    threshold_display: "≥ 8192",
-    evidence: [{ kind: "config", value: `net.ipv4.tcp_max_syn_backlog=${val}` }],
-    impact: { metric: "connection_util_pct", value: 10, unit: "percent", confidence: "medium" },
-    citations: [
-      KUNPENG_REFS.boostkitMongo,
-      { title: "Ampere Redis Tuning · tcp_max_syn_backlog", url: "https://amperecomputing.com/en/tuning-guides/Redis-setup-and-tuning-guide" },
-    ],
-    recommendations: [
-      {
-        action: "sysctl -w net.ipv4.tcp_max_syn_backlog=8192",
-        rationale: "扩容 SYN 队列",
-        type: "mitigate",
-        fix_cost: "trivial",
-        verifiable: true,
-      },
-    ],
-  });
-};
-
-// ---------------------------------------------------------------------------
 // O-ENV-VIRT · 虚拟化类型披露(info · 影响 memory ballooning / DVFS 建议可行性)
 // ---------------------------------------------------------------------------
 
@@ -2018,8 +1873,6 @@ export const osChecks: ReadonlyArray<CheckFn> = [
   check_tcp_retransmit,
   check_vm_zone_reclaim,
   check_vm_max_map_count,
-  check_vm_overcommit,
-  check_tcp_max_syn_backlog,
   check_env_virt_type,
   check_cpu_cores_minimum,
   check_kernel_version_rseq,

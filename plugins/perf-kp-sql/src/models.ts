@@ -29,7 +29,7 @@ export type Arch = "arm64" | "x86_64";
 
 export type Vendor = "kunpeng" | "graviton" | "ampere" | "intel" | "amd";
 
-export type EngineName = "mongo" | "mysql" | "redis";
+export type EngineName = "mongo";
 
 /**
  * Google SRE postmortem action type(5 种) · 强制每条建议声明生命周期角色。
@@ -198,7 +198,7 @@ export interface CheckResult {
 export interface DiagContext {
   os_metrics: Record<string, unknown>;
   db_metrics: Record<string, unknown>;
-  db_type: string;                   // "mongo" | "mysql" | "redis"
+  db_type: string;                   // "mongo"
 }
 
 export function osVal<T = unknown>(ctx: DiagContext, key: string, def?: T): T {
@@ -252,10 +252,7 @@ export function deriveScope(ctx: DiagContext, engine: EngineName, instance = "de
             ? "rhel"
             : undefined;
 
-  const engine_version =
-    engine === "redis"
-      ? (db.info as Record<string, string> | undefined)?.redis_version
-      : (db.version as string | undefined);
+  const engine_version = db.version as string | undefined;
 
   return {
     engine,
@@ -328,15 +325,16 @@ export function infoResult(args: InfoArgs): CheckResult {
 export interface FindingArgs {
   id: string;
   title: string;
-  severity: "warning" | "critical";
+  /** info 表示"规则源标 info 级 · 触发后保留 info 严重度"(如 capacity 警示类) */
+  severity: "info" | "warning" | "critical";
   bucket: Bucket;
   scope: Scope;
   summary: string;
   description: string;
   reason: string;
-  evidence: Evidence[];              // ≥ 1 (CI 校验)
+  evidence: Evidence[];              // ≥ 1 (warning+ CI 校验 · info 不强制)
   impact: Impact;
-  citations: Citation[];             // ≥ 1 (CI 校验)
+  citations: Citation[];             // ≥ 1 (warning+ CI 校验 · info 不强制)
   recommendations: Recommendation[];
   workload_tag?: "oltp" | "olap" | "mixed";
   needs_human_review?: boolean;
@@ -348,7 +346,7 @@ export interface FindingArgs {
   threshold_display?: string;
 }
 
-/** 构造 warning/critical finding · schema-level 硬约束的入口 */
+/** 构造 warning/critical/info finding · schema-level 硬约束的入口 */
 export function finding(args: FindingArgs): CheckResult {
   return {
     id: args.id,

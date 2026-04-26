@@ -3,7 +3,7 @@
  *
  * 用法:
  *   node kb.mjs --op query --q "..." [--engine ...] [--top-k 5] [其他过滤]
- *   node kb.mjs --op stats --engine <mongo|mysql|redis>
+ *   node kb.mjs --op stats --engine <mongo>
  *
  * 双用途单文件 (合并自 cli-query-kb.ts + cli-kb-stats.ts):
  *   - 作为 lib: 被 tests / tools (knowledge-ledger / audit-grounding /
@@ -17,7 +17,7 @@ import Database from "better-sqlite3";
 import * as sqliteVec from "sqlite-vec";
 import { parseArgs } from "node:util";
 import { execFileSync } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { dirname, join, resolve } from "node:path";
 
@@ -45,7 +45,7 @@ export interface Fact {
   wait_class: WaitClass | null;
   category: string | null;
   severity_modifier: string | null;
-  engine: string;                          // "mongo" | "mysql" | "redis" | "any"
+  engine: string;                          // "mongo" | "any"
   engine_version_min_packed: number | null;
   engine_version_max_packed: number | null;
   engine_version_min_display: string | null;
@@ -526,8 +526,8 @@ export async function embed(text: string, modelDir?: string): Promise<number[]> 
 // 子进程方案保留以最小改动 · 输出兼容 phase4 副标。
 // ============================================================================
 
-type StatsEngine = "mongo" | "mysql" | "redis";
-const ALLOWED_STATS_ENGINES: ReadonlySet<StatsEngine> = new Set(["mongo", "mysql", "redis"]);
+type StatsEngine = "mongo";
+const ALLOWED_STATS_ENGINES: ReadonlySet<StatsEngine> = new Set(["mongo"]);
 
 function querySqliteCli(dbPath: string, sql: string): string {
   return execFileSync("sqlite3", [dbPath, sql], { encoding: "utf8" }).trim();
@@ -536,7 +536,7 @@ function querySqliteCli(dbPath: string, sql: string): string {
 function runStats(values: Record<string, string | boolean | undefined>): void {
   const engineRaw = typeof values.engine === "string" ? values.engine : "";
   if (!engineRaw) {
-    console.error("usage: kb.mjs --op stats --engine <mongo|mysql|redis> [--db <path>]");
+    console.error("usage: kb.mjs --op stats --engine <mongo> [--db <path>]");
     process.exit(2);
   }
   // SQL 注入防护 · engine 字符串拼到 SQL · 必须白名单
@@ -560,20 +560,35 @@ function runStats(values: Record<string, string | boolean | undefined>): void {
     return;
   }
 
-  let rulesCount = 0;
-  let rulesDocs = 0;
-  let factsCount = 0;
-  let factsUrls = 0;
+  // 数据来自 3 处: sqlite rules 表(v2 数据驱动) + TS CheckFn 注册表(业务代码) + sqlite knowledge 表(KB)
+  // 全部 rule_id 都收集 · 不让数据散在某处找不到
+  let v2RulesCount = 0, v2DocsCount = 0;
+  let checkFnCount = 0, checkFnDocsCount = 0;
+  let factsCount = 0, factsUrls = 0;
+  const allDocUrls = new Set<string>();
+  const v2Ids: string[] = [];
+  const checkFnIds: string[] = [];
 
   try {
-    // rules 表 · 取 engine + 'any' 跨引擎共享
     const rulesRow = querySqliteCli(
       dbPath,
       `SELECT COUNT(DISTINCT source_url), COUNT(*) FROM rules WHERE engine IN ('${engine}', 'any');`,
     );
     const [d, c] = rulesRow.split("|");
-    rulesDocs = Number(d ?? 0);
-    rulesCount = Number(c ?? 0);
+    v2DocsCount = Number(d ?? 0);
+    v2RulesCount = Number(c ?? 0);
+    // 收集所有 v2 rule_id(LLM 不读但人工审计要)
+    const ids = querySqliteCli(
+      dbPath,
+      `SELECT rule_id FROM rules WHERE engine IN ('${engine}', 'any') ORDER BY rule_id;`,
+    );
+    ids.split("\n").map(u => u.trim()).filter(Boolean).forEach(id => v2Ids.push(id));
+    // 收集 v2 docs · 累入总文档去重
+    const urls = querySqliteCli(
+      dbPath,
+      `SELECT DISTINCT source_url FROM rules WHERE source_url IS NOT NULL AND source_url != '';`,
+    );
+    urls.split("\n").map(u => u.trim()).filter(Boolean).forEach(u => allDocUrls.add(u));
   } catch (err) {
     console.log(JSON.stringify({
       ok: false,
@@ -584,8 +599,33 @@ function runStats(values: Record<string, string | boolean | undefined>): void {
     return;
   }
 
+  // CheckFn 计数 · 从 TS 源码 grep(单一真源 = src/.../legacy-checks.ts + engines/mongo/checks.ts)
   try {
-    // knowledge 表 · 仅取该 engine(facts 不跨引擎共享)
+    const skillRoot = dirname(fileURLToPath(import.meta.url)).replace(/\/scripts$/, "").replace(/\/src$/, "");
+    const tsFiles = [
+      join(skillRoot, "src/shared/legacy-checks.ts"),
+      join(skillRoot, "src/engines/mongo/checks.ts"),
+    ];
+    const cfDocUrls = new Set<string>();
+    for (const f of tsFiles) {
+      if (!existsSync(f)) continue;
+      const src = readFileSync(f, "utf8");
+      const blocks = src.split(/^(?:export\s+)?const\s+check_\w+\s*:\s*CheckFn\s*=\s*/m);
+      for (const block of blocks) {
+        const idM = block.match(/(?:const\s+)?id\s*[:=]\s*['"]([\w.-]+)['"]/);
+        if (idM && !checkFnIds.includes(idM[1])) checkFnIds.push(idM[1]);
+        const urlMs = [...block.matchAll(/url\s*:\s*['"](https?:\/\/[^'"]+)['"]/g)];
+        for (const m of urlMs) { cfDocUrls.add(m[1]); allDocUrls.add(m[1]); }
+      }
+    }
+    checkFnIds.sort();
+    checkFnCount = checkFnIds.length;
+    checkFnDocsCount = cfDocUrls.size;
+  } catch {
+    // CheckFn 解析失败 · 继续(显示 0)
+  }
+
+  try {
     const factsRow = querySqliteCli(
       dbPath,
       `SELECT COUNT(*), COUNT(DISTINCT source_url) FROM knowledge WHERE engine = '${engine}';`,
@@ -593,22 +633,35 @@ function runStats(values: Record<string, string | boolean | undefined>): void {
     const [c, u] = factsRow.split("|");
     factsCount = Number(c ?? 0);
     factsUrls = Number(u ?? 0);
+    // 收集 KB docs · 累入总文档去重
+    const urls = querySqliteCli(
+      dbPath,
+      `SELECT DISTINCT source_url FROM knowledge WHERE source_url IS NOT NULL AND source_url != '' AND engine = '${engine}';`,
+    );
+    urls.split("\n").map(u => u.trim()).filter(Boolean).forEach(u => allDocUrls.add(u));
   } catch {
-    // knowledge 表查询失败不致命 · 继续
+    // knowledge 表查询失败不致命
   }
 
-  // 副标渲染 · 三挡(plan §5)
-  let subtitle: string;
-  if (factsCount > 0) {
-    subtitle = `蒸馏自 ${rulesDocs} 份权威文档 · ${rulesCount} 条规则 · 知识库 ${factsCount} 条用于追问检索`;
-  } else {
-    subtitle = `蒸馏自 ${rulesDocs} 份权威文档 · ${rulesCount} 条规则 · 知识库暂未装载 · 追问走 CheckFn citation`;
-  }
+  const totalRulesCount = v2RulesCount + checkFnCount;
+  const totalDocsCount = allDocUrls.size;
 
+  const subtitle = factsCount > 0
+    ? `${totalRulesCount} 条规则(${v2RulesCount} v2 数据驱动 + ${checkFnCount} CheckFn 业务代码) · 蒸馏自 ${totalDocsCount} 篇权威文档 · 知识库 ${factsCount} 条 verified facts 用于追问检索`
+    : `${totalRulesCount} 条规则 · 蒸馏自 ${totalDocsCount} 篇文档 · 知识库未装载 · 追问走 CheckFn citation`;
+
+  // --list 时把完整 rule_id 清单也返回(默认隐藏 · 避免 LLM 上下文爆)
+  const includeIds = values.list === true;
   console.log(JSON.stringify({
     ok: true,
     engine,
-    rules: { count: rulesCount, docs: rulesDocs },
+    rules: {
+      total: totalRulesCount,
+      v2: v2RulesCount,
+      checkfn: checkFnCount,
+      docs_total: totalDocsCount,
+      ...(includeIds ? { v2_ids: v2Ids, checkfn_ids: checkFnIds } : {}),
+    },
     knowledge: { facts: factsCount, urls: factsUrls },
     subtitle,
   }));
@@ -626,7 +679,7 @@ async function runQuery(values: Record<string, string | boolean | undefined>): P
       `  --model <dir>               MiniLM model cache dir (default: <skill>/data/models)\n` +
       `  --rule-id <id>              filter by canonical rule id\n` +
       `  --wait-class <class>        filter by wait class: CPU | I/O | 内存 | 并发 | 网络\n` +
-      `  --engine <name>             mongo | mysql | redis\n` +
+      `  --engine <name>             mongo\n` +
       `  --engine-version X.Y.Z      filter by version range\n` +
       `  --q <text>                  natural language query (FTS5 + vec hybrid)\n` +
       `  --top-k <N>                 default 5\n` +
@@ -688,6 +741,7 @@ async function main(): Promise<void> {
       "flame-function":    { type: "string" },
       "context-ancestors": { type: "string" },
       "module":            { type: "string" },
+      "list":              { type: "boolean" },
       "help":              { type: "boolean", short: "h" },
     },
   });

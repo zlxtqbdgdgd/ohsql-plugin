@@ -156,7 +156,7 @@ hosts 非空 → ask the user to pick one (even if there's only 1 entry — expl
 ```
 请选择最近使用过的连接 · 或新建:
 
-  1. 124.70.180.36 · root · mongo · 上次 2 小时前 (port=22 · 累计 8 次)
+  1. 192.168.1.10 · admin · mongo · 上次 2 小时前 (port=22 · 累计 8 次)
   2. 10.20.30.40 · ec2-user · mysql · 上次 3 天前 (port=22 · 累计 3 次)
   3. 新连接 · 手动输入参数
 ```
@@ -206,9 +206,9 @@ Stop here and wait for the user's selection in the next turn. Once selected, ful
 
 ```
 [连接信息]
-  · host=124.70.180.36 · user=root · port=22 · engine=mongo
-  · password=YAN***216
-  · mongo_password=YAN***216 · auth_db=admin
+  · host=192.168.1.10 · user=admin · port=22 · engine=mongo
+  · password=ABC***XYZ
+  · mongo_password=ABC***XYZ · auth_db=admin
 ```
 
 password 前 3 + `***` + 后 3 脱敏。后续 SSH 命令的 host/user/port/password/privateKeyPath 参数必须与 banner 字段一一对应。

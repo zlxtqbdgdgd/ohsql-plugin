@@ -90,11 +90,15 @@ const OS_BATCH_CMD = [
 // 每条命令内部 `|| echo <fallback>` 仍保留兜底值。
 
 function buildDbBatchCmd(host: string, port: string): string {
-  // mongosh 单次调用，输出一段 JSON
+  // Phase 2 step 1: 双采样 · t0 → sleep 5s → t1 · 喂给 rule-engine v3 的 rate(metric, '5s')
   return (
     `mongosh --host ${shellEscape(host)} --port ${shellEscape(port)} --quiet --eval ` +
     shellEscape(
-    "var ss = db.serverStatus(); " +
+    "var t0_ss = db.serverStatus(); " +
+    "var hi = null; try { hi = db.hostInfo(); } catch(e) {} " +
+    "var gco = null; try { gco = db.adminCommand({getCmdLineOpts: 1}); } catch(e) {} " +
+    "sleep(5000); " +
+    "var t1_ss = db.serverStatus(); " +
     "var co = db.currentOp(); " +
     "var oplog = null; " +
     'try { var local = db.getSiblingDB("local"); ' +
@@ -105,8 +109,7 @@ function buildDbBatchCmd(host: string, port: string): string {
     "} catch(e) {} " +
     'var blockCompressor = ""; ' +
     "try { " +
-    "  var opts = db.adminCommand({getCmdLineOpts: 1}); " +
-    "  var sc = (opts.parsed || {}).storage || {}; " +
+    "  var sc = ((gco && gco.parsed) || {}).storage || {}; " +
     "  var wt = sc.wiredTiger || {}; " +
     '  blockCompressor = ((wt.collectionConfig || {}).blockCompressor) || ""; ' +
     "  if (!blockCompressor) { " +
@@ -116,7 +119,7 @@ function buildDbBatchCmd(host: string, port: string): string {
     "    if (m) blockCompressor = m[1]; " +
     "  } " +
     "} catch(e) {} " +
-    "print(JSON.stringify({serverStatus: ss, currentOp: co, oplog: oplog, blockCompressor: blockCompressor}))",
+    "print(JSON.stringify({serverStatus: t1_ss, t0_serverStatus: t0_ss, t1_serverStatus: t1_ss, sample_interval_sec: 5, hostInfo: hi, getCmdLineOpts: gco, currentOp: co, oplog: oplog, blockCompressor: blockCompressor}))",
     )
   );
 }
@@ -128,8 +131,8 @@ function buildDbBatchCmd(host: string, port: string): string {
 /**
  * 解析已经通过 SSH 拿到的 OS 批量 stdout + DB 批量 stdout，拼成 DiagContext。
  *
- * 调用方（skill 的 cli-diagnose.ts）先通过 SSH 跑 OS_BATCH_CMD，
- * 解析 DISCOVERY 段拿到 mongoBind/Port，再通过 SSH 跑 buildDbBatchCmd(bind, port)，
+ * 调用方（skill 的 cli-diagnose.ts）先调 SSH 跑 OS_BATCH_CMD，
+ * 解析 DISCOVERY 段拿到 mongoBind/Port，再调 SSH 跑 buildDbBatchCmd(bind, port)，
  * 最后把两段 stdout 喂给本函数。
  */
 export function buildContext(
@@ -248,6 +251,20 @@ function parseDbBatch(res: DbBatchResult, out: Record<string, unknown>): void {
   for (const [k, v] of Object.entries(ss)) {
     out[k] = v;
   }
+  // v2 rule-engine 走 nested path · 暴露原始嵌套对象供 resolveField 走
+  // serverStatus.x.y / hostInfo.x.y / getCmdLineOpts.parsed.x.y 路径
+  out["serverStatus"] = ss;
+  if (raw["hostInfo"]) out["hostInfo"] = raw["hostInfo"];
+  if (raw["getCmdLineOpts"]) out["getCmdLineOpts"] = raw["getCmdLineOpts"];
+
+  // Phase 2 step 1 · 双采样: 暴露 t0/t1/interval 给 rule-engine v3 的 rate()
+  // 缺失时(老 fixture / 单采样)字段不存在 · v3 应判 undefined 跳过
+  if (raw["t0_serverStatus"]) out["t0_serverStatus"] = raw["t0_serverStatus"];
+  if (raw["t1_serverStatus"]) out["t1_serverStatus"] = raw["t1_serverStatus"];
+  if (typeof raw["sample_interval_sec"] === "number") {
+    out["sample_interval_sec"] = raw["sample_interval_sec"];
+  }
+
   out["_db_collection_failed"] = false;
 
   const wt = (((ss["wiredTiger"] ?? {}) as Record<string, unknown>)["cache"] ??
