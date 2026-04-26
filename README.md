@@ -1,78 +1,116 @@
 # ohsql-plugin
 
-Official plugin marketplace for [OpenHarness-SQL](https://github.com/zlxtqbdgdgd/OpenHarness-SQL). CC-protocol compatible — `cpu-flamegraph` works in stock Claude Code too.
+[![validate](https://github.com/zlxtqbdgdgd/ohsql-plugin/actions/workflows/validate.yml/badge.svg)](https://github.com/zlxtqbdgdgd/ohsql-plugin/actions/workflows/validate.yml)
+
+Official plugin marketplace for [OpenHarness-SQL](https://github.com/zlxtqbdgdgd/OpenHarness-SQL) — performance diagnosis, CPU flamegraphs, and database tooling.
+
+Plugins follow the Claude Code plugin protocol (`.claude-plugin/marketplace.json` + `.claude-plugin/plugin.json`), so harness-agnostic ones run in stock Claude Code too.
 
 ## Plugins
 
-| Plugin | Version | Hosts | Description |
+| Plugin | Version | Hosts | What it does |
 |---|---|---|---|
-| [`cpu-flamegraph`](./plugins/cpu-flamegraph/) | 0.2.0 | ohsql + stock CC | Capture & analyze CPU flamegraphs over SSH (pure local ssh + Perl flamegraph.pl) |
-| [`perf-kp-sql`](./plugins/perf-kp-sql/) | 0.5.0 | ohsql ≥ 0.38.0 | Kunpeng + MongoDB/MySQL/Redis joint perf diagnosis (sqlite RAG KB + flamegraph) |
+| [`cpu-flamegraph`](./plugins/cpu-flamegraph/) | 0.2.0 | ohsql + stock CC | Remote `perf` over SSH → on-CPU / off-CPU flamegraph SVG → top-N hotspot extraction. Pure local `ssh` + Perl `flamegraph.pl`, zero kernel-tool dependency. |
+| [`perf-kp-sql`](./plugins/perf-kp-sql/) | 0.5.0 | ohsql ≥ 0.38.0 | Kunpeng ARM64 + MongoDB / MySQL / Redis joint perf diagnosis. SshExec collect → 411 baseline rules → sqlite RAG knowledge base (FTS5 + vec0 384-dim) → impact-ranked report. |
 
-## Install (in OpenHarness-SQL ≥ 0.38.0)
+---
 
-```
+## Install
+
+### OpenHarness-SQL (ohsql ≥ 0.38.0)
+
+```text
 /plugin marketplace add zlxtqbdgdgd/ohsql-plugin
-/plugin install cpu-flamegraph              # ready immediately
-/plugin install perf-kp-sql                  # auto-installs cpu-flamegraph
-                                              # then run /perf-kp-sql-setup
+/plugin install cpu-flamegraph                  # ready immediately
+/plugin install perf-kp-sql                     # auto-installs cpu-flamegraph dep
+/perf-kp-sql-setup                              # install native deps once (better-sqlite3 + sqlite-vec + ssh2 + transformers)
 ```
 
-## Install (in stock Claude Code)
+After `perf-kp-sql-setup` completes:
 
-Only `cpu-flamegraph` (no native deps) works in stock CC:
-
+```text
+/perf-kp-sql host=10.0.0.1 user=root password=xxx engine=mongo
 ```
+
+ohsql is the only host with full `perf-kp-sql` support (it depends on the `SshExec` kernel tool and the native deps installed via `perf-kp-sql-setup`).
+
+### Claude Code
+
+Only `cpu-flamegraph` works in stock Claude Code (no native deps, uses your local `ssh` / `scp` CLI):
+
+```text
 /plugin marketplace add zlxtqbdgdgd/ohsql-plugin
 /plugin install cpu-flamegraph
 ```
 
-`perf-kp-sql` requires the `SshExec` tool that only ohsql provides; it will install but won't run.
+`perf-kp-sql` will _install_ in stock CC but won't run — its skills call the `SshExec` tool which only OpenHarness-SQL provides.
 
-## Layout
+### Cursor
 
-```
-ohsql-plugin/
-├── .claude-plugin/marketplace.json     # CC catalog entry
-├── plugins/
-│   ├── cpu-flamegraph/                 # plugin 1
-│   │   ├── .claude-plugin/plugin.json
-│   │   ├── README.md
-│   │   └── skills/cpu-flamegraph/
-│   │       ├── SKILL.md
-│   │       ├── scripts/                # CI bundle commit
-│   │       └── vendor/flamegraph.pl
-│   └── perf-kp-sql/                    # plugin 2
-│       ├── .claude-plugin/plugin.json
-│       ├── README.md
-│       ├── data/knowledge.sqlite       # 10MB · binary linguist-generated
-│       ├── scripts/                    # CI bundle commit
-│       ├── templates/
-│       └── skills/
-│           ├── perf-kp-sql/SKILL.md    # main diagnosis skill
-│           └── perf-kp-sql-setup/      # native-dep installer (照 ce-setup 范式)
-│               ├── SKILL.md
-│               └── scripts/check-health
-├── tools/build/validate.mjs            # CI: manifest schema check
-├── package.json                        # CI-only deps (esbuild + native libs)
-└── .github/workflows/validate.yml
+```text
+/add-plugin cpu-flamegraph
 ```
 
-## SKILL.md path conventions
+Or search for `cpu-flamegraph` in Cursor's plugin marketplace UI.
 
-To stay portable across CC and ohsql, plugin SKILL.md files reference paths via:
+### Codex / Copilot CLI / Droid / Qwen
+
+These hosts accept Claude Code-format plugins. The exact command varies by host:
+
+```bash
+# Codex
+codex plugin marketplace add zlxtqbdgdgd/ohsql-plugin
+codex plugin install cpu-flamegraph@ohsql-plugin
+
+# Copilot CLI
+copilot plugin marketplace add zlxtqbdgdgd/ohsql-plugin
+copilot plugin install cpu-flamegraph@ohsql-plugin
+
+# Droid
+droid plugin marketplace add https://github.com/zlxtqbdgdgd/ohsql-plugin
+droid plugin install cpu-flamegraph@ohsql-plugin
+
+# Qwen Code
+qwen extensions install zlxtqbdgdgd/ohsql-plugin:cpu-flamegraph
+```
+
+These integrations are inherited from CC's plugin protocol — we don't ship a custom Codex/Copilot installer.
+
+---
+
+## Quick example
+
+Capture and analyze a CPU flamegraph standalone:
+
+```text
+/cpu-flamegraph host=test.host user=root process=mongod duration=10 type=oncpu
+```
+
+The skill renders a top-N hotspot table inline, leaves the SVG on the remote at `/tmp/cpu-flamegraph_<ts>/`, and prints the `scp` command to pull it.
+
+End-to-end diagnosis with perf-kp-sql (ohsql only):
+
+```text
+/perf-kp-sql host=10.0.0.1 user=root password=*** engine=mongo
+```
+
+The skill collects 30+ OS / DB metrics over SSH, runs them against 411 baseline rules + queries the sqlite RAG knowledge base, optionally invokes `cpu-flamegraph` for hotspot data, and produces an impact-ranked HTML + screen report.
+
+---
+
+## How it works
 
 | Variable | Stock CC | ohsql |
 |---|---|---|
-| `${CLAUDE_PLUGIN_ROOT}` | injected by CC | unset → falls through to `$OHSQL_PLUGIN_ROOT` |
+| `${CLAUDE_PLUGIN_ROOT}` | injected by CC at runtime | unset → falls through to `$OHSQL_PLUGIN_ROOT` |
 | `$OHSQL_PLUGIN_ROOT` | unset | substituted at SKILL.md load time → absolute cache path |
-| `$OHSQL_DEP_<NAME>_ROOT` | unset | substituted to dependency plugin's cache path |
+| `$OHSQL_DEP_<NAME>_ROOT` | unset | substituted to a dependency plugin's cache path |
 
-Recommended pattern:
+SKILL.md files in this repo use the portable form `${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}` so the same source runs in both hosts unchanged.
 
-```bash
-node "${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/scripts/diagnose.mjs" --engine mongo
-```
+`perf-kp-sql` uses `x-ohsql-*` extension fields (CC ignores unknown keys) for kernel-version requirements, declared dependencies, and the post-install setup-skill pointer.
+
+---
 
 ## License
 
