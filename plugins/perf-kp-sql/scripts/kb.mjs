@@ -11,7 +11,7 @@ import Database from "better-sqlite3";
 import * as sqliteVec from "sqlite-vec";
 import { parseArgs } from "node:util";
 import { execFileSync } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { dirname, join, resolve } from "node:path";
 import { realpathSync } from "node:fs";
@@ -334,14 +334,14 @@ async function embed(text, modelDir) {
   const output = await extractor(text, { pooling: "mean", normalize: true });
   return Array.from(output.data);
 }
-var ALLOWED_STATS_ENGINES = /* @__PURE__ */ new Set(["mongo", "mysql", "redis"]);
+var ALLOWED_STATS_ENGINES = /* @__PURE__ */ new Set(["mongo"]);
 function querySqliteCli(dbPath, sql) {
   return execFileSync("sqlite3", [dbPath, sql], { encoding: "utf8" }).trim();
 }
 function runStats(values) {
   const engineRaw = typeof values.engine === "string" ? values.engine : "";
   if (!engineRaw) {
-    console.error("usage: kb.mjs --op stats --engine <mongo|mysql|redis> [--db <path>]");
+    console.error("usage: kb.mjs --op stats --engine <mongo> [--db <path>]");
     process.exit(2);
   }
   if (!ALLOWED_STATS_ENGINES.has(engineRaw)) {
@@ -361,18 +361,30 @@ function runStats(values) {
     }));
     return;
   }
-  let rulesCount = 0;
-  let rulesDocs = 0;
-  let factsCount = 0;
-  let factsUrls = 0;
+  let v2RulesCount = 0, v2DocsCount = 0;
+  let checkFnCount = 0, checkFnDocsCount = 0;
+  let factsCount = 0, factsUrls = 0;
+  const allDocUrls = /* @__PURE__ */ new Set();
+  const v2Ids = [];
+  const checkFnIds = [];
   try {
     const rulesRow = querySqliteCli(
       dbPath,
       `SELECT COUNT(DISTINCT source_url), COUNT(*) FROM rules WHERE engine IN ('${engine}', 'any');`
     );
     const [d, c] = rulesRow.split("|");
-    rulesDocs = Number(d ?? 0);
-    rulesCount = Number(c ?? 0);
+    v2DocsCount = Number(d ?? 0);
+    v2RulesCount = Number(c ?? 0);
+    const ids = querySqliteCli(
+      dbPath,
+      `SELECT rule_id FROM rules WHERE engine IN ('${engine}', 'any') ORDER BY rule_id;`
+    );
+    ids.split("\n").map((u) => u.trim()).filter(Boolean).forEach((id) => v2Ids.push(id));
+    const urls = querySqliteCli(
+      dbPath,
+      `SELECT DISTINCT source_url FROM rules WHERE source_url IS NOT NULL AND source_url != '';`
+    );
+    urls.split("\n").map((u) => u.trim()).filter(Boolean).forEach((u) => allDocUrls.add(u));
   } catch (err) {
     console.log(JSON.stringify({
       ok: false,
@@ -383,6 +395,32 @@ function runStats(values) {
     return;
   }
   try {
+    const skillRoot = dirname(fileURLToPath(import.meta.url)).replace(/\/scripts$/, "").replace(/\/src$/, "");
+    const tsFiles = [
+      join(skillRoot, "src/shared/legacy-checks.ts"),
+      join(skillRoot, "src/engines/mongo/checks.ts")
+    ];
+    const cfDocUrls = /* @__PURE__ */ new Set();
+    for (const f of tsFiles) {
+      if (!existsSync(f)) continue;
+      const src = readFileSync(f, "utf8");
+      const blocks = src.split(/^(?:export\s+)?const\s+check_\w+\s*:\s*CheckFn\s*=\s*/m);
+      for (const block of blocks) {
+        const idM = block.match(/(?:const\s+)?id\s*[:=]\s*['"]([\w.-]+)['"]/);
+        if (idM && !checkFnIds.includes(idM[1])) checkFnIds.push(idM[1]);
+        const urlMs = [...block.matchAll(/url\s*:\s*['"](https?:\/\/[^'"]+)['"]/g)];
+        for (const m of urlMs) {
+          cfDocUrls.add(m[1]);
+          allDocUrls.add(m[1]);
+        }
+      }
+    }
+    checkFnIds.sort();
+    checkFnCount = checkFnIds.length;
+    checkFnDocsCount = cfDocUrls.size;
+  } catch {
+  }
+  try {
     const factsRow = querySqliteCli(
       dbPath,
       `SELECT COUNT(*), COUNT(DISTINCT source_url) FROM knowledge WHERE engine = '${engine}';`
@@ -390,18 +428,27 @@ function runStats(values) {
     const [c, u] = factsRow.split("|");
     factsCount = Number(c ?? 0);
     factsUrls = Number(u ?? 0);
+    const urls = querySqliteCli(
+      dbPath,
+      `SELECT DISTINCT source_url FROM knowledge WHERE source_url IS NOT NULL AND source_url != '' AND engine = '${engine}';`
+    );
+    urls.split("\n").map((u2) => u2.trim()).filter(Boolean).forEach((u2) => allDocUrls.add(u2));
   } catch {
   }
-  let subtitle;
-  if (factsCount > 0) {
-    subtitle = `\u84B8\u998F\u81EA ${rulesDocs} \u4EFD\u6743\u5A01\u6587\u6863 \xB7 ${rulesCount} \u6761\u89C4\u5219 \xB7 \u77E5\u8BC6\u5E93 ${factsCount} \u6761\u7528\u4E8E\u8FFD\u95EE\u68C0\u7D22`;
-  } else {
-    subtitle = `\u84B8\u998F\u81EA ${rulesDocs} \u4EFD\u6743\u5A01\u6587\u6863 \xB7 ${rulesCount} \u6761\u89C4\u5219 \xB7 \u77E5\u8BC6\u5E93\u6682\u672A\u88C5\u8F7D \xB7 \u8FFD\u95EE\u8D70 CheckFn citation`;
-  }
+  const totalRulesCount = v2RulesCount + checkFnCount;
+  const totalDocsCount = allDocUrls.size;
+  const subtitle = factsCount > 0 ? `${totalRulesCount} \u6761\u89C4\u5219(${v2RulesCount} v2 \u6570\u636E\u9A71\u52A8 + ${checkFnCount} CheckFn \u4E1A\u52A1\u4EE3\u7801) \xB7 \u84B8\u998F\u81EA ${totalDocsCount} \u7BC7\u6743\u5A01\u6587\u6863 \xB7 \u77E5\u8BC6\u5E93 ${factsCount} \u6761 verified facts \u7528\u4E8E\u8FFD\u95EE\u68C0\u7D22` : `${totalRulesCount} \u6761\u89C4\u5219 \xB7 \u84B8\u998F\u81EA ${totalDocsCount} \u7BC7\u6587\u6863 \xB7 \u77E5\u8BC6\u5E93\u672A\u88C5\u8F7D \xB7 \u8FFD\u95EE\u8D70 CheckFn citation`;
+  const includeIds = values.list === true;
   console.log(JSON.stringify({
     ok: true,
     engine,
-    rules: { count: rulesCount, docs: rulesDocs },
+    rules: {
+      total: totalRulesCount,
+      v2: v2RulesCount,
+      checkfn: checkFnCount,
+      docs_total: totalDocsCount,
+      ...includeIds ? { v2_ids: v2Ids, checkfn_ids: checkFnIds } : {}
+    },
     knowledge: { facts: factsCount, urls: factsUrls },
     subtitle
   }));
@@ -415,7 +462,7 @@ async function runQuery(values) {
   --model <dir>               MiniLM model cache dir (default: <skill>/data/models)
   --rule-id <id>              filter by canonical rule id
   --wait-class <class>        filter by wait class: CPU | I/O | \u5185\u5B58 | \u5E76\u53D1 | \u7F51\u7EDC
-  --engine <name>             mongo | mysql | redis
+  --engine <name>             mongo
   --engine-version X.Y.Z      filter by version range
   --q <text>                  natural language query (FTS5 + vec hybrid)
   --top-k <N>                 default 5
@@ -471,6 +518,7 @@ async function main() {
       "flame-function": { type: "string" },
       "context-ancestors": { type: "string" },
       "module": { type: "string" },
+      "list": { type: "boolean" },
       "help": { type: "boolean", short: "h" }
     }
   });

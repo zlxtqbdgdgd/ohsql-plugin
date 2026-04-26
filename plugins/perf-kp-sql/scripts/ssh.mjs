@@ -109,8 +109,6 @@ function parseOsBatch(stdout, out) {
   if (lseDmesg) {
     out["lse_dmesg_has_lse"] = /LSE/i.test(lseDmesg);
   }
-  const lseMysqldFirst = getSection(sections, "LSE_MYSQLD").trim().split("\n")[0]?.trim() ?? "";
-  out["lse_mysqld_count"] = lseMysqldFirst === "na" ? null : parseIntOr(lseMysqldFirst, 0);
   const lseMongodFirst = getSection(sections, "LSE_MONGOD").trim().split("\n")[0]?.trim() ?? "";
   out["lse_mongod_count"] = lseMongodFirst === "na" ? null : parseIntOr(lseMongodFirst, 0);
   out["pagesize_bytes"] = parseIntOr(getSection(sections, "PAGESIZE").trim(), 0);
@@ -276,7 +274,104 @@ function parseExecArgs(argv) {
     outputFile
   };
 }
-function runSshExec(plan, timeoutMs, outputFile) {
+var READY_TIMEOUT_MS = 6e4;
+var RETRY_BACKOFFS = [0, 3e3, 6e3];
+var TRANSIENT_PATTERNS = [
+  /timed out while waiting for handshake/i,
+  /all configured authentication methods failed/i,
+  /ECONNRESET/i,
+  /ETIMEDOUT/i,
+  /EPIPE/i
+];
+function isTransient(msg) {
+  return TRANSIENT_PATTERNS.some((p) => p.test(msg));
+}
+function sleep(ms) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+async function loadPrivateKey(path) {
+  const fs = await import("node:fs/promises");
+  return fs.readFile(path);
+}
+async function connectOnce(args) {
+  const client = new Client();
+  await new Promise((resolve, reject) => {
+    let settled = false;
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      try {
+        client.end();
+      } catch {
+      }
+      reject(new Error("SSH \u63E1\u624B\u8D85\u65F6"));
+    }, READY_TIMEOUT_MS + 2e3);
+    client.on("ready", () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      client.removeListener("error", onError);
+      resolve();
+    });
+    function onError(e) {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      try {
+        client.end();
+      } catch {
+      }
+      client.on("error", () => {
+      });
+      reject(e);
+    }
+    client.on("error", onError);
+    const cfg = {
+      host: args.host,
+      port: args.port,
+      username: args.user,
+      readyTimeout: READY_TIMEOUT_MS,
+      keepaliveInterval: 1e4,
+      keepaliveCountMax: 3
+    };
+    if (args.privateKeyPath) {
+      loadPrivateKey(args.privateKeyPath).then((key) => {
+        cfg.privateKey = key;
+        cfg.authHandler = ["publickey"];
+        client.connect(cfg);
+      }).catch((e) => {
+        if (!settled) {
+          settled = true;
+          clearTimeout(timer);
+          reject(e);
+        }
+      });
+    } else if (args.password) {
+      cfg.password = args.password;
+      cfg.authHandler = ["password"];
+      client.connect(cfg);
+    } else {
+      clearTimeout(timer);
+      reject(new Error("\u5FC5\u987B\u63D0\u4F9B --password \u6216 --privateKeyPath"));
+    }
+  });
+  return client;
+}
+async function connectWithRetry(args) {
+  let lastErr = null;
+  for (const delay of RETRY_BACKOFFS) {
+    if (delay > 0) await sleep(delay);
+    try {
+      return await connectOnce(args);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (!isTransient(msg)) throw e;
+      lastErr = e instanceof Error ? e : new Error(msg);
+    }
+  }
+  throw lastErr ?? new Error("SSH \u8FDE\u63A5\u5931\u8D25");
+}
+function execCommand(client, command, timeoutMs, outputFile) {
   return new Promise((resolve) => {
     let proc;
     let cleanupCalled = false;
@@ -558,20 +653,15 @@ async function runSessionClose(argv) {
   });
 }
 var DEFAULT_PORTS = {
-  mongo: "27017",
-  mysql: "3306",
-  redis: "6379"
+  mongo: "27017"
 };
 var ENGINE_BY_PROCESS = {
-  mongod: "mongo",
-  mysqld: "mysql",
-  "redis-server": "redis"
+  mongod: "mongo"
 };
 function normalizeHintEngine(raw) {
   const s = (raw ?? "").trim().toLowerCase();
   if (!s || s === "skipped" || s === "auto") return null;
-  if (s === "mongodb") return "mongo";
-  if (s === "mongo" || s === "mysql" || s === "redis") return s;
+  if (s === "mongodb" || s === "mongo") return "mongo";
   return null;
 }
 function buildFallbackInstance(engine) {
@@ -588,14 +678,13 @@ function buildFallbackInstance(engine) {
     port_source: "no-pid-default"
   };
 }
-function parseInstances(stdout, hintEngine = null, sectionMarker = "DISCOVERY") {
-  const openMarker = `###${sectionMarker}###`;
+function parseInstances(stdout, hintEngine = null) {
   const lines = stdout.split("\n");
   let inDiscovery = false;
   const out = [];
   for (const raw of lines) {
     const line = raw.trim();
-    if (line === openMarker) {
+    if (line === "###DISCOVERY###") {
       inDiscovery = true;
       continue;
     }
@@ -635,13 +724,7 @@ function parseInstances(stdout, hintEngine = null, sectionMarker = "DISCOVERY") 
     });
   }
   if (out.length === 0) {
-    if (hintEngine) {
-      out.push(buildFallbackInstance(hintEngine));
-    } else {
-      for (const eng of ["mongo", "mysql", "redis"]) {
-        out.push(buildFallbackInstance(eng));
-      }
-    }
+    out.push(buildFallbackInstance("mongo"));
   }
   return out;
 }
@@ -658,7 +741,7 @@ async function runDiscover(argv) {
   } catch (e) {
     const baseErr = e instanceof Error ? e.message : String(e);
     const isMissing = /ENOENT|no such file|does not exist/i.test(baseErr);
-    const hint = isMissing ? " \xB7 \u6700\u53EF\u80FD\u539F\u56E0:LLM \u5728 SSH \u547D\u4EE4(remote osBatchCmd)\u4E4B\u540E\u8DF3\u8FC7\u4E86 Write \u843D\u76D8\u6B65\u9AA4 \xB7 \u8BF7\u56DE\u67E5\u4E0A\u4E00\u8F6E SSH \u547D\u4EE4\u8FD4\u56DE\u7684 stdout \u662F\u5426\u8C03\u7528\u4E86 Write(file_path=" + osFile + ", content=<osStdout>) \xB7 \u89C1 SKILL.md Step 2.3 \xB7 \u4E0D\u662F Write \u5DE5\u5177\u4E0D\u53EF\u7528" : "";
+    const hint = isMissing ? " \xB7 \u6700\u53EF\u80FD\u539F\u56E0:LLM \u5728 SshExec \u4E4B\u540E\u8DF3\u8FC7\u4E86 Write \u843D\u76D8\u6B65\u9AA4 \xB7 \u8BF7\u56DE\u67E5\u4E0A\u4E00\u8F6E SshExec \u8FD4\u56DE\u7684 stdout \u662F\u5426\u8C03\u7528\u4E86 Write(file_path=" + osFile + ", content=<osStdout>) \xB7 \u89C1 SKILL.md Step 2.3 \xB7 \u4E0D\u662F Write \u5DE5\u5177\u4E0D\u53EF\u7528" : "";
     discoverWriteError(`failed to read ${osFile}: ${baseErr}${hint}`);
   }
   const osMetrics = parseOsIntoMetrics(raw);
@@ -695,71 +778,15 @@ async function runDiscover(argv) {
     })
   );
 }
-function parseSectionContent(stdout, sectionMarker) {
-  const openMarker = `###${sectionMarker}###`;
-  const lines = stdout.split("\n");
-  let inSection = false;
-  const collected = [];
-  for (const raw of lines) {
-    const line = raw.trim();
-    if (line === openMarker) {
-      inSection = true;
-      continue;
-    }
-    if (!inSection) continue;
-    if (line.startsWith("###")) break;
-    collected.push(line);
-  }
-  return collected.join("\n").trim();
-}
-async function runProbeParse(argv) {
-  const probeFile = typeof argv["probe-file"] === "string" ? argv["probe-file"] : void 0;
-  if (!probeFile) {
-    process.stdout.write(JSON.stringify({ ok: false, error: "missing --probe-file" }));
-    process.exit(1);
-  }
-  let raw;
-  try {
-    raw = await readFile(probeFile, "utf8");
-  } catch (e) {
-    const baseErr = e instanceof Error ? e.message : String(e);
-    const isMissing = /ENOENT|no such file|does not exist/i.test(baseErr);
-    const hint = isMissing ? " \xB7 LLM \u53EF\u80FD\u8DF3\u8FC7\u4E86 Write \u843D\u76D8\u6B65\u9AA4 \xB7 \u8BF7\u56DE\u67E5 ssh probe \u8FD4\u56DE\u7684 stdout \u662F\u5426\u8C03\u7528\u4E86 Write(file_path=" + probeFile + ", content=<probeStdout>) \xB7 \u89C1 SKILL.md Step 1.3" : "";
-    process.stdout.write(JSON.stringify({ ok: false, error: `failed to read ${probeFile}: ${baseErr}${hint}` }));
-    process.exit(1);
-  }
-  const hintRaw = argv["hint-engine"];
-  const hintEngine = normalizeHintEngine(typeof hintRaw === "string" ? hintRaw : "");
-  const allInstances = parseInstances(raw, null, "ENGINES");
-  const realInstances = allInstances.filter((i) => i.source !== "no-pid-default-engine");
-  const perfRaw = parseSectionContent(raw, "PERF");
-  const offcpuRaw = parseSectionContent(raw, "OFFCPU");
-  const perfAvailable = !!perfRaw && perfRaw !== "MISSING" && !/MISSING/.test(perfRaw);
-  const offcpuAvailable = !!offcpuRaw && offcpuRaw !== "MISSING" && !/MISSING/.test(offcpuRaw);
-  let flame_capable = "none";
-  if (perfAvailable && offcpuAvailable) flame_capable = "oncpu+offcpu";
-  else if (perfAvailable) flame_capable = "oncpu";
-  process.stdout.write(
-    JSON.stringify({
-      ok: true,
-      instances: realInstances,
-      hint_engine: hintEngine,
-      flame_capable,
-      perf_path: perfAvailable ? perfRaw : null,
-      offcpu_path: offcpuAvailable ? offcpuRaw : null
-    })
-  );
-}
 async function main() {
   const argv = parseArgs(process.argv.slice(2));
   const op = typeof argv.op === "string" ? argv.op : "";
   if (op === "exec") return runExec(argv);
   if (op === "session-close") return runSessionClose(argv);
   if (op === "discover") return runDiscover(argv);
-  if (op === "probe-parse") return runProbeParse(argv);
   process.stdout.write(JSON.stringify({
     ok: false,
-    err: `unknown --op: ${op || "(missing)"} \xB7 expect: exec | session-close | discover | probe-parse`
+    err: `unknown --op: ${op || "(missing)"} \xB7 expect: exec | discover`
   }) + "\n");
   process.exit(2);
 }

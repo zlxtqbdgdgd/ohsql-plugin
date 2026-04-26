@@ -1,27 +1,26 @@
 /**
- * kb-enrich — 红线收紧后 · 用 KB verified facts 给 CheckResult 注入 rationale + recommendations。
+ * kb-enrich · v1.0 红线收紧:报告里所有用户可见文字 + 角注 URL 必须来自 KB verified facts ·
+ * 每段 quote 都 substring 命中其 source_url 的 HTML(由 audit-citations 字面验保证)。
  *
- * 设计:
- *   红线收紧后 rules.json 不再带 reason / recommend / fix paraphrase ·
- *   sqlite rules 表的 description / recommendations 也清空。
- *   报告渲染需要的"建议块"全部来自 sqlite knowledge 表(extractive · 字面验过)。
+ * 注入字段 vs CheckFn 自家保留字段:
+ *   - 注入(KB 强覆盖):
+ *     · summary / description / reason       ← KB summary / mechanism
+ *     · rationale (4 字段)                  ← KB summary / mechanism / trade_off / when_deviate
+ *     · recommendations[] · 每条 action     ← KB remediation 字面 · fix_url 绑该 fact 的 source_url
+ *     · citations[]                         ← KB 各 fact 的 distinct source_url + quote 当 anchor
+ *     · threshold_display                   ← KB threshold fact 字面
+ *   - 保留 CheckFn 自家(诊断结果 · 不属 paraphrase):
+ *     · id / severity / bucket / scope
+ *     · evidence[]                          ← CheckFn 写入 · 含真机当前值
+ *     · impact                              ← CheckFn 量化
  *
- *   每条 fire 后的 CheckResult 按 rule_id 去 knowledge 表 join 出 7 类 fact:
- *
- *     summary       → CheckResult.rationale.summary       (一句话为何成问题)
- *     mechanism     → CheckResult.rationale.mechanism     (根因)
- *     trade_off     → CheckResult.rationale.trade_offs    (修 vs 不修代价)
- *     when_deviate  → CheckResult.rationale.when_to_deviate (例外)
- *     remediation   → CheckResult.recommendations[]       (修复动作 · 多条变多个 rec)
- *     threshold     → CheckResult.summary 兜底(如果原 summary 空)
- *     citation      → CheckResult.citations[] 已经有了 · 跳过(避免重复)
- *
- * 失败处理: KB open 失败 / 表不存在 / 单条查询异常 → 静默降级 · 不破坏诊断流程。
+ * KB 没相应 fact 时 · 字段留空(报告渲染会显示"未抽到字面建议") · 严禁 fallback 到 CheckFn 字符串
+ * (避免破红线 · 保证用户看到的所有字面都能在 [参考N] URL 字面命中)。
  */
 
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import type { CheckResult, Recommendation, StructuredRationale } from "./models.js";
+import type { CheckResult, Citation, Recommendation, StructuredRationale } from "./models.js";
 
 interface KbFactRow {
   fact_type: string;
@@ -29,7 +28,6 @@ interface KbFactRow {
   source_url: string | null;
 }
 
-/** 用 require 动态加载 better-sqlite3,避免 build 期硬依赖 */
 function loadSqlite(): unknown {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let Database: any;
@@ -42,7 +40,6 @@ function loadSqlite(): unknown {
   return Database;
 }
 
-/** 默认 KB 路径 · 跟 rule-engine 保持一致 */
 function defaultKbPath(): string {
   const __dirname_local = typeof __dirname !== "undefined"
     ? __dirname
@@ -50,14 +47,6 @@ function defaultKbPath(): string {
   return join(__dirname_local, "..", "data", "knowledge.sqlite");
 }
 
-/**
- * 用 KB facts enrich CheckResult[]
- *
- * - finding / info / ok 都 enrich(让 ok 状态也能展示 rationale,鼓励留下学习素材)
- * - 现有非空字段不覆盖(留 CheckFn 自己的精细化内容)
- *
- * 失败降级返 results 不变。
- */
 export function enrichResultsFromKb(
   results: CheckResult[],
   dbPath?: string,
@@ -73,7 +62,6 @@ export function enrichResultsFromKb(
   }
 
   try {
-    // 表不在(比如老 KB)→ 降级
     const has = db.prepare(
       "SELECT count(*) as cnt FROM sqlite_master WHERE type='table' AND name='knowledge'",
     ).get() as { cnt: number } | undefined;
@@ -86,7 +74,6 @@ export function enrichResultsFromKb(
     return results.map((r) => {
       try {
         const rows = stmt.all(r.id) as KbFactRow[];
-        if (rows.length === 0) return r;
         return mergeFactsIntoResult(r, rows);
       } catch {
         return r;
@@ -97,75 +84,84 @@ export function enrichResultsFromKb(
   }
 }
 
-/** 把 KB facts 合并进单个 CheckResult */
+interface FactByType {
+  quote: string;
+  source_url: string | null;
+}
+
+/**
+ * 合并 KB facts 进 CheckResult · KB 强覆盖 · 没 fact 留空
+ */
 function mergeFactsIntoResult(r: CheckResult, rows: KbFactRow[]): CheckResult {
-  const factsByType = new Map<string, string[]>();
+  const factsByType = new Map<string, FactByType[]>();
   for (const row of rows) {
     if (!row.quote) continue;
     if (!factsByType.has(row.fact_type)) factsByType.set(row.fact_type, []);
-    factsByType.get(row.fact_type)!.push(row.quote);
+    factsByType.get(row.fact_type)!.push({ quote: row.quote, source_url: row.source_url });
   }
+
+  const pick = (type: string): FactByType | undefined => factsByType.get(type)?.[0];
+  const all = (type: string): FactByType[] => factsByType.get(type) ?? [];
 
   const out: CheckResult = { ...r };
 
-  // rationale: 4 字段从 KB 拼装 · KB 优先(覆盖 CheckFn 自带的 paraphrase) ·
-  // 红线: 用户看到的 rationale 必须字面来自源文档 · CheckFn 硬码字符串不可信
-  // 仅在 KB 完全没相关 fact 时保留 CheckFn 自带 rationale 作 fallback
-  const kbRat = buildRationale(factsByType);
-  const hasAnyKbContent = ["summary", "mechanism", "trade_off", "when_deviate"].some((t) => factsByType.has(t));
-  if (hasAnyKbContent) {
-    out.rationale = kbRat;
-  } else if (!out.rationale) {
-    out.rationale = kbRat; // 仍设(全 n/a) · 模板能处理
-  }
+  // ── rationale (4 字段) ── KB 强覆盖 · 没 fact 留 n/a
+  out.rationale = {
+    summary: pick("summary")?.quote ?? "n/a",
+    mechanism: pick("mechanism")?.quote ?? "n/a",
+    trade_offs: pick("trade_off")?.quote ?? "n/a",
+    when_to_deviate: pick("when_deviate")?.quote ?? "n/a",
+  };
 
-  // summary 兜底: 现有为空 / 默认占位 → 用 KB summary 顶上
-  if (!out.summary || out.summary.trim() === "" || out.summary === out.title) {
-    const s = factsByType.get("summary")?.[0] ?? factsByType.get("citation")?.[0] ?? null;
-    if (s) out.summary = s;
-  }
+  // ── summary / description / reason ── KB 强覆盖
+  // summary: 诊断主句 · 用 KB summary fact 的字面;没 → citation 兜底;再没 → 留空
+  out.summary = pick("summary")?.quote ?? pick("citation")?.quote ?? "";
 
-  // description 兜底: 现有为空 → 拼 summary + mechanism
-  if (!out.description || out.description.trim() === "") {
-    const desc = [
-      factsByType.get("summary")?.[0],
-      factsByType.get("mechanism")?.[0],
-    ].filter(Boolean).join("\n\n");
-    if (desc) out.description = desc;
-  }
+  // description: summary + mechanism 拼接
+  const summaryPart = pick("summary")?.quote;
+  const mechanismPart = pick("mechanism")?.quote;
+  out.description = [summaryPart, mechanismPart].filter(Boolean).join("\n\n") || "";
 
-  // reason 兜底: 现有为空 / 只是 metric=value 默认串 → 用 mechanism 替代
-  // (rule-engine v2 桥接默认填 "metric=actual(期望 op expected)" · 这里保留,因为它是判定证据)
-  if ((!out.reason || out.reason.trim() === "") && factsByType.has("mechanism")) {
-    out.reason = factsByType.get("mechanism")![0];
-  }
+  // reason: 用 KB mechanism;没就用 summary;再没留空
+  out.reason = pick("mechanism")?.quote ?? pick("summary")?.quote ?? "";
 
-  // recommendations: KB 优先(同 rationale 红线) · KB 有 remediation fact 就覆盖 CheckFn 自带 paraphrase ·
-  // KB 没 remediation 才保留 CheckFn 自带(避免没建议块)
-  const rems = factsByType.get("remediation") ?? [];
-  if (rems.length > 0) {
-    out.recommendations = rems.map((quote) => ({
-      action: quote,
-      rationale: factsByType.get("summary")?.[0] ?? "见原文",
+  // ── threshold_display ── KB threshold fact 字面 · 没就留 undefined(报告渲染显示"未抽到")
+  const thr = pick("threshold");
+  out.threshold_display = thr?.quote;
+
+  // ── recommendations ── 每条 KB remediation fact 一条 · action=quote · fix_url=source_url
+  // 没 KB remediation → recommendations 留空数组(报告渲染显示"未抽到字面建议")
+  const remediations = all("remediation");
+  if (remediations.length > 0) {
+    out.recommendations = remediations.map<Recommendation>((f) => ({
+      action: f.quote,
+      rationale: pick("summary")?.quote ?? "",
       type: "mitigate",
-      fix_cost: "restart_engine",  // 保守默认(红线收紧后 fix_cost 不再 LLM 评 · 真值 trivial 让用户在 fix experiment 时显式标)
+      fix_cost: "restart_engine",  // 保守默认(KB 不评 fix_cost)
       verifiable: false,
+      fix_url: f.source_url ?? undefined,  // 角注绑该 quote 的 source_url(footer 渲染用)
     }));
+  } else {
+    out.recommendations = [];
   }
 
-  // 若 result 没 needs_human_review 标记 · 但 recommendations 仍空 → 标 true
-  if (!out.recommendations || out.recommendations.length === 0) {
+  // ── citations ── KB 各 fact distinct source_url 各一条 · quote 当 anchor
+  const citationMap = new Map<string, Citation>();
+  for (const row of rows) {
+    if (!row.source_url) continue;
+    if (citationMap.has(row.source_url)) continue;
+    citationMap.set(row.source_url, {
+      url: row.source_url,
+      title: r.title || r.id,
+      anchor: row.quote.slice(0, 80),
+    });
+  }
+  out.citations = [...citationMap.values()];
+
+  // ── needs_human_review ── KB 完全没 fact 时标 true(让 LLM 知道这条规则要人工补)
+  if (rows.length === 0) {
     out.needs_human_review = true;
   }
 
   return out;
-}
-
-function buildRationale(factsByType: Map<string, string[]>): StructuredRationale {
-  return {
-    summary: factsByType.get("summary")?.[0] ?? "n/a",
-    mechanism: factsByType.get("mechanism")?.[0] ?? "n/a",
-    trade_offs: factsByType.get("trade_off")?.[0] ?? "n/a",
-    when_to_deviate: factsByType.get("when_deviate")?.[0] ?? "n/a",
-  };
 }

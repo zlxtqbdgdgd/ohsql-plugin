@@ -276,28 +276,28 @@ export type CheckFn = (ctx: DiagContext) => CheckResult;
 
 export interface OkArgs {
   id: string;
-  title: string;
+  title?: string;        // v1.0 红线收紧后可选 · KB enrich 注入
   bucket: Bucket;
   scope: Scope;
-  summary: string;
-  reason: string;
+  summary?: string;      // v1.0 可选 · KB enrich 注入
+  reason?: string;       // v1.0 可选 · KB enrich 注入
   description?: string;
   evidence?: Evidence[];
   impactMetric?: ImpactMetric;
   threshold_display?: string;
-  citations?: Citation[];  // v0.3.9 · 让健康指标也能挂 footnote · 表"推荐值"引自何处
+  citations?: Citation[];
 }
 
-/** 构造 `severity="ok"` 结果 · v0.3.9 · 可选挂 citations 让"已健康"表显示来源 [参考N] */
+/** 构造 `severity="ok"` 结果 · v1.0 字符串字段全可选 · enrichResultsFromKb 后续注入字面 */
 export function okResult(args: OkArgs): CheckResult {
   return {
     id: args.id,
-    title: args.title,
+    title: args.title ?? args.id,
     severity: "ok",
     scope: args.scope,
-    summary: args.summary,
-    description: args.description ?? args.summary,
-    reason: args.reason,
+    summary: args.summary ?? "",
+    description: args.description ?? args.summary ?? "",
+    reason: args.reason ?? "",
     evidence: args.evidence ?? [],
     impact: { metric: args.impactMetric ?? "db_time_pct", value: 0, unit: "percent", confidence: "high" },
     citations: args.citations ?? [],
@@ -324,45 +324,49 @@ export function infoResult(args: InfoArgs): CheckResult {
 
 export interface FindingArgs {
   id: string;
-  title: string;
+  title?: string;        // v1.0 红线收紧后可选 · enrichResultsFromKb 注入
   /** info 表示"规则源标 info 级 · 触发后保留 info 严重度"(如 capacity 警示类) */
   severity: "info" | "warning" | "critical";
   bucket: Bucket;
   scope: Scope;
-  summary: string;
-  description: string;
-  reason: string;
-  evidence: Evidence[];              // ≥ 1 (warning+ CI 校验 · info 不强制)
-  impact: Impact;
-  citations: Citation[];             // ≥ 1 (warning+ CI 校验 · info 不强制)
-  recommendations: Recommendation[];
+  summary?: string;      // v1.0 可选 · KB 字面注入
+  description?: string;  // v1.0 可选
+  reason?: string;       // v1.0 可选 · KB mechanism 注入
+  evidence: Evidence[];  // ≥ 1 仍硬约束(诊断结果必证)
+  impact: Impact;        // 仍硬约束(影响量化必填)
+  citations?: Citation[];
+  recommendations?: Recommendation[];
   workload_tag?: "oltp" | "olap" | "mixed";
   needs_human_review?: boolean;
-  /** v0.3.2 · 结构化 rationale(可选 · 增量填充)*/
+  /** v0.3.2 · 结构化 rationale(可选 · KB 字面注入)*/
   rationale?: StructuredRationale;
   /** v0.3.2 · BIOS/固件类规则标记(见 CheckResult.surfaceable_only 注释)*/
   surfaceable_only?: boolean;
-  /** 推荐值展示字符串 · 同 CheckResult.threshold_display */
+  /** 推荐值展示字符串 · v1.0 KB threshold fact 字面注入 */
   threshold_display?: string;
 }
 
-/** 构造 warning/critical/info finding · schema-level 硬约束的入口 */
+/**
+ * 构造 warning/critical/info finding · v1.0 红线收紧后字符串字段全可选 ·
+ * 由 enrichResultsFromKb 在 cli-diagnose 主流程统一注入 KB verified facts ·
+ * 保证用户看到的所有文字都能在 [参考N] 的 source URL 里 substring 命中。
+ */
 export function finding(args: FindingArgs): CheckResult {
   return {
     id: args.id,
-    title: args.title,
+    title: args.title ?? args.id,
     severity: args.severity,
     scope: args.scope,
-    summary: args.summary,
-    description: args.description,
-    reason: args.reason,
+    summary: args.summary ?? "",
+    description: args.description ?? args.summary ?? "",
+    reason: args.reason ?? "",
     evidence: args.evidence,
     impact: args.impact,
-    citations: args.citations,
-    recommendations: args.recommendations,
+    citations: args.citations ?? [],
+    recommendations: args.recommendations ?? [],
     bucket: args.bucket,
     workload_tag: args.workload_tag,
-    needs_human_review: args.needs_human_review ?? false,
+    needs_human_review: args.needs_human_review ?? ((args.recommendations ?? []).length === 0),
     rationale: args.rationale,
     surfaceable_only: args.surfaceable_only,
     threshold_display: args.threshold_display,

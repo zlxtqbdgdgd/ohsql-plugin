@@ -1516,7 +1516,71 @@ serverStatus.connections.current / baseline(serverStatus.connections.current)
 - ✅ § 11.12 #5 (退场规则显式 _runtime_excluded) - 已显式标 344 条 · migrate-rules 跳过
 - ⏳ § 11.10 #2 (重复规则 TF-IDF 去重) - 4 对待清
 - ⏳ § 11.13.1 #2 (OS fixture 加 rate 字段后维度补) - Phase 2 step 3 启动后做
-- ⏳ Phase 3 · CheckFn 硬码字符串移交 KB · KB 优先策略已让它们成 fallback · 长期可清
+- ✅ Phase 3 · CheckFn 字符串移交 KB(用户体验层) - § 11.19 已闭环
+
+### 11.19 v1.0 红线最终闸 · 报告字面 100% 命中(2026-04-26 晚)
+
+> 用户验证发现 PR #5 部署到 plugin 仓后报告 footer 的 [参考1] URL 跟"建议第一步"字面**对不上**(角注 hikunpeng URL · 但 "echo never" 字面来自 mongo docs)。这是 P0 红线没堵到 footer 这一层的漏洞。
+
+#### 漏洞根因
+
+P0 § 11.16 只让 KB enrich 注入 `rationale` 4 字段 · footer 渲染主要展示的 `summary / threshold_display / recommendations[].action / citations[].url` 仍来自 CheckFn TS 硬码:
+- CheckFn 当年硬码的 `citations[]` 跟 `recommendations[]` 当年 LLM 拍脑袋写的,**没绑定**: action 字面来自 mongo docs 但 citations[0].url 写的是 hikunpeng 综合调优页
+- 用户照角注去找 → 必然搜不到
+
+#### 修复(本节)
+
+**1. models.ts schema 字段可选化**
+- `finding/okResult/infoResult` 的 summary/title/description/reason/recommendations/citations/threshold_display 全部改成 optional
+- 默认空字符串 / 空数组 · 不传也合法
+- 保留必传: id / severity / bucket / scope / evidence / impact (诊断结果 · 不属 paraphrase)
+
+**2. kb-enrich.ts KB 强覆盖(无 fallback CheckFn 字符串)**
+- summary / description / reason: 全部 KB summary/mechanism fact 字面注入
+- recommendations[]: 每条 = KB 一条 remediation fact · `action=quote` + `fix_url=该 fact 的 source_url`(角注绑定)
+- citations[]: KB 各 fact distinct source_url · `anchor=quote 前 80 字`
+- threshold_display: KB threshold fact 字面
+- rationale 4 字段: KB summary/mechanism/trade_off/when_deviate 字面
+- KB 没 fact 时字段留空 · **严禁 fallback CheckFn 字符串**(用户读报告时看到"未抽到字面建议",可接受;胡编一定不行)
+
+**3. KB 数据清理 · attribution 错误 fact 删除**
+- 之前 1604 条 facts 里有 31 条"source_url 跟 quote 不对应"(典型: source_url=Red Hat NUMA PDF · quote 是 hikunpeng 中文模板)
+- 跑 KB 全表字面验 → 删除 attribution 错误的 31 条 → 1573 条全部 100% 字面命中
+- 代价: 3 条 fire 规则(`os.vm.dirty_ratio` / `os.vm.max_map_count` / `kunpeng.net.tcp_keepalive_time_strict`)的 KB facts 被删空 → 报告里"建议块"留"未抽到字面建议"(诚实降级)
+
+**4. 验证脚本 audit-report-grounding.mjs(新增)**
+- 跑 cli-diagnose.mjs 拿 diag.json
+- 对每条 fire 规则: summary / recommendations[].action / threshold_display / rationale 4 字段 在 citations[].url 集合里**任一字面命中**才 pass
+- 失败 → exit 1 + 列出 MISS 详情
+
+**5. 真机验收(124.70.180.36 · mongo 7.0.31)**
+
+```
+# pass rate(排 no-cache): 100%
+total checks: 34 · ✅ 命中: 34 · ❌ MISS: 0 · ⚠️  no cache: 0
+```
+
+8 条 fire 规则(1 critical + 7 warning)的报告字面 + 角注 URL 100% 字面命中源文档。
+
+#### CheckFn KB 覆盖率
+
+补抽缺失 CheckFn 后 41/50 = 82%(剩 9 条 source URL 在 TS 里 grep 不到 / cleaner v5 抽不出 verified · 这 9 条 fire 时报告会"未抽到字面建议"降级)。
+
+#### 与 plugin 仓的同步(PR #5 amend)
+
+ohsql-plugin 仓 `feat/p0-redline-tightening-phase2` 分支同步 P0+§ 11.19 改动:
+- src/{cli-diagnose, cli-kb, models, report, ...}.ts (与 skillhub 037ef7f 保持一致)
+- src/{baseline-store, kb-enrich, rule-engine-v2}.ts(KB 强覆盖版)
+- data/knowledge.sqlite(1573 verified facts)
+- data/{mongo,common}/rules.json(瘦身 + dedup + _runtime_excluded 标记)
+- scripts/{diagnose,kb,history,ssh}.mjs (新 esbuild bundle)
+- tools/{audit-citations,clean-rules-v5,verify-real-env,...}(extractive 流水线)
+- 不动 plugin v0.6/v0.7/v1.1 已有改动(Anthropic Skills 标准化 / Codex CLI / PAM auth / front-load env probing)
+
+#### 待留工程债
+
+1. KB 9 条 CheckFn 没 verified facts(主要是 hikunpeng PDF / 本地 ts 没 grep 到 url)· 这些 fire 时报告"未抽到字面建议"
+2. 3 条 fire 规则因 attribution 删除丢 KB facts(`os.vm.dirty_ratio` / `os.vm.max_map_count` / `kunpeng.net.tcp_keepalive_time_strict`)· 跑专项 cleaner v5 重抽这 3 条的 source URL 即可补回
 
 ---
 
