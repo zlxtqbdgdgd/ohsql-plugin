@@ -5,7 +5,9 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "validate": "node tools/build/validate.mjs"
+    "validate": "node tools/build/validate.mjs",
+    "validate:strict": "node tools/build/validate.mjs --strict",
+    "test": "node --test tools/build/validate.test.mjs"
   },
   "engines": {
     "node": ">=18.0.0"
