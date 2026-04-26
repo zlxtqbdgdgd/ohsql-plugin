@@ -149,18 +149,33 @@ TaskList()
 count > 0 → 对每个 task 调 `TaskUpdate(taskId="<id>", status="deleted")`。然后:
 
 ```
-TaskCreate(subject="采集 OS/硬件基线 (35 项)",          activeForm="采集 OS 基线")
-TaskCreate(subject="采集 <engine> 运行时指标 (19 项)",     activeForm="采集 <engine> 运行时")
-TaskCreate(subject="规则评估 (54 条)",                   activeForm="评估 54 条规则")
-TaskCreate(subject="检索权威知识库",                   activeForm="匹配知识库")
-TaskCreate(subject="渲染报告",                        activeForm="渲染报告")
+TaskCreate(subject="OS/硬件采集 (50 项)",          activeForm="采集 OS/硬件")
+TaskCreate(subject="运行时采集 (<N> 项)",           activeForm="采集运行时")
+TaskCreate(subject="规则诊断 (<R> 条)",            activeForm="诊断规则")
+TaskCreate(subject="知识库检索 (54 篇)",           activeForm="检索知识库")
+TaskCreate(subject="报告渲染",                     activeForm="渲染报告")
 ```
 
 **恰好 5 个 task,不许多创建,不许创建"占位清理"等辅助 task。**
 
 **记录每次返回的 task id**(不假设 1-5,用真实返回值)。
 
-项数硬编:OS=35、MongoDB=19、合计=54。mysql/redis 不知道项数时不带括号。
+**v0.5.1 命名规则**:subject 名词在前 + 动词在后(`X采集` / `X诊断` / `X检索` / `X渲染`)· ≤ 5 字 · activeForm 动词在前(spinner verb 自然中文)· 不挂 engine 前缀。
+
+**数字硬编表**(数据来源 = 实测 · 不要编):
+
+| engine | task 1 (`OS/硬件采集`) | task 2 (`运行时采集`) | task 3 (`规则诊断`) | task 4 (`知识库检索`) |
+|--------|----------------------|---------------------|--------------------|---------------------|
+| mongo  | 50 项                 | 18 项                | 59 条               | 54 篇                |
+| mysql  | 50 项                 | (不挂)               | 38 条               | 54 篇                |
+| redis  | 50 项                 | (不挂)               | 39 条               | 54 篇                |
+
+- task 1 = `src/shared/os-collector.ts` 中 `out["..."] = ...` 的去重 key 数(50)
+- task 2 = `src/engines/<engine>/collector.ts` 中 `out["..."] = ...` 的去重 key 数(mongo=18 · mysql/redis 用结构体返回不平摊 · 不挂)
+- task 3 = `sqlite3 data/knowledge.sqlite "SELECT count(*) FROM rules WHERE enabled=1 AND (engine='<engine>' OR engine='any')"`
+- task 4 = `sqlite3 data/knowledge.sqlite "SELECT count(DISTINCT doc_id) FROM knowledge"`
+
+mysql/redis 的 task 2 项数无法平摊 · 整段 `(<N> 项)` 删掉 · 不要瞎编。
 
 ---
 
@@ -186,10 +201,13 @@ Read(file_path="${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/data/collect-cmds.json
 
 ### 2.3 · SSH 跑 OS 采集
 
-SshExec 之前打活动行:
+SshExec 之前打 4 行分组活动行(v0.5.1 · 跟 task 1 detail 视觉对齐 · 替代旧单行 `· 采集 OS / 硬件 35 项指标 (...)`):
 
 ```
-  · 采集 OS / 硬件 35 项指标 (THP / NUMA / TCP 栈 / IO 调度 / LSE 编译标志 / 鲲鹏 SMT 等)
+  · 内存 · THP / 大页 / swappiness / ...
+  · 网络 · somaxconn / keepalive / ...
+  · 磁盘 · await / 调度器 / ...
+  · CPU · LSE / BIOS / NUMA / ...
 ```
 
 ```
@@ -240,7 +258,24 @@ Bash(command="node ${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/scripts/ssh.mjs --o
 
 ### 2.5 · DB 批量采集
 
-SshExec 前打活动行(`· 采集 MongoDB 19 项指标 (serverStatus · currentOp ...)`),然后:
+SshExec 前打分组活动行(v0.5.1 · 跟 task 2 detail 对齐 · 替代旧单行 `· 采集 MongoDB 19 项指标 (...)`):
+
+```
+# engine=mongo · 3 行
+  · WiredTiger · cache / 并发 ticket / ...
+  · 连接池 · 当前 / 可用上限 / ...
+  · 锁与断言 · global lock / asserts / ...
+
+# engine=mysql · 2 行
+  · 引擎状态 · variables / status / processlist / ...
+  · 连接 · max_connections / threads_connected / ...
+
+# engine=redis · 2 行
+  · INFO 指标 · memory / stats / clients / ...
+  · slowlog / 大 key / ...
+```
+
+然后:
 
 ```
 SshExec(host=..., command=<填充后 dbBatchTemplates[engine]>, timeoutMs=60000)
@@ -301,12 +336,23 @@ Bash(command="node ${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/scripts/history.mjs
 TaskUpdate(taskId=<task3 id>, status="in_progress")
 ```
 
-打一行规则库说明:
+打 3 行严重度分组活动行(v0.5.1 · 跟 task 3 detail 对齐 · 替代旧单行 `· 加载 N 条规则(蒸馏自 X 篇 ...)`):
+
 ```
-  · 加载 <total> 条规则(蒸馏自 <docs> 篇权威文档 · 鲲鹏 <kp_docs>篇 · <engine_label> <engine_docs>篇)
+  · critical <C> · <代表项 1> / <代表项 2> / <代表项 3> / ...
+  · warning <W>  · <代表项 1> / <代表项 2> / <代表项 3> / ...
+  · info <I>     · <代表项 1> / <代表项 2> / <代表项 3> / ...
 ```
 
-数字从 diagnose.mjs 的 `check_catalog` 字段取:mongo=54/43篇,mysql=34/19篇,redis=33/19篇。
+数字硬编(实测 · 不要编):
+
+| engine | 总规则 R | critical C | warning W | info I |
+|--------|--------|----------|-----------|--------|
+| mongo  | 59     | 5        | 35        | 19     |
+| mysql  | 38     | 3        | 20        | 15     |
+| redis  | 39     | 4        | 21        | 14     |
+
+来源 `sqlite3 data/knowledge.sqlite "SELECT severity, count(*) FROM rules WHERE enabled=1 AND (engine='<engine>' OR engine='any') GROUP BY severity"`。代表项从 diagnose.mjs 输出 top issues 抽 · 优先 critical · 不要瞎编。
 
 ### 3.1 · Bash 调 diagnose.mjs
 
