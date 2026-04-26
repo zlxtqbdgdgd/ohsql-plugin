@@ -610,3 +610,32 @@ results 空 → 模板 B:
 
 - 报告文件名:`perf-kp-sql-<engine>-<TS>.html`,TS = `YYYYMMDD-HHMMSS`
 - 诊断完直接给结论,不追问"要不要补做 X"
+
+# Invocation
+
+For agents that don't render the `argument-hint` frontmatter as UI hints
+(e.g. OpenAI Codex CLI), this section duplicates the parameters in body
+prose so the LLM can quote them back to the user.
+
+**Required**:
+- `host=<ip>` — target host (IP or FQDN; e.g. `10.0.0.1`)
+- `user=<user>` — SSH user (e.g. `root`, `ec2-user`)
+- One of `privateKeyPath=<path>` (recommended) OR `password=<pw>`
+  - `privateKeyPath`: SSH key file path (e.g. `~/.ssh/id_ed25519`) — works on all agents
+  - `password`: SSH password — Claude Code + ohsql only (uses `sshpass`); OpenAI
+    Codex CLI sandbox blocks it, so Codex users must run `ssh-copy-id` once and
+    switch to `privateKeyPath`
+
+**Optional**:
+- `engine=<mongo|mysql|redis>` — database engine; auto-detected if omitted
+- `port=<ssh_port>` — SSH port (default: `22`)
+- `mongo_user=<user>` — MongoDB auth user (auto-asked on auth failure)
+- `mongo_password=<pw>` — MongoDB auth password
+- `auth_db=<db>` — MongoDB auth database (default: `admin`)
+
+**Examples**:
+```
+/perf-kp-sql host=10.0.0.1 user=root privateKeyPath=~/.ssh/id_ed25519 engine=mongo
+/perf-kp-sql host=10.0.0.1 user=root password=secret engine=mysql port=2222
+/perf-kp-sql host=db.internal user=ec2-user privateKeyPath=~/.ssh/aws-prod
+```

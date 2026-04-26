@@ -14,7 +14,7 @@ metadata:
 
 # perf-kp-sql Setup
 
-Bootstrap the native dependencies that `perf-kp-sql` relies on. Modeled after EveryInc's `ce-setup` — uses a single bash health-check script + interactive `AskUserQuestion` flow.
+Bootstrap the native dependencies that `perf-kp-sql` relies on. Modeled after EveryInc's `ce-setup` — uses a single bash health-check script + interactive prose Q&A flow (the agent's native question/answer mechanism — `AskUserQuestion` on Claude Code, conversational stop-and-wait on Codex CLI / others).
 
 ## Phase 1: Diagnose
 
@@ -24,10 +24,13 @@ Bootstrap the native dependencies that `perf-kp-sql` relies on. Modeled after Ev
 Bash(command="echo \"PLUGIN_ROOT=${OHSQL_PLUGIN_ROOT:-unset}\"")
 ```
 
-If `OHSQL_PLUGIN_ROOT` is `unset`, this skill is running outside ohsql ≥ 0.38.0. Tell the user:
+Resolve the plugin root by trying both `${CLAUDE_PLUGIN_ROOT}` (Claude Code) and `${OHSQL_PLUGIN_ROOT}` (ohsql) — whichever is set. If neither is set, the skill is running outside any supported agent's plugin runtime; tell the user:
 
 ```
-perf-kp-sql is ohsql-only. Please install OpenHarness-SQL ≥ 0.38.0 and run `/plugin install perf-kp-sql`.
+perf-kp-sql-setup needs to run inside Claude Code, OpenAI Codex CLI, or
+OpenHarness-SQL — one of $CLAUDE_PLUGIN_ROOT / $OHSQL_PLUGIN_ROOT must
+be set so the script can find the plugin's node_modules directory.
+Please install perf-kp-sql via `/plugin install perf-kp-sql` first.
 ```
 
 Stop here.
@@ -73,7 +76,7 @@ Otherwise proceed to Phase 2.
 
 ### Step 4: Confirm install
 
-Use `AskUserQuestion` to ask whether to proceed with fixing the missing/broken deps. The proposed install command is the same regardless of which subset is missing — `npm install` is idempotent for already-present packages.
+Ask the user whether to proceed with fixing the missing/broken deps (the proposed install command is the same regardless of which subset is missing — `npm install` is idempotent for already-present packages). Use the agent's native Q&A facility: structured options on Claude Code, plain stop-and-wait conversational ask on Codex CLI / others.
 
 ```
 Question: 是否安装 / 修复 perf-kp-sql 的 native 依赖？
@@ -128,3 +131,17 @@ Bash(command="bash ${OHSQL_PLUGIN_ROOT}/skills/perf-kp-sql-setup/scripts/check-h
 If everything is now 🟢, display the success banner from Step 3.
 
 If knowledge.sqlite is still missing or corrupt, recommend `/plugin reinstall perf-kp-sql` (the file is committed in the plugin repo and ships with the install).
+
+# Invocation
+
+This skill takes no arguments. Invoke explicitly via:
+
+```
+/perf-kp-sql-setup
+```
+
+Do NOT auto-invoke based on general user requests. Only fire when:
+- The user explicitly types `/perf-kp-sql-setup`
+- A perf-kp-sql diagnosis fails with `Cannot find module 'better-sqlite3'`,
+  `NODE_MODULE_VERSION X != Y`, or similar native-addon / ABI errors
+- Right after first install of perf-kp-sql (one-time setup)
