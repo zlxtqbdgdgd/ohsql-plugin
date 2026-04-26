@@ -46,6 +46,16 @@ function openRemoteSession(conn) {
   const target = `${conn.user}@${conn.host}`;
   const port = conn.port ?? DEFAULT_PORT;
   const usePassword = !!conn.password && !conn.privateKeyPath;
+  // ControlMaster · 一次 TCP+auth 多 channel 复用 · 服务端只看到 1 个连接
+  const controlPath = `/tmp/cpu-flame-cm-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}.sock`;
+  const cmOptions = () => [
+    "-o",
+    "ControlMaster=auto",
+    "-o",
+    `ControlPath=${controlPath}`,
+    "-o",
+    "ControlPersist=30"
+  ];
   const baseSshArgs = () => {
     const args = [
       "-p",
@@ -55,7 +65,8 @@ function openRemoteSession(conn) {
       "-o",
       "StrictHostKeyChecking=accept-new",
       "-o",
-      "ServerAliveInterval=15"
+      "ServerAliveInterval=15",
+      ...cmOptions()
     ];
     if (usePassword) {
       args.push("-o", "PreferredAuthentications=password,keyboard-interactive");
@@ -75,7 +86,8 @@ function openRemoteSession(conn) {
       `ConnectTimeout=${CONNECT_TIMEOUT_SEC}`,
       "-o",
       "StrictHostKeyChecking=accept-new",
-      "-q"
+      "-q",
+      ...cmOptions()
     ];
     if (usePassword) {
       args.push("-o", "PreferredAuthentications=password,keyboard-interactive");
@@ -134,6 +146,15 @@ function openRemoteSession(conn) {
       }
     },
     close() {
+      try {
+        const cleanup = spawn(
+          "ssh",
+          ["-O", "exit", "-S", controlPath, "-p", String(port), target],
+          { stdio: "ignore" }
+        );
+        cleanup.unref();
+      } catch {
+      }
     }
   };
   void baseScpArgs;

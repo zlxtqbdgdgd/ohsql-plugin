@@ -1,6 +1,6 @@
 {
   "name": "cpu-flamegraph",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Capture and analyze CPU flamegraphs over SSH. Pure local ssh CLI + Perl flamegraph.pl — harness-agnostic, works in stock Claude Code.",
   "author": {
     "name": "zlxtqbdgdgd",
