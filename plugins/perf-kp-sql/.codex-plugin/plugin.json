@@ -1,0 +1,31 @@
+{
+  "name": "perf-kp-sql",
+  "version": "0.6.1",
+  "description": "Kunpeng + MongoDB/MySQL/Redis joint perf diagnosis. SSH-based collection + 411 baseline rules + sqlite RAG knowledge base + flamegraph integration. Harness-agnostic (Anthropic Agent Skills standard).",
+  "author": {
+    "name": "zlxtqbdgdgd",
+    "url": "https://github.com/zlxtqbdgdgd"
+  },
+  "homepage": "https://github.com/zlxtqbdgdgd/ohsql-plugin",
+  "repository": "https://github.com/zlxtqbdgdgd/ohsql-plugin",
+  "license": "MIT",
+  "keywords": ["sql", "perf", "mongo", "mysql", "redis", "kunpeng", "ssh"],
+  "skills": "./skills/",
+  "x-plugin-dependencies": {
+    "cpu-flamegraph": "^0.2.0"
+  },
+  "x-setup-skill": "perf-kp-sql-setup",
+  "x-needs-npm-install": true,
+  "interface": {
+    "displayName": "Kunpeng SQL Perf",
+    "shortDescription": "Kunpeng ARM64 + MongoDB/MySQL/Redis perf diagnosis",
+    "longDescription": "SSH-based remote collection (50 OS metrics + per-engine runtime), evaluates 411 baseline rules against a sqlite knowledge base (FTS5 trigram + sqlite-vec 384-dim semantic search), and emits an impact-ranked HTML report with authoritative citations. First-time use: run /perf-kp-sql-setup to install native deps.",
+    "developerName": "zlxtqbdgdgd",
+    "category": "Developer Tools",
+    "capabilities": ["Interactive", "Write"],
+    "websiteURL": "https://github.com/zlxtqbdgdgd/ohsql-plugin/tree/main/plugins/perf-kp-sql",
+    "defaultPrompt": [
+      "诊断 mongo 数据库性能问题: host=10.0.0.1 user=root privateKeyPath=~/.ssh/id_ed25519 engine=mongo"
+    ]
+  }
+}

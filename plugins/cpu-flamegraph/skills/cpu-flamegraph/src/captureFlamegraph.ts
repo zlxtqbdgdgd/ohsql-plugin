@@ -11,8 +11,9 @@
  *      远端 perl 渲 SVG（多数 Linux 都有 perl）
  *   7. 重产物**留在远端** /tmp/cpu-flamegraph_<ts>/，本地不落盘
  *
- * 端口自 ohsql `src/tools/FlameGraphTool/hotspot/capture.ts`，把 ssh2-based
- * `openSshSession` 换成 `openRemoteSession`（local ssh CLI），其余逻辑不变。
+ * Originally ported from an upstream Kunpeng FlameGraph capture tool (which used
+ * the ssh2 npm package); v0.6.0 standardized as agent-agnostic by switching
+ * `openSshSession` → `openRemoteSession` (local ssh CLI). Core capture logic unchanged.
  */
 
 import { fileURLToPath } from "node:url";

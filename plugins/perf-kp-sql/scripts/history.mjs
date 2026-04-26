@@ -12,6 +12,9 @@ import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 var MAX_ENTRIES = 5;
 function historyPath() {
+  // v0.6.0 · agent-neutral env var first (directory form), legacy file-path env var second, default last.
+  const home = process.env.PERF_KP_SQL_HOME;
+  if (home) return join(home, "hosts.json");
   return process.env.OHSQL_PERF_KP_SQL_HISTORY ?? join(homedir(), ".ohsql", "perf-kp-sql", "hosts.json");
 }
 async function loadHistory(path) {

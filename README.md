@@ -4,14 +4,14 @@
 
 Official plugin marketplace for [OpenHarness-SQL](https://github.com/zlxtqbdgdgd/OpenHarness-SQL) — performance diagnosis, CPU flamegraphs, and database tooling.
 
-Plugins follow the Claude Code plugin protocol (`.claude-plugin/marketplace.json` + `.claude-plugin/plugin.json`), so harness-agnostic ones run in stock Claude Code too.
+All skills follow the [Anthropic Agent Skills open standard](https://github.com/anthropics/skills), so the same skill source runs natively on Claude Code, OpenAI Codex CLI, and ohsql ≥ 0.38.0 — no per-platform tool mapping or build-time conversion required.
 
 ## Plugins
 
 | Plugin | Version | Hosts | What it does |
 |---|---|---|---|
-| [`cpu-flamegraph`](./plugins/cpu-flamegraph/) | 0.2.0 | ohsql + stock CC | Remote `perf` over SSH → on-CPU / off-CPU flamegraph SVG → top-N hotspot extraction. Pure local `ssh` + Perl `flamegraph.pl`, zero kernel-tool dependency. |
-| [`perf-kp-sql`](./plugins/perf-kp-sql/) | 0.5.0 | ohsql ≥ 0.38.0 | Kunpeng ARM64 + MongoDB / MySQL / Redis joint perf diagnosis. SshExec collect → 411 baseline rules → sqlite RAG knowledge base (FTS5 + vec0 384-dim) → impact-ranked report. |
+| [`cpu-flamegraph`](./plugins/cpu-flamegraph/) | 0.2.1 | Claude Code · Codex CLI · ohsql · any agent with shell + read/write | Remote `perf` over SSH → on-CPU / off-CPU flamegraph SVG → top-N hotspot extraction. Pure local `ssh` + Perl `flamegraph.pl`, zero kernel-tool dependency. |
+| [`perf-kp-sql`](./plugins/perf-kp-sql/) | 0.6.1 | Claude Code · Codex CLI · ohsql · any standard-compliant agent | Kunpeng ARM64 + MongoDB / MySQL / Redis joint perf diagnosis. SSH-based collection → 411 baseline rules → sqlite RAG knowledge base (FTS5 + vec0 384-dim) → impact-ranked HTML report. |
 
 ---
 
@@ -32,18 +32,32 @@ After `perf-kp-sql-setup` completes:
 /perf-kp-sql host=10.0.0.1 user=root password=xxx engine=mongo
 ```
 
-ohsql is the only host with full `perf-kp-sql` support (it depends on the `SshExec` kernel tool and the native deps installed via `perf-kp-sql-setup`).
-
 ### Claude Code
 
-Only `cpu-flamegraph` works in stock Claude Code (no native deps, uses your local `ssh` / `scp` CLI):
+Both plugins work in stock Claude Code (since v0.6.1, `perf-kp-sql` is harness-agnostic — no longer needs the `SshExec` kernel tool):
 
 ```text
 /plugin marketplace add zlxtqbdgdgd/ohsql-plugin
 /plugin install cpu-flamegraph
+/plugin install perf-kp-sql
+/perf-kp-sql-setup                              # install native deps once
 ```
 
-`perf-kp-sql` will _install_ in stock CC but won't run — its skills call the `SshExec` tool which only OpenHarness-SQL provides.
+### OpenAI Codex CLI
+
+```text
+codex plugin marketplace add zlxtqbdgdgd/ohsql-plugin
+# Codex auto-discovers skills from the plugin's skills/ directory
+# For perf-kp-sql, also run: /perf-kp-sql-setup (installs native deps)
+```
+
+**SSH auth on Codex**: only key auth supported (Codex sandbox blocks `sshpass` for password mode). Run once on your local machine before invoking the skill:
+
+```bash
+ssh-copy-id -i ~/.ssh/id_ed25519.pub <user>@<host>
+```
+
+Then invoke with `privateKeyPath=~/.ssh/id_ed25519` (NOT `password=...`).
 
 ### Cursor
 
@@ -53,15 +67,11 @@ Only `cpu-flamegraph` works in stock Claude Code (no native deps, uses your loca
 
 Or search for `cpu-flamegraph` in Cursor's plugin marketplace UI.
 
-### Codex / Copilot CLI / Droid / Qwen
+### Copilot CLI / Droid / Qwen
 
 These hosts accept Claude Code-format plugins. The exact command varies by host:
 
 ```bash
-# Codex
-codex plugin marketplace add zlxtqbdgdgd/ohsql-plugin
-codex plugin install cpu-flamegraph@ohsql-plugin
-
 # Copilot CLI
 copilot plugin marketplace add zlxtqbdgdgd/ohsql-plugin
 copilot plugin install cpu-flamegraph@ohsql-plugin
@@ -74,7 +84,7 @@ droid plugin install cpu-flamegraph@ohsql-plugin
 qwen extensions install zlxtqbdgdgd/ohsql-plugin:cpu-flamegraph
 ```
 
-These integrations are inherited from CC's plugin protocol — we don't ship a custom Codex/Copilot installer.
+These integrations are inherited from the Anthropic Agent Skills format — no custom installer needed per host.
 
 ---
 
@@ -88,27 +98,31 @@ Capture and analyze a CPU flamegraph standalone:
 
 The skill renders a top-N hotspot table inline, leaves the SVG on the remote at `/tmp/cpu-flamegraph_<ts>/`, and prints the `scp` command to pull it.
 
-End-to-end diagnosis with perf-kp-sql (ohsql only):
+End-to-end diagnosis with `perf-kp-sql`:
 
 ```text
-/perf-kp-sql host=10.0.0.1 user=root password=*** engine=mongo
+/perf-kp-sql host=10.0.0.1 user=root privateKeyPath=~/.ssh/id_ed25519 engine=mongo
 ```
 
-The skill collects 30+ OS / DB metrics over SSH, runs them against 411 baseline rules + queries the sqlite RAG knowledge base, optionally invokes `cpu-flamegraph` for hotspot data, and produces an impact-ranked HTML + screen report.
+The skill collects 50 OS metrics + 18 mongo runtime metrics over SSH, runs them against 59 enabled rules + queries the sqlite RAG knowledge base, optionally invokes `cpu-flamegraph` for hotspot data, and produces an impact-ranked HTML + screen report.
 
 ---
 
 ## How it works
 
-| Variable | Stock CC | ohsql |
-|---|---|---|
-| `${CLAUDE_PLUGIN_ROOT}` | injected by CC at runtime | unset → falls through to `$OHSQL_PLUGIN_ROOT` |
-| `$OHSQL_PLUGIN_ROOT` | unset | substituted at SKILL.md load time → absolute cache path |
-| `$OHSQL_DEP_<NAME>_ROOT` | unset | substituted to a dependency plugin's cache path |
+All SKILL.md files follow the Anthropic Agent Skills open standard. Frontmatter is minimal (`name` + `description` + optional `compatibility` + `metadata` + CC-friendly `argument-hint`); skill body uses prose intent + plain shell commands (no agent-specific tool call syntax).
 
-SKILL.md files in this repo use the portable form `${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}` so the same source runs in both hosts unchanged.
+Path resolution across hosts:
 
-`perf-kp-sql` uses `x-ohsql-*` extension fields (CC ignores unknown keys) for kernel-version requirements, declared dependencies, and the post-install setup-skill pointer.
+| Variable | Claude Code | OpenAI Codex CLI | ohsql |
+|---|---|---|---|
+| `${CLAUDE_PLUGIN_ROOT}` | injected by CC at runtime | unset | unset |
+| `$OHSQL_PLUGIN_ROOT` | unset | unset | substituted at SKILL.md load time → absolute cache path |
+| `$OHSQL_DEP_<NAME>_ROOT` | unset | unset | substituted to a dependency plugin's cache path |
+
+SKILL.md files in this repo use the portable form `${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}` so the same source runs on all hosts unchanged. Codex CLI's plugin install path (`~/.codex/plugins/cache/<marketplace>/<plugin>/<sha>/`) is resolved by Codex's skill discovery natively.
+
+`perf-kp-sql` uses `x-*` extension fields (`x-needs-npm-install`, `x-setup-skill`, `x-plugin-dependencies`) for declarative metadata. Unrecognized hosts ignore them. Versions ≤ 0.5.x used the `x-ohsql-*` prefix; both forms are accepted by the validator for backward compatibility.
 
 ---
 

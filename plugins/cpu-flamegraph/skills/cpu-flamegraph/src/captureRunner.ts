@@ -1,7 +1,8 @@
 /**
  * captureRunner — 用本地 OpenSSH `ssh`/`scp` CLI 提供 RemoteSession 接口
  *
- * 替代 ohsql 内置 `services/ssh/index.ts`（基于 ssh2 npm 包）。本文件零 npm
+ * Originally ported from a Kunpeng SSH service (based on the ssh2 npm package).
+ * v0.6.0 standardized as an agent-agnostic local-`ssh`-CLI wrapper. Zero npm
  * 依赖，只走 child_process.spawn —— 这是 cartridge 跨 harness 可移植的关键：
  * 任何装有 OpenSSH client 的机器都能跑（Linux/macOS 自带，Windows 通过 WSL
  * 或 OpenSSH-Win 也可）。

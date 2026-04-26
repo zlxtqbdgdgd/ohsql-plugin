@@ -9,7 +9,7 @@
  *                              [--hint-engine mongo|mysql|redis]
  *
  * 合并自:
- *   - cli-ssh-exec.ts → --op exec · 通过 ssh2 在远端跑命令 · 替代 kernel SshExec
+ *   - cli-ssh-exec.ts → --op exec · 通过 ssh2 在远端跑命令 · agent-agnostic SSH wrapper
  *   - cli-discover.ts → --op discover · 解析 osBatchCmd ###DISCOVERY### 段输出实例列表
  *
  * 业界对照:
@@ -49,7 +49,7 @@ function parseArgs(args: string[]): Record<string, string | boolean> {
 // ============================================================================
 //
 // 设计目标:
-//   · 替代 kernel SshExec Tool · 让 skill 在 Claude Code / 任意 agent 上只靠 Bash 也能跑 SSH
+//   · agent-agnostic SSH 实现 · 让 skill 在任意 agent 上只靠本地 ssh CLI / shell tool 就能跑 SSH
 //   · 密码认证走 ssh2 编程接口 · 不需要系统 sshpass / expect
 //   · esbuild bundle 成单文件 · 零 node_modules 运行时依赖
 //
@@ -193,7 +193,17 @@ async function connectOnce(args: ExecArgs): Promise<Client> {
       });
     } else if (args.password) {
       cfg.password = args.password;
-      cfg.authHandler = ["password"];
+      // v0.6.1 · 同时支持 "password"(裸 SSH password 方法 · RFC 4252) +
+      //          "keyboard-interactive"(PAM 驱动 · 大多数 Linux 发行版默认 · prompt 是
+      //          "user@host's password:" 而不是裸 "Password:")· 让 ssh2 在 password
+      //          方法被拒后自动 fall through 到 keyboard-interactive · 实际只算 1 次
+      //          认证尝试 · 不触发 MaxAuthTries
+      cfg.authHandler = ["password", "keyboard-interactive"];
+      cfg.tryKeyboard = true;
+      // PAM keyboard-interactive challenge handler · 用 password 回每个 prompt
+      client.on("keyboard-interactive", (_name, _instructions, _lang, _prompts, finish) => {
+        finish([args.password as string]);
+      });
       client.connect(cfg as Parameters<Client["connect"]>[0]);
     } else {
       clearTimeout(timer);
@@ -344,7 +354,7 @@ async function runExec(argv: Record<string, string | boolean>): Promise<void> {
 // 解析 ###DISCOVERY### 段输出实例列表 · LLM 根据 instances.length 决定下一步:
 //   - 0    → 报错 "未发现 DB 进程" + 排查建议
 //   - 1    → 自动选中,开始 full diagnose
-//   - > 1  → AskUserQuestion 让用户挑
+//   - > 1  → 让 LLM 在对话里展示候选 · 用户回复时挑
 
 interface Instance {
   engine: "mongo" | "mysql" | "redis";
@@ -495,7 +505,7 @@ async function runDiscover(argv: Record<string, string | boolean>): Promise<void
     const baseErr = e instanceof Error ? e.message : String(e);
     const isMissing = /ENOENT|no such file|does not exist/i.test(baseErr);
     const hint = isMissing
-      ? " · 最可能原因:LLM 在 SshExec 之后跳过了 Write 落盘步骤 · 请回查上一轮 SshExec 返回的 stdout 是否调用了 Write(file_path=" + osFile + ", content=<osStdout>) · 见 SKILL.md Step 2.3 · 不是 Write 工具不可用"
+      ? " · 最可能原因:LLM 在 SSH 命令(remote osBatchCmd)之后跳过了 Write 落盘步骤 · 请回查上一轮 SSH 命令返回的 stdout 是否调用了 Write(file_path=" + osFile + ", content=<osStdout>) · 见 SKILL.md Step 2.3 · 不是 Write 工具不可用"
       : "";
     discoverWriteError(`failed to read ${osFile}: ${baseErr}${hint}`);
   }

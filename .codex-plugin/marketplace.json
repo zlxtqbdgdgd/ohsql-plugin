@@ -5,7 +5,7 @@
     "url": "https://github.com/zlxtqbdgdgd"
   },
   "metadata": {
-    "description": "Official plugin marketplace for OpenHarness-SQL — performance diagnosis, CPU flamegraphs, and database tooling",
+    "description": "Official plugin marketplace for OpenHarness-SQL — performance diagnosis, CPU flamegraphs, and database tooling. Mirrors .claude-plugin/marketplace.json for OpenAI Codex CLI install.",
     "version": "1.1.0"
   },
   "plugins": [

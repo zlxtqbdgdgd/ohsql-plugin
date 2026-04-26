@@ -1,10 +1,10 @@
 /**
  * perf-kp-sql collectors —— OS 批量 + DB 批量命令生成和 stdout 解析。
  *
-* SSH 走 kernel 的 SshExec Tool；本模块只负责：
- *   - 生成要发送给 SshExec 的命令字符串（OS_BATCH_CMD、buildDbBatchCmd）
- *   - 解析 SshExec 返回的 stdout（parseOsBatch、parseDbBatch）
- * 不再做 SSH 连接。
+* SSH 走 agent-agnostic 模式（本地 ssh CLI · 见 cli-ssh.ts wrapper）；本模块只负责：
+ *   - 生成要发送给远端的命令字符串（OS_BATCH_CMD、buildDbBatchCmd）
+ *   - 解析 SSH 命令返回的 stdout（parseOsBatch、parseDbBatch）
+ * 不做 SSH 连接。
  *
  * OS 批量命令字符串与 Python 版逐字一致（同样的 ###标签###/awk 解析）。
  */
@@ -126,10 +126,10 @@ function buildDbBatchCmd(host: string, port: string): string {
 // ---------------------------------------------------------------------------
 
 /**
- * 解析已经通过 SshExec 拿到的 OS 批量 stdout + DB 批量 stdout，拼成 DiagContext。
+ * 解析已经通过 SSH 拿到的 OS 批量 stdout + DB 批量 stdout，拼成 DiagContext。
  *
- * 调用方（skill 的 cli-diagnose.ts）先调 SshExec 跑 OS_BATCH_CMD，
- * 解析 DISCOVERY 段拿到 mongoBind/Port，再调 SshExec 跑 buildDbBatchCmd(bind, port)，
+ * 调用方（skill 的 cli-diagnose.ts）先通过 SSH 跑 OS_BATCH_CMD，
+ * 解析 DISCOVERY 段拿到 mongoBind/Port，再通过 SSH 跑 buildDbBatchCmd(bind, port)，
  * 最后把两段 stdout 喂给本函数。
  */
 export function buildContext(

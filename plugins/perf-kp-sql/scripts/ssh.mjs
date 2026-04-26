@@ -273,7 +273,12 @@ async function connectOnce(args) {
       });
     } else if (args.password) {
       cfg.password = args.password;
-      cfg.authHandler = ["password"];
+      // v0.6.1 · also accept PAM keyboard-interactive (default on most Linux distros)
+      cfg.authHandler = ["password", "keyboard-interactive"];
+      cfg.tryKeyboard = true;
+      client.on("keyboard-interactive", (_name, _instructions, _lang, _prompts, finish) => {
+        finish([args.password]);
+      });
       client.connect(cfg);
     } else {
       clearTimeout(timer);
@@ -510,7 +515,7 @@ async function runDiscover(argv) {
   } catch (e) {
     const baseErr = e instanceof Error ? e.message : String(e);
     const isMissing = /ENOENT|no such file|does not exist/i.test(baseErr);
-    const hint = isMissing ? " \xB7 \u6700\u53EF\u80FD\u539F\u56E0:LLM \u5728 SshExec \u4E4B\u540E\u8DF3\u8FC7\u4E86 Write \u843D\u76D8\u6B65\u9AA4 \xB7 \u8BF7\u56DE\u67E5\u4E0A\u4E00\u8F6E SshExec \u8FD4\u56DE\u7684 stdout \u662F\u5426\u8C03\u7528\u4E86 Write(file_path=" + osFile + ", content=<osStdout>) \xB7 \u89C1 SKILL.md Step 2.3 \xB7 \u4E0D\u662F Write \u5DE5\u5177\u4E0D\u53EF\u7528" : "";
+    const hint = isMissing ? " \xB7 \u6700\u53EF\u80FD\u539F\u56E0:LLM \u5728 ssh shell command \u4E4B\u540E\u8DF3\u8FC7\u4E86 Write \u843D\u76D8\u6B65\u9AA4 \xB7 \u8BF7\u56DE\u67E5\u4E0A\u4E00\u8F6E ssh shell command \u8FD4\u56DE\u7684 stdout \u662F\u5426\u8C03\u7528\u4E86 Write(file_path=" + osFile + ", content=<osStdout>) \xB7 \u89C1 SKILL.md Step 2.3 \xB7 \u4E0D\u662F Write \u5DE5\u5177\u4E0D\u53EF\u7528" : "";
     discoverWriteError(`failed to read ${osFile}: ${baseErr}${hint}`);
   }
   const osMetrics = parseOsIntoMetrics(raw);
