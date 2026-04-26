@@ -40,30 +40,39 @@ argument-hint: "host=<ip> user=<user> (privateKeyPath=<path>|password=<pw>) [eng
 
 ## SSH execution pattern
 
-This skill SSHs to the target host multiple times. **Use the agent's shell tool to invoke local `ssh` / `scp` CLI** (no SshExec / FlameGraph / Sql* — those bind to one specific kernel). Both auth modes are supported:
+This skill SSHs to the target host multiple times. 两条路径,按 auth 方式分:
 
-**Mode A · SSH key auth (recommended, all agents)** — when `privateKeyPath=<path>` was provided:
+**Mode A · SSH key auth (推荐, all agents)** — 用户传了 `privateKeyPath=<path>`:
 
 ```bash
 ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new \
     -i <privateKeyPath> -p <port> <user>@<host> '<command>'
 ```
 
-**Mode B · SSH password auth (Claude Code + ohsql only)** — when `password=<pw>` was provided:
+直接用本地 `ssh` CLI,简单稳定。
 
-```bash
-sshpass -p '<password>' ssh -o StrictHostKeyChecking=accept-new \
-    -p <port> <user>@<host> '<command>'
+**Mode B · SSH password auth (Claude Code + ohsql only)** — 用户传了 `password=<pw>`:
+
+```
+Bash(command="node ${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/scripts/ssh.mjs --op exec \
+       --host <ip> --user <user> --password '<pw>' [--port <n>] \
+       --command '<command>'")
 ```
 
-**On OpenAI Codex CLI (sandbox blocks `sshpass`)** — when only `password=<pw>` is given, **stop the workflow and ask the user**:
+> ⚠️ **Mode B 必须走 `ssh.mjs --op exec`,不要直接 `sshpass + ssh`**。理由:
+> - 部分 Linux 主机(华为云 EulerOS / RHEL+PAM / Ubuntu+pam_unix 等)的 sshd 把 `password` 方法代理到 PAM 的 `keyboard-interactive` 多回合 challenge-response
+> - `sshpass` 用 TTY/SSH_ASKPASS 拦截单次 prompt 的机制,在 PAM 多回合时会**时序对错**(把第一回合的 password 注入到第二回合的 prompt) → 间歇性 `Permission denied`,exit code 5
+> - `ssh.mjs --op exec` 走 ssh2 库 + `tryKeyboard:true` + `keyboard-interactive` event handler,**直接处理 PAM challenge**,不依赖 TTY 时序 → 在 PAM 主机上稳定
+> - 即使非 PAM 主机,走 ssh.mjs 也没坏处(就是多 ~50ms node 启动开销)
 
-> Codex CLI's sandbox blocks `sshpass` so SSH password auth is unavailable here.
-> Please run once on your local machine:
->   `ssh-copy-id -i ~/.ssh/id_ed25519.pub <user>@<host>`
-> Then re-invoke this skill with `privateKeyPath=~/.ssh/id_ed25519` instead of `password=...`.
+`sshpass + ssh` 仅在调试需要(例:确认 SSH 是否还通)时用,**不进主流程**。
 
-**stdout-non-empty = success** rule: if shell returns non-empty stdout, treat as success regardless of exitCode / red-rendering / stderr WARN/deprecated noise. Only when **both stdout and stderr are empty** does SSH actually fail (no auth / no route).
+**ssh.mjs --op exec 的 stdout 是结构化 JSON**:`{"stdout":"...","stderr":"...","exitCode":0}`。LLM 拿到后:
+- 解析 JSON,取 `stdout` 字段当作"远端命令的标准输出"
+- `exitCode === 0` 且 `stdout` 非空 → 成功;`stdout` 空且 `stderr` 空 → 走 Gate 4 自检
+- `err` 字段非空 → SSH 协议层失败(`All configured authentication methods failed` 等),按场景兜底
+
+**On OpenAI Codex CLI (sandbox blocks `sshpass`)** — 用户只传 `password=<pw>` 时,**Mode B 仍可用**(`ssh.mjs --op exec` 走 ssh2,不依赖 sshpass)。Codex CLI 沙箱通常能跑 node + ssh2,真不行才回退到要求 ssh-copy-id。
 
 ## Task tracking pattern
 
@@ -168,6 +177,42 @@ password 前 3 + `***` + 后 3 脱敏。后续 SSH 命令的 host/user/port/pass
 2. 发现漏传 → 同 turn 重试
 3. 全传齐仍空 → 走紧凑二次收集
 
+### 1.2bis · DB 凭据预询问(凭据缺时前置)
+
+**触发**:DB 凭据缺(按 engine 已知/未知分两种判断):
+- engine 已显式(`mongo|mysql|redis`):对应必需凭据缺 — mongo 缺 `mongo_user` 或 `mongo_password`;mysql 缺 db 用户/密码;redis 缺 AUTH 密码
+- engine 缺省 / `=auto`:任意 DB 凭据相关字段都缺
+
+任何一种命中本步触发。如果用户 slash args 已经把对应凭据传齐 → 跳过本步,直接进 1.3。
+
+**为什么前置**:不问就跑 1.3 探测 + 全量采集会浪费 ~105s,等到 Step 2.7 DB 连不上才反向问 — 用户体验差。这里给用户一个**主动选择**的入口。
+
+ask the user(topic = `数据库连接信息`):
+
+```
+━ 数据库连接信息 ━
+当前未提供数据库凭据。请选:
+  1. 我现在补全凭据(engine + db_user + db_password [+ auth_db for mongo])
+     → 现在收齐后进入采集,采集时凭据直接生效
+  2. 跳过,先做自动探测
+     → 1.3 探测远端进程,命中后展示实例并向你确认凭据,再进采集
+请回复 1 / 2 或直接给参数。
+```
+
+Stop and wait for the next turn。
+
+**用户选 1(补全)**:
+- 如果 engine 仍缺,先确定 engine(`mongo|mysql|redis`)
+- 按 engine 收对应凭据:
+  - mongo:`mongo_user` / `mongo_password` / `auth_db`(默认 admin)
+  - mysql:`user` / `password`
+  - redis:`password`
+- 全收齐 → 进 1.3。1.3 探测仍跑,只是后续不再问凭据
+
+**用户选 2(自动探测)**:直接进 1.3,凭据由 1.3bis 在探测命中后再问
+
+**用户直接给参数(不答 1/2 而是直接补字段)**:把字段并入参数集,等价于"选 1"路径
+
 ### 1.3 · 环境探测(无条件 · 一次 SSH 全做完)
 
 **触发**:无条件跑(不管 `engine=auto` / 显式 / 缺省)。本步是采集阶段唯一前置 — 拿到 engine + 实例(pid/bind/port)+ 火焰图工具能力(perf / offcputime-bpfcc)三类信号,锁住后 Step 2 采集阶段绝对禁止任何探测性 SSH。
@@ -184,18 +229,18 @@ password 前 3 + `***` + 后 3 脱敏。后续 SSH 命令的 host/user/port/pass
   · 环境探测 · 引擎进程 / 实例 bind+port / 火焰图工具
 ```
 
-读 probe 命令并 SSH:
+读 probe 命令:
 ```
 Read(file_path="${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/data/collect-cmds.json")
 ```
 
-run via the SSH execution pattern (see Architecture section), substituting `<command>` with the literal `probeCmd` string from `collect-cmds.json`. Set timeout ≈ 15s。
+按 SSH execution pattern 跑(Mode B 默认走 `ssh.mjs --op exec`,见 Architecture 一段);timeout ≈ 15s。`<command>` = literal `probeCmd` string。
 
-probe stdout Write 落盘:
+`ssh.mjs --op exec` 返回的 JSON 里取 `stdout` 字段(probe 文本),Write 落盘:
 ```
 Write(
   file_path="/Users/<yourlogin>/.ohsql/tmp/perf-kp-sql-probe-<TS>.txt",
-  content="<此处填入 SSH probe 命令刚拿到的全部 stdout 文本>"
+  content="<此处填入 ssh.mjs 返回 JSON 的 stdout 字段内容,即 ###PROBE_BEGIN### ... ###PROBE_END### 全段>"
 )
 ```
 
@@ -251,7 +296,71 @@ Stop and wait for the next turn。用户选定后继续。
 
 #### 锁定的状态
 
-`engine` + `bind` + `port` + `pid` + `flame_capable` 在内存里保留。**Step 2 全部子步骤共享这套状态,绝不重新探测**。火焰图能力公告 + 硬件/OS/实例 识别行**统一推迟到 task 1 收尾(Step 2.6)**,避免 PLAN 阶段抢 task UI 风头。
+`engine` + `bind` + `port` + `pid` + `flame_capable` 在内存里保留。**Step 2 全部子步骤共享这套状态,绝不重新探测**。火焰图能力公告 + 硬件/OS 识别行**统一推迟到 task 1 收尾(Step 2.6)**;**实例识别行**则在下一步 1.3bis 立即出(用户需要在采集前看到探测结果)。
+
+### 1.3bis · 探测结果展示 + 凭据确认
+
+**目标**:
+- 让用户**采集前**就看到 1.3 探测到了什么(实例 + 火焰图能力)
+- 如果对应 engine 的 DB 凭据仍缺,**当场问**(避免 Step 2.7 才反向问)
+
+#### 1.3bis.1 · 展示探测结果
+
+打 2 行(无论凭据是否齐都打):
+```
+  · 数据库实例 · <engine> @ <bind>:<port> (pid=<pid>) [· 默认端口推断]
+  · 火焰图能力 · <on-CPU + off-CPU 双采 | 仅 on-CPU(offcputime-bpfcc 未装) | 不可用 · perf 未装>
+```
+
+#### 1.3bis.2 · 凭据确认(如缺则问)
+
+按 engine 检查必需凭据是否已齐:
+
+| engine | 必需凭据 |
+|---|---|
+| mongo | `mongo_user` + `mongo_password`(`auth_db` 默认 admin 可省) |
+| mysql | db `user` + `password`(注意:这俩是连 DB 用的,不是 SSH 用的) |
+| redis | `password`(可空 = 无 AUTH) |
+
+**齐** → 跳过本子步,直接进 1.4。
+
+**缺** → ask the user(topic = `<engine> 凭据`):
+
+mongo 例:
+```
+━ MongoDB 凭据(已探测命中) ━
+远端检测到 mongod 实例 @ <bind>:<port> (pid=<pid>)。
+连接需要凭据,请提供:
+  - mongo_user(必填,匿名连接绝大多数 mongo 部署会被拒)
+  - mongo_password(必填)
+  - auth_db(默认 admin · 可省)
+直接回 "跳过" = 仍按匿名试一次(失败会在采集阶段反向问)。
+```
+
+mysql 例:
+```
+━ MySQL 凭据(已探测命中) ━
+远端检测到 mysqld 实例 @ <bind>:<port> (pid=<pid>)。
+连接需要凭据,请提供:
+  - user(MySQL 数据库用户)
+  - password
+直接回 "跳过" = 不带凭据试一次(失败会在采集阶段反向问)。
+```
+
+redis 例:
+```
+━ Redis 密码(已探测命中) ━
+远端检测到 redis-server 实例 @ <bind>:<port> (pid=<pid>)。
+请提供 password(空回车 = 无 AUTH 直连)。
+```
+
+Stop and wait for the next turn。
+
+**用户回 "跳过" / 空 / 拒绝** → 标记 `db_creds_skip=true`,进 1.4(Step 2.7 失败仍走"连不上反向问")。
+
+**用户给凭据** → 收齐进 1.4。
+
+> 注意:1.2bis 用户已选 "1. 补全凭据" 时,1.3bis.2 自然跳过(凭据已齐);只 1.3bis.1 的展示行还会打,告诉用户探测命中了什么。
 
 ### 1.4 · 声明 task 清单
 
@@ -264,16 +373,21 @@ The 5 phases (English subject for portability, with Chinese display titles):
 | # | Display title (subject) | Spinner verb (activeForm) | Count placeholder |
 |---|-------------------------|---------------------------|-------------------|
 | 1 | OS/硬件采集 (50 项)     | 采集 OS/硬件              | 50 (fixed) |
-| 2 | 运行时采集 (<N> 项)     | 采集运行时                | <N>:mongo=18; mysql/redis omit `(N 项)` |
+| 2 | <Engine> 运行时采集 (<N> 项) | 采集运行时           | mongo=18 项;mysql/redis 不挂数字;**`<Engine>` 替换为 `MongoDB` / `MySQL` / `Redis`** |
 | 3 | 规则诊断 (<R> 条)       | 诊断规则                  | <R>:mongo=59; mysql=38; redis=39 |
 | 4 | 知识库检索 (54 篇)      | 检索知识库                | 54 (fixed) |
 | 5 | 报告渲染                | 渲染报告                  | (no count) |
 
 **Exactly 5 phases. Do NOT create extras (no "cleanup" or "init" phases).** Do NOT assume sequential IDs (1-5) — use whatever IDs the agent's task tool returns.
 
-**v0.5.1 命名规则**:subject 名词在前 + 动词在后(`X采集` / `X诊断` / `X检索` / `X渲染`)· ≤ 5 字 · activeForm 动词在前(spinner verb 自然中文)· 不挂 engine 前缀。
+**命名规则**:
+- subject 名词在前 + 动词在后(`X采集` / `X诊断` / `X检索` / `X渲染`)
+- activeForm 动词在前(spinner verb 自然中文)
+- **task 2「运行时采集」必须挂 engine 前缀**(`MongoDB 运行时采集` / `MySQL 运行时采集` / `Redis 运行时采集`)— 因为运行时数据完全 engine-specific,不挂前缀语义模糊
+- task 1 / 3 / 4 / 5 **不挂 engine 前缀**(OS、规则诊断流程、KB 检索、报告渲染对所有 engine 一致)
+- 字符长度不强限,task UI 容得下
 
-**数字硬编表**(数据来源 = 实测 · 不要编):
+**phase 项数对照表**(数值来自实测,不要编):
 
 | engine | task 1 (`OS/硬件采集`) | task 2 (`运行时采集`) | task 3 (`规则诊断`) | task 4 (`知识库检索`) |
 |--------|----------------------|---------------------|--------------------|---------------------|
@@ -319,29 +433,30 @@ Read(file_path="${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/data/collect-cmds.json
   · 磁盘 · iostat / 调度器 / 利用率
 ```
 
-Run via the SSH execution pattern (see Architecture section), `<command>` = literal `osBatchCmd` from `collect-cmds.json` (do NOT improvise):
+按 SSH execution pattern 跑(见 Architecture 一段),`<command>` = literal `osBatchCmd` from `collect-cmds.json` (do NOT improvise)。
 
-```bash
+```
 # Mode A · key auth:
-ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new \
-    -i <privateKeyPath> -p <port> <user>@<host> '<osBatchCmd>'
+Bash("ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i <privateKeyPath> -p <port> <user>@<host> '<osBatchCmd>'")
 
-# Mode B · password auth (CC + ohsql):
-sshpass -p '<password>' ssh -o StrictHostKeyChecking=accept-new \
-    -p <port> <user>@<host> '<osBatchCmd>'
-
-# Codex CLI with password-only: stop and ask user to use ssh-copy-id.
+# Mode B · password auth (推荐,默认):
+Bash("node ${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/scripts/ssh.mjs --op exec --host <ip> --user <user> --password '<pw>' --port <n> --command '<osBatchCmd>'")
 ```
 
 Set timeout ≈ 60 seconds。
 
-**stdout-non-empty = success**;只有 stdout=stderr 都空才走 Gate 4 自检。失败兜底:第一次问凭据,第二次扩展 troubleshooting checklist。
+**Mode B 解析 JSON**:`ssh.mjs --op exec` 返回 `{"stdout":"...","stderr":"...","exitCode":N}`。
+- `exitCode===0 && stdout` 非空 → 成功
+- `stdout=="" && stderr==""` → SSH 不通,走 Gate 4 自检
+- `err` 字段非空 → 协议层失败(认证失败 / 路由不通),展开 troubleshooting checklist
 
-osStdout Write 落盘:
+**Mode A 解析**:exitCode + stdout 直接由 shell 暴露,stdout 非空 = 成功;stderr 的 WARN/deprecated 噪声忽略。
+
+osStdout Write 落盘(Mode B 用 JSON 的 `stdout` 字段;Mode A 用 shell stdout):
 ```
 Write(
   file_path="/Users/<yourlogin>/.ohsql/tmp/perf-kp-sql-os-<TS>.txt",
-  content="<此处填入 SSH osBatchCmd 刚拿到的全部 stdout 文本>"
+  content="<整段 osBatchCmd stdout 文本 · 不要 pipe 任何 tail/head/grep 过滤>"
 )
 ```
 
@@ -395,11 +510,18 @@ Bash(command="node ${CLAUDE_PLUGIN_ROOT:-$OHSQL_DEP_CPU_FLAMEGRAPH_ROOT}/scripts
        --process=<engine 进程名> --type=oncpu --duration=3 --engine=<engine>")
 ```
 
-`flame_capable=oncpu+offcpu` → 再调一次 `--type=offcpu`。
+> ⚠️ **capture.mjs 的 stdout 必须整段落盘 · 严禁 pipe 任何过滤命令**:
+> - 不要 `2>&1 | tail`、`| head`、`| grep`、`| jq -r`、`| awk` 等管道
+> - 不要 `> /dev/null` 重定向
+> - 一过滤就废 JSON · 后续 Read parse 必爆 `Unexpected token '}'`
+> - 调试时若想看末尾,落盘后 `Read(..., offset=N, limit=K)` 看,**不要在 capture.mjs 调用处过滤**
+> - run_in_background:true 模式特别注意:管道结果会落到 background output 文件,等于把 JSON 写残
 
-拿到 JSON 后**立即 Write 落盘**:
+`flame_capable=oncpu+offcpu` → 再调一次 `--type=offcpu`(同样**整段落盘**,不要过滤)。
+
+拿到完整 JSON 后立即 Write 落盘:
 ```
-Write(file_path="/Users/<yourlogin>/.ohsql/tmp/flame-json-<TS>.json", content="<capture.mjs 返回的完整 JSON>")
+Write(file_path="/Users/<yourlogin>/.ohsql/tmp/flame-json-<TS>.json", content="<capture.mjs 返回的完整 JSON · 一字不漏>")
 ```
 
 记录 `artifacts.serverSvgPath`,拉 SVG:
@@ -431,19 +553,19 @@ Bash(command="node ${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/scripts/ssh.mjs --o
 ```
   · 硬件 · <cpu_model> · <arch> · <cpu_cores> core · <GB>
   · 操作系统 · <os_id> <os_version> · Linux <kernel_version> · <virt>
-  · 数据库实例 · <engine> @ <bind>:<port> (pid=<pid>) [· 默认端口推断]
-  · 火焰图采样 · oncpu <N> 帧 · offcpu <M> 帧             # 仅采到时
-  · 火焰图采样 · 跳过(flame_capable=none)                # 跳过时
+  · 火焰图采样 · oncpu <采样窗口> · top1=<func> <pct>%   # 仅采到时
+  · 火焰图采样 · 跳过(perf 未装)                         # 跳过时
 ```
 
 填值规则:
 - `total_mem_mb` 除 1024 得 GB(1 位小数)
 - `numa_nodes ≥ 2` 才显示 NUMA 节点数
 - `cpu_model` 空 → `"CPU 未识别"`
-- `数据库实例` 行字段全部从 Step 1.3 锁定状态拿(bind/port/pid/engine);若 pid 为空(默认端口推断兜底)→ 加 `· 默认端口推断` 后缀
-- 火焰图采样帧数从 flame-json 的 `summary.frames.oncpu` / `summary.frames.offcpu` 读
+- 火焰图采样:从 flame-json 拿 `totalMs` / `top1.name` / `top1.percent`(老版字段)或 `summary` 文本截取
 
-打完识别行后 mark phase 1 as completed and phase 2 (`运行时采集`) as in_progress (single re-send)。
+> ⚠️ **不重复打"数据库实例"行** — Step 1.3bis 已经在 PLAN 阶段就把实例信息打过了,这里 phase 1 收尾只补 OS/硬件/火焰图三类,实例不重复。
+
+打完识别行后 mark phase 1 as completed and phase 2 (`<engine> 运行时采集`) as in_progress (single re-send)。
 
 ### 2.7 · DB 批量采集
 
@@ -463,7 +585,14 @@ Bash(command="node ${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/scripts/ssh.mjs --o
   · slowlog / 大 key / ...
 ```
 
-Run via the SSH execution pattern, `<command>` = `dbBatchTemplates[engine]` string after placeholder substitution。占位符:`__BIND__` / `__DB_PORT__` / `__USER__` / `__PWD__`(MongoDB 专属:`__MONGO_USER__` / `__MONGO_PWD__` / `__AUTH_DB__` / `__AUTH_ARGS__`)。
+按 SSH execution pattern 跑(Mode B 默认走 `ssh.mjs --op exec`,见 Architecture),`<command>` = `dbBatchTemplates[engine]` 占位符替换后的字符串。占位符:`__BIND__` / `__DB_PORT__` / `__USER__` / `__PWD__`(MongoDB 专属:`__MONGO_USER__` / `__MONGO_PWD__` / `__AUTH_DB__` / `__AUTH_ARGS__`)。
+
+Mode B 模板:
+```
+Bash(command="node ${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/scripts/ssh.mjs --op exec \
+       --host <ip> --user <user> --password '<ssh_pw>' --port <n> \
+       --command '<dbBatchCmd 替换占位符后>'")
+```
 
 Set timeout ≈ 60 seconds。
 
@@ -521,7 +650,7 @@ Mark phase 3 (`规则诊断 (<R> 条)`) as in_progress in the task list.
   · info <I>     · <代表项 1> / <代表项 2> / <代表项 3> / ...
 ```
 
-数字硬编(实测 · 不要编):
+严重度计数(数值来自实测,不要编):
 
 | engine | 总规则 R | critical C | warning W | info I |
 |--------|--------|----------|-----------|--------|
@@ -647,8 +776,48 @@ results 空 → 模板 B:
 - **Step 2 整段绝对禁止任何探测性 SSH**(`command -v perf` / `pgrep` / `ss -lntp` 等):perf 探测在 1.3 已做、实例发现在 1.3 已做、连接性等到真正采集时才暴露
 - **火焰图采集只发生在 Step 2.5,作为 phase 1 子项展示;Step 3 / Step 4 严禁 SSH;没有"火焰图补采"路径(原 Step 5 已删除)**
 - task 工具可用时(Claude Code / Codex CLI),**只许调 task 工具,不许另外用纯文本渲染 `━ 5 阶段任务清单 ━` / `◻ phase 1 · ...` 重复列出**
+- **不向用户输出内部实现术语**(详见下方独立一节《用户可见消息 · 禁用元词清单》)
 - 工具失败 → 静默重试 1 次,第 2 次仍失败 → 一行 diagnostic 跳过,cap=2
 - 不道歉 / 不反省 / 不自述内部出错
+
+# 用户可见消息 · 禁用元词清单
+
+发给用户的中文消息(包括活动行 / 询问 / 总结)里**绝对不许出现**以下英文坐标词或内部实现术语。这些是 SKILL 给 LLM 看的内部坐标,用户屏幕上看到要先在脑里翻译成中文动作才能理解 — 直接违反"对用户讲人话"原则。
+
+**禁用清单**:
+
+| 禁用词 | 说明 |
+|---|---|
+| `phase 1` / `phase 2` / ... / `phase N` | SKILL 内部的阶段编号,用户不需要知道编号 |
+| `task 1` / `task 2` / `task N` | task 工具的内部 id,用户看 spinner 就够了 |
+| `task list` / `任务清单`(用作元词) | task 工具 UI 已经显示,不要在文字消息里再提 |
+| `Step 1.0bis` / `Step 1.3` / `Step 2.5` / `Step X.Y` | SKILL 章节坐标 |
+| `flame_capable` / `flame_capable=oncpu` | 内部状态字段名 |
+| `db_creds_skip` / `_notes` / `hint_engine` 等程序字段 | 程序状态变量 |
+| `数字硬编` / `数据硬编` / `phase 项数对照表` | SKILL 文档术语 |
+| `1.2bis` / `1.3bis` 等小步编号 | 同 Step |
+| `osBatchCmd` / `dbBatchTemplates` / `probeCmd` | 程序模板名 |
+| `--op probe-parse` / `--op discover` 等命令行参数 | 程序参数 |
+
+**判断规则**:看输出时把每个英文坐标词圈出来 — 如果用户得在脑里翻译成"哦,这是第几阶段哪一步",**就违规**。直接说做什么。
+
+**错 / 对对照**:
+
+| 错(我之前犯过) | 对 |
+|---|---|
+| `声明 task list(mongo,task 2 挂 engine 前缀)` | `采集计划已就绪。` 或不说 |
+| `phase 1 → completed · phase 2 → in_progress` | `OS/硬件采集完成,进入 MongoDB 运行时采集。` |
+| `Step 2.6 · 三部分数据解析(统一识别行)` | `汇总采集结果:` |
+| `Step 2.5 火焰图采集(flame_capable=oncpu, 仅 on-CPU)` | `开始采火焰图(仅 on-CPU)。` |
+| `flame_capable=none → 整段跳过 Step 2.5.2` | `远端无 perf,跳过火焰图采集。` |
+| `1.2bis 触发了 → 用户选 2(自动探测)` | `按"自动探测"继续。` |
+| `调 probe-parse 解析后 instances 字段为 1` | `远端检测到 1 个数据库实例。` |
+
+**特例 — 调试 / 诊断给用户的错误信息可以含实现术语**:
+- 当用户**显式提到**这些词时(例:"为什么 Step 1.3 报错"),可以在回话里复用,因为这是技术对话上下文
+- 报错诊断行(给开发者读的,如 `Permission denied (publickey,...)`)可以原样显示,因为是系统层面的
+
+**工程化提示**:写完一段用户可见消息,**回头扫一遍**,搜上面禁用清单里的词,有就改写。
 
 # 参考文件
 
