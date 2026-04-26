@@ -109,6 +109,36 @@ export function openRemoteSession(conn: SshConn): RemoteSession {
   // 同时给 password + privateKeyPath → key 优先，password 静默忽略
   const usePassword = !!conn.password && !conn.privateKeyPath;
 
+  // ControlMaster · 一次 TCP+auth 多 channel 复用,服务端只看到 1 个连接
+  //
+  // 不开 ControlMaster 时,一次 capture.mjs 会建 8-9 个独立 SSH 连接(预检 +
+  // perf --version + tracepoint check + perf record + mkdir + 3 次上传 + svg
+  // 生成),每个独立 TCP+auth。在装了 fail2ban / pam_faillock / sshd MaxStartups
+  // 限速的主机上(华为云 EulerOS / RHEL+PAM 等),短时间内 8-9 个连接很容易撞
+  // 阈值 → 中途某个被丢 → 全锁,burst 失败。
+  //
+  // 加上 ControlMaster=auto 后,第一个 ssh spawn 顺手开 master(socket 监听),
+  // 后续所有 ssh spawn 看到 socket 存在 → 直接通过 socket 起新 channel(完全
+  // 跳过 TCP 握手 + auth)。服务端视角只有 1 个连接,8-9 channel 是 SSH 协议
+  // 内部多路复用,不计入连接频率限速器。
+  //
+  // ControlPath 用 PID + ms 时间戳 + 4 位随机,避免并行 capture.mjs 实例
+  // socket 冲突。路径长度务必 < 108 字节(UNIX socket 上限)所以放 /tmp。
+  // ControlPersist=30 让 master 在最后一个 channel 结束后再保持 30s,
+  // 方便快速连续调用(本进程内多个 exec 之间)。
+  const controlPath = `/tmp/cpu-flame-cm-${process.pid}-${Date.now()}-${Math.random()
+    .toString(36)
+    .slice(2, 6)}.sock`;
+
+  const cmOptions = (): string[] => [
+    "-o",
+    "ControlMaster=auto",
+    "-o",
+    `ControlPath=${controlPath}`,
+    "-o",
+    "ControlPersist=30",
+  ];
+
   const baseSshArgs = (): string[] => {
     const args: string[] = [
       "-p",
@@ -119,6 +149,7 @@ export function openRemoteSession(conn: SshConn): RemoteSession {
       "StrictHostKeyChecking=accept-new",
       "-o",
       "ServerAliveInterval=15",
+      ...cmOptions(),
     ];
     if (usePassword) {
       // ASKPASS 模式：禁 pubkey（避免本机默认 key 抢先抢到 auth slot 失败再降级）
@@ -142,6 +173,7 @@ export function openRemoteSession(conn: SshConn): RemoteSession {
       "-o",
       "StrictHostKeyChecking=accept-new",
       "-q",
+      ...cmOptions(),
     ];
     if (usePassword) {
       args.push("-o", "PreferredAuthentications=password,keyboard-interactive");
@@ -214,7 +246,19 @@ export function openRemoteSession(conn: SshConn): RemoteSession {
     },
 
     close(): void {
-      // no-op：每次 spawn 是独立进程，没有需要释放的句柄
+      // 显式让 ControlMaster master 退出 · 避免 ControlPersist=30 期间留 socket
+      // ssh -O exit -S <socket> <target> 通知 master 立即退出
+      // stdio:'ignore' + .unref() 让本进程不等待这个清理子进程
+      try {
+        const cleanup = spawn(
+          "ssh",
+          ["-O", "exit", "-S", controlPath, "-p", String(port), target],
+          { stdio: "ignore" },
+        );
+        cleanup.unref();
+      } catch {
+        // 清理失败无所谓 · ControlPersist 到期会自己退
+      }
     },
   };
 
