@@ -1,0 +1,26 @@
+{
+  "name": "cpu-flamegraph",
+  "version": "0.2.0",
+  "description": "Capture and analyze CPU flamegraphs over SSH. Pure local ssh CLI + Perl flamegraph.pl — harness-agnostic, works in stock Claude Code.",
+  "author": {
+    "name": "zlxtqbdgdgd",
+    "url": "https://github.com/zlxtqbdgdgd"
+  },
+  "homepage": "https://github.com/zlxtqbdgdgd/ohsql-plugin",
+  "repository": "https://github.com/zlxtqbdgdgd/ohsql-plugin",
+  "license": "MIT",
+  "keywords": ["perf", "flamegraph", "cpu", "ssh", "linux", "macos"],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "CPU Flamegraph",
+    "shortDescription": "Capture & analyze CPU flamegraphs over SSH",
+    "longDescription": "Run `perf record` on a remote host via SSH, parse perf script locally, render SVG via flamegraph.pl, and emit Top-N hotspot functions. Pure Bash + Perl + JS; no native deps. SSH key auth or password (sshpass) supported.",
+    "developerName": "zlxtqbdgdgd",
+    "category": "Developer Tools",
+    "capabilities": ["Interactive"],
+    "websiteURL": "https://github.com/zlxtqbdgdgd/ohsql-plugin/tree/main/plugins/cpu-flamegraph",
+    "defaultPrompt": [
+      "Capture a CPU flamegraph for the mongod process on host 10.0.0.1"
+    ]
+  }
+}
