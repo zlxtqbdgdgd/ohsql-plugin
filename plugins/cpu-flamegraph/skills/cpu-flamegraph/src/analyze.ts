@@ -9,9 +9,10 @@
  * 为了向后兼容已有 SVG 流水线（flamegraph.pl 读的是 folded 文本），
  * 我们提供 `samplesToFolded()` 双轨输出。
  *
- * **本 skill 版的剪裁**（vs ohsql 原版）：去掉了 sourceLookup（universal-ctags
- * 源码定位）依赖。原版 `HotFunction.source` 字段从未被 `analyze()` 填入，
- * 只是占位；这里直接删掉以保持 cartridge 自包含。
+ * **Historical note**: ported from an upstream Kunpeng analyzer; the standalone
+ * cartridge version drops the `sourceLookup` (universal-ctags source positioning)
+ * dependency. The upstream `HotFunction.source` field was a placeholder never
+ * populated by `analyze()`; removed here to keep the cartridge self-contained.
  */
 
 import type { PerfSample } from "./parsePerfScript.js";

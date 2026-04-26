@@ -164,8 +164,11 @@ if (!existsSync(mpPath)) {
       fail(`${entry.name}: plugin.json name "${pm.name}" mismatches marketplace "${entry.name}"`);
     }
     if (!pm.version) fail(`${entry.name}: missing version`);
-    if (pm["x-ohsql-needs-npm-install"] && !pm["x-ohsql-setup-skill"]) {
-      fail(`${entry.name}: needs-npm-install=true but no setup-skill declared`);
+    // Both legacy x-ohsql-* and new x-* field names supported
+    const needsInstall = pm["x-needs-npm-install"] ?? pm["x-ohsql-needs-npm-install"];
+    const setupSkill = pm["x-setup-skill"] ?? pm["x-ohsql-setup-skill"];
+    if (needsInstall && !setupSkill) {
+      fail(`${entry.name}: needs-npm-install=true but no setup-skill declared (use x-setup-skill, or legacy x-ohsql-setup-skill)`);
     }
 
     const skillsRoot = join(pluginDir, "skills");

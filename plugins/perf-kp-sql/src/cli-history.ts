@@ -23,7 +23,7 @@
  *   ~/.ohsql/perf-kp-sql/hosts.json · 默认
  *
  * v0.5.1 · 用户授权存凭据(passwords / mongo auth) · hosts.json chmod 0600 ·
- *          load 输出包含全部凭据字段 · LLM 不再 AskUserQuestion 单点问。
+ *          load 输出包含全部凭据字段 · LLM 不再走 prose Q&A 单点问。
  *
  * 业界对照:openssh `~/.ssh/known_hosts` · MySQL Workbench Recent Connections ·
  * Termius / SecureCRT recent hosts。
