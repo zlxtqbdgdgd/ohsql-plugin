@@ -30,8 +30,19 @@ OpenAI Codex CLI, and ohsql.
 
 ### Changed
 
-- **`perf-kp-sql` 0.5.1 → 0.6.0** — *minor bump per repo versioning policy
-  (behavior change)*:
+- **`perf-kp-sql` 0.5.1 → 0.6.1** — *minor bump (0.5→0.6) per repo versioning
+  policy (behavior change), then 0.6.0 → 0.6.1 patch for PAM auth fix*:
+  - **0.6.1 PAM auth fix**: `scripts/ssh.mjs` (and src/cli-ssh.ts source)
+    now enables `tryKeyboard: true` + adds a `keyboard-interactive` event
+    handler. Previously, password auth was hard-coded to the SSH `password`
+    method (RFC 4252 §8) only — but most modern Linux distributions
+    (including Huawei Cloud EulerOS, RHEL/CentOS with PAM, Ubuntu with
+    pam_unix) actually drive password auth through the `keyboard-interactive`
+    method (PAM challenge/response). Symptom: `{"err":"All configured
+    authentication methods failed"}` against any PAM-enabled sshd, even
+    with correct credentials. Fix supports BOTH methods; ssh2 falls through
+    automatically without burning extra MaxAuthTries slots.
+  - **0.6.0 changes (original v0.6.0 scope)**:
   - SKILL.md frontmatter standardized: dropped `allowed-tools` (was binding
     to ohsql kernel tools `SshExec`/`TaskCreate`/`TaskUpdate`/`TaskList`/
     `ToolSearchTool`), dropped `when-to-use` (merged into description),

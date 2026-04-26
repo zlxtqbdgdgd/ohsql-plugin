@@ -193,7 +193,17 @@ async function connectOnce(args: ExecArgs): Promise<Client> {
       });
     } else if (args.password) {
       cfg.password = args.password;
-      cfg.authHandler = ["password"];
+      // v0.6.1 · 同时支持 "password"(裸 SSH password 方法 · RFC 4252) +
+      //          "keyboard-interactive"(PAM 驱动 · 大多数 Linux 发行版默认 · prompt 是
+      //          "user@host's password:" 而不是裸 "Password:")· 让 ssh2 在 password
+      //          方法被拒后自动 fall through 到 keyboard-interactive · 实际只算 1 次
+      //          认证尝试 · 不触发 MaxAuthTries
+      cfg.authHandler = ["password", "keyboard-interactive"];
+      cfg.tryKeyboard = true;
+      // PAM keyboard-interactive challenge handler · 用 password 回每个 prompt
+      client.on("keyboard-interactive", (_name, _instructions, _lang, _prompts, finish) => {
+        finish([args.password as string]);
+      });
       client.connect(cfg as Parameters<Client["connect"]>[0]);
     } else {
       clearTimeout(timer);

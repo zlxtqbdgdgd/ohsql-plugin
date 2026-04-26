@@ -273,7 +273,12 @@ async function connectOnce(args) {
       });
     } else if (args.password) {
       cfg.password = args.password;
-      cfg.authHandler = ["password"];
+      // v0.6.1 · also accept PAM keyboard-interactive (default on most Linux distros)
+      cfg.authHandler = ["password", "keyboard-interactive"];
+      cfg.tryKeyboard = true;
+      client.on("keyboard-interactive", (_name, _instructions, _lang, _prompts, finish) => {
+        finish([args.password]);
+      });
       client.connect(cfg);
     } else {
       clearTimeout(timer);
