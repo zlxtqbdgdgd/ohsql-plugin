@@ -119,7 +119,12 @@ const issues = {
   MISSING_FETCHED_AT: [],     // 军规 1.3 / 2.1 · verified 必须有 source.fetched_at
   MISSING_DERIVED_FROM: [],   // 军规 1.4 · inferred 必须 derived_from
   NUMERIC_THRESHOLD_GAP: [],  // 军规 3 · 阈值数字必须能在 quote 字面读到
+  MULTI_SOURCE: [],           // 军规 2.2 · 一条 rule 只能单源 · 不许"综合自多个来源"
 };
+const FORBID_QUOTE_PHRASES = [
+  "综合自", "综合多个", "based on multiple sources", "from various sources",
+  "according to several", "compiled from", "synthesized from",
+];
 const VALID_PROVENANCE = new Set(["verified", "inferred", "model-generated"]);
 
 // 抽 quote / threshold 字段里的数字 (整数 / 小数 / 含单位前缀的)
@@ -153,6 +158,18 @@ for (const path of jsonFiles) {
     // 军规 1.4 · inferred 必须 derived_from
     if (prov === "inferred" && !rule.derived_from) {
       issues.MISSING_DERIVED_FROM.push({ file, id, reason: "inferred 必须挂 derived_from" });
+    }
+    // 军规 2.2 · 禁止综合自多个来源
+    //   (a) source 必须是 object 不是 array (多源应拆成多 fact)
+    //   (b) source.url 必须是 string 不是 array
+    //   (c) source.quote 不能含"综合"类关键词
+    if (Array.isArray(rule.source) || Array.isArray(rule.source?.url)) {
+      issues.MULTI_SOURCE.push({ file, id, reason: "source 是 array · 必须拆成多条 single-source rule" });
+    }
+    if (quote) {
+      const qLower = canonical(quote);
+      const hit = FORBID_QUOTE_PHRASES.find(p => qLower.includes(p.toLowerCase()));
+      if (hit) issues.MULTI_SOURCE.push({ file, id, reason: `quote 含综合关键词 "${hit}"`, quote: quote.slice(0, 80) });
     }
     // 军规 1.3 / 2.1 · verified 必须 source.fetched_at
     if ((prov === "verified" || prov == null) && rule.source?.url && !rule.source?.fetched_at) {
@@ -212,6 +229,7 @@ console.log(`⚠ EMPTY_URL  (有 quote 但无 source.url): ${issues.EMPTY_URL.le
 console.log(`✗ BAD_PROVENANCE (军规 1 · provenance 非法 / model-generated 带 quote): ${issues.BAD_PROVENANCE.length}`);
 console.log(`✗ MISSING_DERIVED_FROM (军规 1.4 · inferred 缺 derived_from): ${issues.MISSING_DERIVED_FROM.length}`);
 console.log(`✗ NUMERIC_THRESHOLD_GAP (军规 3 · 阈值数字不在 quote 字面): ${issues.NUMERIC_THRESHOLD_GAP.length}`);
+console.log(`✗ MULTI_SOURCE (军规 2.2 · "综合自多源" / source 是 array): ${issues.MULTI_SOURCE.length}`);
 console.log(`⚠ MISSING_FETCHED_AT (军规 1.3/2.1 · verified 缺 source.fetched_at · warn-only): ${issues.MISSING_FETCHED_AT.length}`);
 
 for (const [k, list] of Object.entries(issues)) {
@@ -229,7 +247,7 @@ if (args.json) {
 }
 
 // ---------- baseline 处理 ----------
-const fatalCategories = ["QUOTE_FALSE", "SHORT_QUOTE", "EMPTY_URL", "BAD_PROVENANCE", "MISSING_DERIVED_FROM", "NUMERIC_THRESHOLD_GAP"];
+const fatalCategories = ["QUOTE_FALSE", "SHORT_QUOTE", "EMPTY_URL", "BAD_PROVENANCE", "MISSING_DERIVED_FROM", "NUMERIC_THRESHOLD_GAP", "MULTI_SOURCE"];
 // MISSING_FETCHED_AT 暂为 warn-only (现存大量,需逐步补)
 const allFatal = fatalCategories.flatMap(k => issues[k].map(it => ({ ...it, _cat: k, _key: violationKey(it) })));
 

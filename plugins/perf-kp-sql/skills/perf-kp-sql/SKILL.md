@@ -1,6 +1,6 @@
 ---
 name: perf-kp-sql
-description: Kunpeng ARM64 + multi-database (MongoDB / MySQL / Redis) joint performance diagnosis. Runs SSH-based remote collection (50 OS metrics + per-engine runtime), evaluates 59-39 enabled rules from a sqlite knowledge base (FTS5 trigram + sqlite-vec 384-dim semantic search), and emits an impact-ranked HTML report with authoritative citations. Use when users report database slowness, CPU spikes, latency jitter, query timeouts, or are doing Kunpeng migration / config audit. Triggers include '数据库慢' / 'CPU 高' / '抖动' / 'mongo perf' / 'mysql 慢查询' / 'redis 延迟' / 'Kunpeng 性能' / similar phrases. First-time use:run `/perf-kp-sql-setup` to install native deps.
+description: Kunpeng ARM64 + MongoDB joint performance diagnosis. Runs SSH-based remote collection (50 OS metrics + 18 mongo runtime), evaluates 44 audited baseline rules from a sqlite knowledge base (FTS5 trigram + sqlite-vec 384-dim semantic search · 全部规则点开 [参考N] 字面命中权威文档), and emits an impact-ranked HTML report. Use when users report MongoDB slowness, CPU spikes, latency jitter, or are doing Kunpeng migration / config audit. Triggers include '数据库慢' / 'CPU 高' / '抖动' / 'mongo perf' / 'Kunpeng 性能' / similar phrases. **MySQL / Redis 暂不支持(0.9.2 砍掉,待重新审计上线)**. First-time use:run `/perf-kp-sql-setup` to install native deps.
 compatibility: |
   Requires SSH access to the target host + local OpenSSH `ssh` CLI (Linux/macOS
   自带 · Windows 走 WSL 或 OpenSSH-Win)。两种认证方式都通过 `node ssh.mjs`
@@ -12,14 +12,15 @@ compatibility: |
   在 /tmp/perf-kp-sql-cm-<hash>.sock)· 服务端只看到 1 个连接 · 避开 PAM
   faillock / fail2ban / sshd MaxStartups 限速。
   Native deps installed via `/perf-kp-sql-setup`: better-sqlite3, sqlite-vec,
-  @xenova/transformers (~30MB total + 25MB MiniLM model)。
-  Supported database engines: mongo (MongoDB 3.6-7.x), mysql (5.7-8.x),
-  redis (6.x-7.x). Knowledge base: 411 baseline rules + 54 distinct authoritative
-  documents (Anthropic + Kunpeng + WiredTiger + MongoDB official + ...).
+  ssh2, @xenova/transformers (~30MB total + 25MB MiniLM model).
+  Supported database engine: mongo (MongoDB 3.6-7.x) only. MySQL / Redis
+  暂不支持(0.9.2 砍掉,等通过同样的"字面 100% 命中"审计后再上线).
+  Knowledge base: 44 audited baseline rules + 54 distinct authoritative
+  documents (MongoDB official + WiredTiger + Ampere + Kunpeng + ...).
 metadata:
   generator: "manual"
   generated_at: "2026-04-26"
-argument-hint: "host=<ip> user=<user> (privateKeyPath=<path>|password=<pw>) [engine=mongo|mysql|redis] [port=<ssh_port>]"
+argument-hint: "host=<ip> user=<user> (privateKeyPath=<path>|password=<pw>) [engine=mongo] [port=<ssh_port>]"
 ---
 
 # Pre-flight
@@ -188,7 +189,7 @@ Stop here and wait for the user's selection in the next turn. Once selected, ful
 > ```
 > Stop and wait for the next turn.
 
-**Class 2 格式非法** — host 非合法 IP/FQDN、port 非 1-65535、engine 不在支持集合:
+**Class 2 格式非法** — host 非合法 IP/FQDN、port 非 1-65535、engine 不在支持集合(**当前只支持 `mongo`** · mysql / redis 在 0.9.2 已砍掉,显式传会被拒):
 
 > Ask the user (with the bad field name as the topic):
 > ```
