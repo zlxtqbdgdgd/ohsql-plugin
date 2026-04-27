@@ -429,6 +429,66 @@ function runSshExec(plan: SshSpawnPlan, timeoutMs: number, outputFile?: string):
   });
 }
 
+/**
+ * Read --command-file with retry + rich ENOENT diagnostic.
+ *
+ * Pattern observed (OH-SQL 0.36.x — 0.51.0): Write tool reports `Wrote /path`
+ * but immediately following `ssh.mjs --command-file /path` gets ENOENT.
+ * Upstream FileWriteTool is sync writeFileSync · no overlay · no staging ·
+ * so root cause is unclear. Hypothesis: agent's --command-file argument
+ * differs from Write's path by invisible bytes (whitespace / unicode form /
+ * stray prefix). Print everything so the next failure self-diagnoses.
+ */
+async function readCommandFileWithDiag(commandFile: string): Promise<string> {
+  // Small retry loop to absorb any plausible fs sync race (cheap)
+  let lastErr: unknown = null;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      return await readFile(commandFile, "utf8");
+    } catch (e) {
+      lastErr = e;
+      const code = (e as NodeJS.ErrnoException | undefined)?.code;
+      if (code !== "ENOENT") break; // only retry on missing-file race
+      if (attempt < 2) await new Promise((r) => setTimeout(r, 100));
+    }
+  }
+  // All retries exhausted — collect rich diagnostic
+  const errMsg = lastErr instanceof Error ? lastErr.message : String(lastErr);
+  const path = await import("node:path");
+  const fs = await import("node:fs");
+  const diag: Record<string, unknown> = {
+    commandFile_argv_raw: commandFile,
+    commandFile_byteLength: Buffer.byteLength(commandFile, "utf8"),
+    commandFile_codepoints: Array.from(commandFile).map((c) => c.codePointAt(0)),
+    isAbsolute: path.isAbsolute(commandFile),
+    cwd: process.cwd(),
+    HOME: process.env.HOME ?? "",
+    full_argv: process.argv,
+  };
+  try {
+    const dir = path.dirname(commandFile);
+    const targetBase = path.basename(commandFile);
+    diag.dirname = dir;
+    diag.basename = targetBase;
+    const entries = fs.readdirSync(dir);
+    diag.dirEntries = entries;
+    diag.exactMatch = entries.includes(targetBase);
+    diag.candidateNeighbours = entries
+      .filter((n) => n.includes(targetBase.slice(0, 25)) || targetBase.includes(n.slice(0, 25)))
+      .map((n) => ({
+        name: n,
+        nameByteLen: Buffer.byteLength(n, "utf8"),
+        sameAsTarget: n === targetBase,
+        codepoints: Array.from(n).map((c) => c.codePointAt(0)),
+      }));
+  } catch (dirErr) {
+    diag.dirReadError = dirErr instanceof Error ? dirErr.message : String(dirErr);
+  }
+  execDie(
+    `读取 --command-file 失败: ${errMsg} · diag=${JSON.stringify(diag)}`,
+  );
+}
+
 async function runExec(argv: Record<string, string | boolean>): Promise<void> {
   const args = parseExecArgs(argv);
   // --command-file 让 LLM 不再 quote 含 ' / " / $ 的 command,绕开 OH-SQL/CC 的 $'...' 拦截
@@ -436,12 +496,7 @@ async function runExec(argv: Record<string, string | boolean>): Promise<void> {
     execDie("--command 与 --command-file 不能同时提供");
   }
   if (args.commandFile) {
-    try {
-      const buf = await readFile(args.commandFile, "utf8");
-      args.command = buf;
-    } catch (e) {
-      execDie(`读取 --command-file 失败: ${e instanceof Error ? e.message : String(e)}`);
-    }
+    args.command = await readCommandFileWithDiag(args.commandFile);
   }
   if (!args.command) {
     execDie("必须提供 --command 或 --command-file");

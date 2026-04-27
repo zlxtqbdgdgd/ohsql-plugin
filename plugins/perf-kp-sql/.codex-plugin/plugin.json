@@ -1,6 +1,6 @@
 {
   "name": "perf-kp-sql",
-  "version": "0.18.0",
+  "version": "0.19.0",
   "description": "Kunpeng + MongoDB/MySQL/Redis joint perf diagnosis. SSH-based collection + 411 baseline rules + sqlite RAG knowledge base + flamegraph integration. Harness-agnostic (Anthropic Agent Skills standard).",
   "author": {
     "name": "zlxtqbdgdgd",
