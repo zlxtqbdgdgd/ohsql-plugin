@@ -680,8 +680,8 @@ function renderArtifacts(data, _mdPath) {
   const m = data.report_input?.metadata ?? {};
   const ts = data.discovered?.ts ?? new Date().toISOString().slice(0, 10).replace(/-/g, "") + "-000001";
   const lines = [
-    `- OS 采集: \`~/.ohsql/tmp/perf-kp-sql-os-${ts}.txt\``,
-    `- DB 采集: \`~/.ohsql/tmp/perf-kp-sql-${m.engine ?? "mongo"}-db-${ts}.txt\``,
+    `- OS 采集: \`~/.perf-kp-sql/tmp/perf-kp-sql-os-${ts}.txt\``,
+    `- DB 采集: \`~/.perf-kp-sql/tmp/perf-kp-sql-${m.engine ?? "mongo"}-db-${ts}.txt\``,
     `- 报告: \`${_mdPath}\``,
   ];
   return lines.join("\n");
