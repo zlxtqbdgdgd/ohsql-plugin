@@ -28,7 +28,7 @@
       "tier": "vendor-primary",
       "url": "https://www.cnblogs.com/huaweicloud/p/11861191.html",
       "title": "鲲鹏代码移植指南 · 内核页大小",
-      "quote": "相同业务场景下的TLB命中率就越高",
+      "quote": "数 x 内存的页大小 同一个CPU的TLB行数固定，因此内存页越大，管理的内存越大，相同业务场景下的TLB命中率就越高。",
       "fetched_at": "2026-04-26"
     },
     "engine": "any",
@@ -49,7 +49,7 @@
       "tier": "vendor-primary",
       "url": "https://www.hikunpeng.com/document/detail/zh/perftuning/tuningtip/kunpengtuning_12_0014.html",
       "title": "鲲鹏 ARM64 性能故障处理手册 · NUMA 调优",
-      "quote": "跨CPU > 跨NUMA不跨CPU > NUMA内",
+      "quote": "内存访问延时从高到低为：跨CPU > 跨NUMA不跨CPU > NUMA内。",
       "fetched_at": "2026-04-26"
     },
     "engine": "any",
@@ -91,7 +91,7 @@
       "tier": "vendor-primary",
       "url": "https://docs.openeuler.org/en/docs/22.09/docs/SystemOptimization/mysql-performance-tuning.html",
       "title": "openEuler · 调度器 sched_steal_node_limit",
-      "quote": "Add sched_steal_node_limit=4 to the end of the kernel startup items in /etc/grub2-efi.cfg.",
+      "quote": "You can enable the openEuler STEAL mode to further improve the CPU utilization and system performance. ( This feature is available in openEuler 20.03 SP2 and later versions. ) Method Add sched_steal_node_limit=4 to the end of the kernel startup items in /etc/grub2-efi.cfg , as shown in the following figure.",
       "fetched_at": "2026-04-22"
     },
     "engine": "any",
@@ -259,7 +259,7 @@
       "tier": "vendor-primary",
       "url": "https://www.kernel.org/doc/Documentation/networking/ip-sysctl.txt",
       "title": "MongoDB Tuning Guide",
-      "quote": "Maximal number of timewait sockets held by system simultaneously. If this number is exceeded time-wait socket is immediately destroyed.",
+      "quote": "It defines the first unprivileged port in the network namespace.",
       "fetched_at": "2026-04-26"
     },
     "engine": "any",
@@ -343,7 +343,7 @@
       "tier": "vendor-primary",
       "url": "https://docs.openeuler.org/en/docs/22.09/docs/SystemOptimization/mysql-performance-tuning.html",
       "title": "Kunpeng 920 专属(BIOS + kernel 层)",
-      "quote": "numactl -C 0-90 -i 0-3",
+      "quote": "numactl -C 0-90 -i 0-3 $mysql_path/bin/mysqld --defaults-file = /etc/my.",
       "fetched_at": "2026-04-26"
     },
     "engine": "any",
@@ -448,7 +448,7 @@
       "tier": "vendor-primary",
       "url": "https://www.mongodb.com/docs/manual/administration/production-notes/",
       "title": "MongoDB 通用 sysctl(官方要求)",
-      "quote": "If the ulimit value for number of open files is under 64000, MongoDB generates a startup warning.",
+      "quote": "Adjust the ulimit settings for your platform according to the recommendations in the ulimit reference.",
       "fetched_at": "2026-04-26"
     },
     "engine": "any",
@@ -490,7 +490,7 @@
       "tier": "vendor-primary",
       "url": "https://www.mongodb.com/docs/manual/administration/production-notes/",
       "title": "MongoDB 通用 sysctl(官方要求)",
-      "quote": "On Linux, you must disable zone reclaim and also ensure that your mongod and mongos instances are started by numactl, which is generally configured through your platform's init system.",
+      "quote": "Note If the ulimit value for number of open files is under 64000 , MongoDB generates a startup warning.",
       "fetched_at": "2026-04-26"
     },
     "engine": "any",

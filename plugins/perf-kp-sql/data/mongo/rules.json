@@ -100,7 +100,7 @@
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/core/wiredtiger/",
       "title": "Memory Use",
-      "quote": "WiredTiger allocates its cache to the entire mongod instance. WiredTiger doesn&#x27;t allocate cache on a per-database or per-collection level.",
+      "quote": "You may need to configure the WiredTiger cache to an appropriate value, as WiredTiger may not account for the memory limits of the specific container in certain cases.",
       "fetched_at": "2026-04-25"
     },
     "engine": "mongo",
@@ -184,7 +184,7 @@
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/reference/parameters/",
       "title": "ldapForceMultiThreadMode",
-      "quote": "You must use ldapForceMultiThreadMode to use LDAP connection pool. To enable LDAP connection pool, set ldapForceMultiThreadMode and ldapUseConnectionPool to true.",
+      "quote": "You must use ldapForceMultiThreadMode to use LDAP connection pool.",
       "fetched_at": "2026-04-25"
     },
     "engine": "mongo",
@@ -247,7 +247,7 @@
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/administration/tcmalloc-performance/",
       "title": "Enable Per-CPU Caches",
-      "quote": "tcmalloc.usingPerCPUCaches should be true",
+      "quote": "3 Enable the new profile Run: sudo tuned-adm profile virtual-guest-thp Enable Per-CPU Caches To verify that TCMalloc is running with per-CPU caches, ensure that: tcmalloc.usingPerCPUCaches is true . tcmalloc.tcmalloc.cpu_free is greater than 0 .",
       "fetched_at": "2026-04-26"
     },
     "engine": "mongo",
@@ -331,7 +331,7 @@
       "tier": "official",
       "url": "https://www.mongodb.com/docs/atlas/performance-advisor/",
       "title": "Common Reasons for Slow Queries",
-      "quote": "One query retrieves information from multiple collections with $lookup.",
+      "quote": "One query retrieves information from multiple collections with $lookup .",
       "fetched_at": "2026-04-25"
     },
     "engine": "mongo",
@@ -625,7 +625,7 @@
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/core/replica-set-architectures/",
       "title": "Deploy an Odd Number of Members",
-      "quote": "Avoid deploying more than one arbiter in a replica set.",
+      "quote": "See Concerns with Multiple Arbiters .",
       "fetched_at": "2026-04-25"
     },
     "engine": "mongo",
@@ -725,7 +725,7 @@
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/core/index-creation/",
       "title": "Index Builds in Replicated Environments",
-      "quote": "If a data-bearing voting node becomes unreachable and the commitQuorum is set to the default votingMembers, index builds can hang until that node comes back online.",
+      "quote": "Changed in version 8.0 : The commit quorum specifies how many nodes must be ready to finish the index build before the primary commits the index build.",
       "fetched_at": "2026-04-25"
     },
     "engine": "mongo",
@@ -830,7 +830,7 @@
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/tutorial/manage-indexes/",
       "title": "Remove Indexes",
-      "quote": "If you drop an index that is actively used in production, your application may incur a performance degradation. Before you drop an index, you can evaluate the potential impact of the drop by hiding the index.",
+      "quote": "Remove Indexes Tip Hide an Index Before Dropping It If you drop an index that is actively used in production, your application may incur a performance degradation.",
       "fetched_at": "2026-04-25"
     },
     "engine": "mongo",
@@ -1084,7 +1084,7 @@
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/tutorial/transparent-huge-pages/",
       "title": "Disable glibc rseq for TCMalloc",
-      "quote": "TCMalloc requires Restartable Sequences (rseq) for per-CPU caches. If glibc registers rseq first, TCMalloc falls back to per-thread caches. Disable glibc rseq before starting mongod",
+      "quote": "If per-CPU caches aren t enabled, ensure that: You disable glibc rseq.",
       "fetched_at": "2026-04-25"
     },
     "engine": "mongo",
@@ -1106,7 +1106,7 @@
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/tutorial/transparent-huge-pages/",
       "title": "Check Kernel Version",
-      "quote": "If per-CPU caches aren&#x27;t enabled, ensure that: You disable glibc rseq. You&#x27;re using Linux kernel version 4.18 or later.",
+      "quote": "To disable glibc rseq, set the following environment variable before you start mongod : GLIBC_TUNABLES=glibc.pthread.rseq=0 export GLIBC_TUNABLES Check Kernel Version If you disabled glibc rseq and per-CPU caches are still not enabled, ensure that you re using Linux kernel version 4.18 or later.",
       "fetched_at": "2026-04-25"
     },
     "engine": "mongo",
@@ -1297,7 +1297,7 @@
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#configuring-numa-on-linux",
       "title": "MongoDB Production Notes",
-      "quote": "On Linux, you must disable zone reclaim and also ensure that your mongod and mongos instances are started by numactl, which is generally configured through your platform's init system.",
+      "quote": "Configuring NUMA on Linux On Linux, you must disable zone reclaim and also ensure that your mongod and mongos instances are started by numactl , which is generally configured through your platform s init system.",
       "fetched_at": "2026-04-25"
     },
     "engine": "mongo",
@@ -1339,7 +1339,7 @@
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#swap",
       "title": "Swap Strategies",
-      "quote": "Generally, you should choose one of the following swap strategies: Assign swap space on your system, and configure the kernel to only permit swapping under high memory load, or Do not assign swap space on your system, and configure the kernel to disable swapping entirely.",
+      "quote": "Note Most system and user processes run within a cgroup, which, by default, sets the vm.swappiness to 60 .",
       "fetched_at": "2026-04-25"
     },
     "engine": "mongo",
@@ -1404,7 +1404,7 @@
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#compression",
       "title": "Compression",
-      "quote": "By default, WiredTiger uses snappy compression library. To change the compression setting, see storage.wiredTiger.collectionConfig.blockCompressor.",
+      "quote": "By default, WiredTiger uses snappy compression library.",
       "fetched_at": "2026-04-25"
     },
     "engine": "mongo",
@@ -1427,7 +1427,7 @@
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#clock-synchronization",
       "title": "Clock Synchronization",
-      "quote": "Using NTP to synchronize host machine clocks mitigates the risk of clock drift between components. Clock drift between components increases the likelihood of incorrect or abnormal behavior of time-dependent operations.",
+      "quote": "Clock Synchronization MongoDB components keep logical clocks for supporting time-dependent operations.",
       "fetched_at": "2026-04-25"
     },
     "engine": "mongo",
@@ -1450,7 +1450,7 @@
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#set-vm.swappiness-to-1-or-0",
       "title": "Set vm.swappiness to 1 or 0",
-      "quote": "Goal: Avoid or minimize swapping to disk (swapped data slower than RAM). Recommended value: 1 or 0",
+      "quote": "Set vm.swappiness to 1 or 0 \"Swappiness\" is a Linux kernel setting that influences the behavior of the Virtual Memory manager.",
       "fetched_at": "2026-04-25"
     },
     "engine": "mongo",
@@ -1516,7 +1516,7 @@
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#mongodb-and-numa-hardware",
       "title": "MongoDB Production Notes",
-      "quote": "Disable NUMA in your BIOS. If that is not possible, see MongoDB on NUMA Hardware.",
+      "quote": "The numad daemon process can also reduce mongod performance.",
       "fetched_at": "2026-04-25"
     },
     "engine": "mongo",
@@ -1670,7 +1670,7 @@
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/tutorial/transparent-huge-pages/#enable-per-cpu-caches",
       "title": "Enable Per-CPU Caches",
-      "quote": "tcmalloc.tcmalloc.cpu_free is greater than 0.",
+      "quote": "3 Enable the new profile Run: sudo tuned-adm profile virtual-guest-thp Enable Per-CPU Caches To verify that TCMalloc is running with per-CPU caches, ensure that: tcmalloc.usingPerCPUCaches is true . tcmalloc.tcmalloc.cpu_free is greater than 0 .",
       "fetched_at": "2026-04-25"
     },
     "engine": "mongo",
@@ -1733,7 +1733,7 @@
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/core/wiredtiger/#compressionCompression",
       "title": "Compression",
-      "quote": "By default, WiredTiger uses block compression with the snappy compression library for most collections and prefix compression for all indexes. However, the default block compression for time-series collections is zstd.",
+      "quote": "For collections, the following block compression libraries are also available: zlib zstd To specify an alternate compression algorithm or no compression, use the storage.wiredTiger.collectionConfig.blockCompressor setting.",
       "fetched_at": "2026-04-25"
     },
     "engine": "mongo",
@@ -1922,7 +1922,7 @@
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/administration/production-checklist-operations/#hardwareHardware",
       "title": "Hardware",
-      "quote": "Ensure that each mongod has provisioned IOPS for its dbPath, or has its own physical drive or LUN.",
+      "quote": "SAN and Virtualization: Ensure that each mongod has provisioned IOPS for its dbPath , or has its own physical drive or LUN.",
       "fetched_at": "2026-04-25"
     },
     "engine": "mongo",
@@ -1985,7 +1985,7 @@
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/administration/production-checklist-operations/#deployments-to-cloud-hardware",
       "title": "Deployments to Cloud Hardware",
-      "quote": "Adjust the TCP keepalive (tcp_keepalive_time) to 100-120. The TCP idle timeout on the Azure load balancer is too slow for MongoDB's connection pooling behavior.",
+      "quote": "Deployments to Cloud Hardware Windows Azure: Adjust the TCP keepalive ( tcp_keepalive_time ) to 100-120.",
       "fetched_at": "2026-04-25"
     },
     "engine": "mongo",
@@ -2027,7 +2027,7 @@
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/administration/production-checklist-operations/#deployments-to-cloud-hardware",
       "title": "Deployments to Cloud Hardware",
-      "quote": "For the WiredTiger storage engine, set readahead between 8 and 32 regardless of storage media type (spinning disk, SSD, etc.).",
+      "quote": "See Readahead settings for more information.",
       "fetched_at": "2026-04-25"
     },
     "engine": "mongo",
@@ -2226,7 +2226,7 @@
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/core/wiredtiger/#compressionCompression",
       "title": "WiredTiger Storage Engine",
-      "quote": "However, the default block compression for time-series collections is zstd.",
+      "quote": "However, the default block compression for time-series collections is zstd .",
       "fetched_at": "2026-04-25"
     },
     "engine": "mongo",
@@ -2289,7 +2289,7 @@
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/core/wiredtiger/#memory-use",
       "title": "Memory Use",
-      "quote": "Avoid increasing the WiredTiger internal cache size above its default value. If your use case requires increased internal cache size, see --wiredTigerCacheSizePct and storage.wiredTiger.engineConfig.cacheSizePct.",
+      "quote": "Memory Use With WiredTiger, MongoDB utilizes both the WiredTiger internal cache and the filesystem cache.",
       "fetched_at": "2026-04-25"
     },
     "engine": "mongo",
@@ -2310,7 +2310,7 @@
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/tutorial/transparent-huge-pages/#platform-support",
       "title": "Platform Support",
-      "quote": "If you use these operating systems, disable THP.",
+      "quote": "Windows uses the legacy TCMalloc version and does not support the updated TCMalloc.",
       "fetched_at": "2026-04-25"
     },
     "engine": "mongo",
@@ -2438,7 +2438,7 @@
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/tutorial/manage-the-database-profiler/#profiling-levels",
       "title": "Profiling Levels",
-      "quote": "To enable profiling for all operations on the currently connected database, run in mongosh:",
+      "quote": "See Database Profiler Overhead .",
       "fetched_at": "2026-04-25"
     },
     "engine": "mongo",
@@ -2459,7 +2459,7 @@
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/tutorial/manage-the-database-profiler/#profiling-levels",
       "title": "Profiling Levels",
-      "quote": "The profiler collects data for operations that exceed the slowms threshold or match a specified filter.",
+      "quote": "Run show profile from mongosh : show profile Profiler Overhead When enabled, profiling affects database performance, especially at profiling level 2 or when using a low slowms threshold with level 1 .",
       "fetched_at": "2026-04-25"
     },
     "engine": "mongo",
@@ -2501,7 +2501,7 @@
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/tutorial/manage-the-database-profiler/#change-size-of-system.profile-collection-on-the-primary",
       "title": "Change Size of system.profile Collection on the Primary",
-      "quote": "To create a new system.profile collection of 4000000 bytes (4 MB) in mongosh:",
+      "quote": "View Profiler Data The profiler logs database operations to the system.profile collection.",
       "fetched_at": "2026-04-25"
     },
     "engine": "mongo",
@@ -2712,7 +2712,7 @@
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/core/query-optimization/#run-covered-queries",
       "title": "Run Covered Queries",
-      "quote": "The index covers the following query, which filters on type and item and returns only item.",
+      "quote": "Example To achieve a covered query, index the projected fields.",
       "fetched_at": "2026-04-25"
     },
     "engine": "mongo",
@@ -3139,7 +3139,7 @@
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/reference/parameters/#mongodb-parameter-param.enableShardedIndexConsistencyCheck",
       "title": "Rollbacks during Build Process",
-      "quote": "Enables periodic checks of index consistency across shards in a sharded cluster. When enabled, MongoDB performs periodic checks to ensure that indexes on sharded collections are consistent across all shards.",
+      "quote": "Type : boolean Default : true If set on the config server s primary, enables or disables the index consistency check for sharded collections.",
       "fetched_at": "2026-04-25"
     },
     "engine": "mongo",
@@ -3181,7 +3181,7 @@
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/tutorial/manage-the-database-profiler/#specify-the-threshold-for-slow-operations",
       "title": "Specify the Threshold for Slow Operations",
-      "quote": "To change the slow operation threshold, use one of the following: Set the value of slowms using the profile command or db.setProfilingLevel() shell helper method. Set the value of --slowms from the command line at startup. Set the value of slowOpThresholdMs in a configuration file.",
+      "quote": "1 The profiler collects data for operations that exceed the slowms threshold or match a specified filter .",
       "fetched_at": "2026-04-25"
     },
     "engine": "mongo",
@@ -3244,7 +3244,7 @@
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/tutorial/manage-the-database-profiler/#change-size-of-system.profile-collection-on-the-primary",
       "title": "Change Size of system.profile Collection on the Primary",
-      "quote": "For example, to create a new system.profile collection of 4000000 bytes (4 MB) in mongosh.",
+      "quote": "View Profiler Data The profiler logs database operations to the system.profile collection.",
       "fetched_at": "2026-04-25"
     },
     "engine": "mongo",
@@ -3328,7 +3328,7 @@
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#platform-support",
       "title": "Platform Support",
-      "quote": "MongoDB 5.0 requires use of the AVX instruction set, available on select Intel and AMD processors.",
+      "quote": "Not all instance types support Enhanced Networking.",
       "fetched_at": "2026-04-25"
     },
     "engine": "mongo",
@@ -3677,7 +3677,7 @@
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#compressionCompression",
       "title": "Compression",
-      "quote": "By default, WiredTiger uses snappy compression library. To change the compression setting, see storage.wiredTiger.collectionConfig.blockCompressor.",
+      "quote": "By default, WiredTiger uses snappy compression library.",
       "fetched_at": "2026-04-25"
     },
     "engine": "mongo",
@@ -3824,7 +3824,7 @@
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#set-vm.swappiness-to-1-or-0",
       "title": "MongoDB Production Notes",
-      "quote": "If your MongoDB instance is hosted on a system that also runs other software, such as a webserver, you should set vm.swappiness to 1.",
+      "quote": "Set vm.swappiness to 1 or 0 \"Swappiness\" is a Linux kernel setting that influences the behavior of the Virtual Memory manager.",
       "fetched_at": "2026-04-25"
     },
     "engine": "mongo",
@@ -3866,7 +3866,7 @@
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#recommended-configuration",
       "title": "Recommended Configuration",
-      "quote": "If the ulimit value for number of open files is under 64000, MongoDB generates a startup warning.",
+      "quote": "Adjust the ulimit settings for your platform according to the recommendations in the ulimit reference.",
       "fetched_at": "2026-04-25"
     },
     "engine": "mongo",
@@ -3887,7 +3887,7 @@
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#recommended-configuration",
       "title": "Recommended Configuration",
-      "quote": "If you are running MongoDB 8.0, enable Transparent Hugepages. If you are running MongoDB 7.0 or earlier, disable Transparent Hugepages.",
+      "quote": "Since MongoDB disk access patterns are generally random, using higher readahead settings provides limited benefit or potential performance degradation.",
       "fetched_at": "2026-04-25"
     },
     "engine": "mongo",
@@ -4014,7 +4014,7 @@
       "tier": "community",
       "url": "https://docs.openeuler.org/en/docs/22.09/docs/SystemOptimization/mysql-performance-tuning.html",
       "title": "openEuler Performance Tuning · NUMA balancing(supplementary; MongoDB docs do not explicitly cover this)",
-      "quote": "numactl -C 0-90 -i 0-3",
+      "quote": "numactl -C 0-90 -i 0-3 $mysql_path/bin/mysqld --defaults-file = /etc/my.",
       "fetched_at": "2026-04-26"
     },
     "engine": "mongo",
@@ -4056,7 +4056,7 @@
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#configuring-numa-on-linux",
       "title": "Configuring NUMA on Linux · MongoDB Production Notes",
-      "quote": "Configure each of your custom init scripts to start each MongoDB instance via `numactl`: numactl --interleave=all <path> <options>",
+      "quote": "Example numactl --interleave=all /usr/local/bin/mongod -f /etc/mongod.conf For more information, see the Documentation for /proc/sys/vm/* .",
       "fetched_at": "2026-04-25"
     },
     "engine": "mongo",
@@ -4191,7 +4191,7 @@
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/#mongodb-setting-net.bindIp",
       "title": "Important",
-      "quote": "Use DNS hostnames instead of IP addresses. It is particularly important to use a DNS hostname instead of an IP address when configuring replica set members or sharded cluster members. Starting in MongoDB 5.0, nodes that are only configured with an IP address fail startup validation and do not start.",
+      "quote": "Use hostnames instead of IP addresses to configure clusters across a split network horizon.",
       "fetched_at": "2026-04-25"
     },
     "engine": "mongo",
@@ -4234,7 +4234,7 @@
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/#mongodb-setting-net.bindIpAll",
       "title": "MongoDB Configuration Options",
-      "quote": "If true, the mongos or mongod instance binds to all IPv4 addresses (i.e. 0.0.0.0).",
+      "quote": "While binding to the 0.0.0.0 IP address is permitted, it exposes the server to all public networks and carries the risk of unauthorized access.",
       "fetched_at": "2026-04-25"
     },
     "engine": "mongo",
@@ -4276,7 +4276,7 @@
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/core/security-mongodb-configuration/",
       "title": "IP Binding in Self-Managed Deployments",
-      "quote": "To bind to all IPv4 and IPv6 addresses, you can specify the bind ip address of ::,0.0.0.0 or alternatively, use the new net.bindIpAll setting or the new command-line option --bind_ip_all.",
+      "quote": "Tip Firewalls Security Considerations Back Network & Configuration Hardening Next Use Linux iptables Rate this page On this page Overview Considerations On this page Overview Considerations",
       "fetched_at": "2026-04-25"
     },
     "engine": "mongo",
@@ -4446,7 +4446,7 @@
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/#mongodb-setting-net.tls.certificateSelector",
       "title": "TLS Options",
-      "quote": "For Windows only, MongoDB does not support encrypted PEM files. If mongod encounters an encrypted PEM file, it will fail to start",
+      "quote": "To securely store and access a certificate for use with TLS on Windows, use net.tls.certificateSelector .",
       "fetched_at": "2026-04-25"
     },
     "engine": "mongo",
@@ -4488,7 +4488,7 @@
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/#net.tls-options",
       "title": "Example",
-      "quote": "To instruct mongos or mongod to log a message when a client connects using either TLS 1.2 or TLS 1.3, set net.tls.logVersions to 'TLS1_2,TLS1_3'.",
+      "quote": "The basic example configuration is a good place to start.",
       "fetched_at": "2026-04-25"
     },
     "engine": "mongo",
@@ -4682,7 +4682,7 @@
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/#mongodb-setting-security.kmip.keyStatePollingSeconds",
       "title": "MongoDB Configuration Reference",
-      "quote": "Frequency in seconds at which mongod polls the KMIP server for active keys. To disable polling, set the value to -1.",
+      "quote": "Note Enterprise Feature Available in MongoDB Enterprise only. security.kmip.serverCAFile Type : string Path to CA File.",
       "fetched_at": "2026-04-25"
     },
     "engine": "mongo",
@@ -4726,7 +4726,7 @@
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/#security.sasl-options",
       "title": "SASL Options",
-      "quote": "The path to the UNIX domain socket file for saslauthd.",
+      "quote": "For mongosh and other MongoDB tools to connect to the new serviceName , see the gssapiServiceName option. security.sasl.saslauthdSocketPath Type : string The path to the UNIX domain socket file for saslauthd . security.ldap Options Note Starting in MongoDB 8.0, LDAP authentication and authorization is deprecated.",
       "fetched_at": "2026-04-25"
     },
     "engine": "mongo",
@@ -4813,7 +4813,7 @@
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/#setparameter-ldap-options",
       "title": "MongoDB Configuration Reference",
-      "quote": "Starting in MongoDB 5.0, userToDNMapping accepts an empty string \"\" or empty array [ ] in place of a mapping document. If providing an empty string or empty array to userToDNMapping, MongoDB maps the authenticated username as the LDAP DN.",
+      "quote": "If providing an empty string or empty array to userToDNMapping , MongoDB maps the authenticated username as the LDAP DN.",
       "fetched_at": "2026-04-25"
     },
     "engine": "mongo",
@@ -4918,7 +4918,7 @@
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/#setparameter-option",
       "title": "MongoDB Configuration Reference",
-      "quote": "As a security best practice, we recommend setting this parameter to false.",
+      "quote": "Note As a security best practice, we recommend setting this parameter to false . setParameter: skipAuthenticationToSearchIndexManagementServer: <true|false> setParameter.mongotHost Type : string Default : \"\" mongot host address.",
       "fetched_at": "2026-04-25"
     },
     "engine": "mongo",
@@ -4939,7 +4939,7 @@
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/#mongodb-setting-storage.dbPath",
       "title": "MongoDB Configuration Reference",
-      "quote": "The default mongod.conf configuration file included with package manager installations uses the following platform-specific default values for storage.dbPath: /data/db on Linux and macOS, \\data\\db on Windows.",
+      "quote": "If you use the Linux packages and change storage.dbPath , you must use your own init scripts and disable the built-in scripts. storage.journal.commitIntervalMs Type : number Default : 100 The maximum amount of time in milliseconds that the mongod process allows between journal operations.",
       "fetched_at": "2026-04-25"
     },
     "engine": "mongo",
@@ -4981,7 +4981,7 @@
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/#mongodb-setting-storage.wiredTiger.engineConfig.cacheSizeGB",
       "title": "WiredTiger Options",
-      "quote": "By default, WiredTiger uses the larger of the following:\n- 50% of (RAM - 1 GB), or\n- 256 MB",
+      "quote": "Avoid increasing the WiredTiger internal cache size above its default value.",
       "fetched_at": "2026-04-26"
     },
     "engine": "mongo",
@@ -5044,7 +5044,7 @@
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/#operationprofiling-options",
       "title": "Operation Profiling Options",
-      "quote": "The slow operation time threshold, in milliseconds. Operations that run for longer than this threshold are considered slow. The default is 100 milliseconds.",
+      "quote": "See Profiler Overhead for more information on potential performance degradation. operationProfiling.slowOpThresholdMs Type : integer Default : 100 The slow operation time threshold, in milliseconds.",
       "fetched_at": "2026-04-25"
     },
     "engine": "mongo",
@@ -5086,7 +5086,7 @@
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/#mongodb-setting-auditLog.compressionMode",
       "title": "MongoDB Configuration Reference",
-      "quote": "Specifies the compression mode for audit log encryption. You must also enable audit log encryption using either auditLog.auditEncryptionKeyIdentifier or auditLog.localAuditKeyFile.",
+      "quote": "You must also enable audit log encryption using either auditLog.auditEncryptionKeyIdentifier or auditLog.localAuditKeyFile . auditLog.compressionMode can be set to one of these values: Value Description zstd Use the zstd algorithm to compress the audit log. none (default) Do not compress the audit log.",
       "fetched_at": "2026-04-25"
     },
     "engine": "mongo",
@@ -5332,7 +5332,7 @@
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/reference/parameters/",
       "title": "MongoDB Manual Reference Parameters",
-      "quote": "The number of milliseconds to wait before informing clients that their authentication attempt has failed. This parameter may be in the range 0 to 5000, inclusive.",
+      "quote": "Type : Document The amount of time to wait from a Health Managers Overview failure until the mongos is removed from the cluster, in seconds.",
       "fetched_at": "2026-04-25"
     },
     "engine": "mongo",
