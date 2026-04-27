@@ -157,7 +157,7 @@ hosts 非空 → ask the user to pick one (even if there's only 1 entry — expl
 请选择最近使用过的连接 · 或新建:
 
   1. 192.168.1.10 · admin · mongo · 上次 2 小时前 (port=22 · 累计 8 次)
-  2. 10.20.30.40 · ec2-user · mysql · 上次 3 天前 (port=22 · 累计 3 次)
+  2. 10.20.30.40 · ec2-user · mongo · 上次 3 天前 (port=22 · 累计 3 次)
   3. 新连接 · 手动输入参数
 ```
 
@@ -169,7 +169,7 @@ Stop here and wait for the user's selection in the next turn. Once selected, ful
 
 从用户任意措辞抽取:
 - 必填:`host`(IP/FQDN)、`user`、`password`(或 `privateKeyPath`)
-- 可选:`port`(默认 22)、`engine`(mongo/mysql/redis)
+- 可选:`port`(默认 22)、`engine`(目前只支持 `mongo`,默认即 mongo)
 - MongoDB 可选:`mongo_user`、`mongo_password`、`auth_db`(默认 admin)
 
 抽取策略:严格 kv → 半结构化 → 自然语言 → 混合。抽取失败只问缺的字段,不重来整表。
@@ -226,9 +226,8 @@ password 前 3 + `***` + 后 3 脱敏。后续 SSH 命令的 host/user/port/pass
 
 ### 1.2bis · DB 凭据预询问(凭据缺时前置)
 
-**触发**:DB 凭据缺(按 engine 已知/未知分两种判断):
-- engine 已显式(`mongo|mysql|redis`):对应必需凭据缺 — mongo 缺 `mongo_user` 或 `mongo_password`;mysql 缺 db 用户/密码;redis 缺 AUTH 密码
-- engine 缺省 / `=auto`:任意 DB 凭据相关字段都缺
+**触发**:DB 凭据缺(0.9.2 起只支持 mongo,无 engine 分支):
+- mongo 缺 `mongo_user` 或 `mongo_password` → 触发本步
 
 任何一种命中本步触发。如果用户 slash args 已经把对应凭据传齐 → 跳过本步,直接进 1.3。
 
@@ -249,11 +248,8 @@ ask the user(topic = `数据库连接信息`):
 Stop and wait for the next turn。
 
 **用户选 1(补全)**:
-- 如果 engine 仍缺,先确定 engine(`mongo|mysql|redis`)
-- 按 engine 收对应凭据:
-  - mongo:`mongo_user` / `mongo_password` / `auth_db`(默认 admin)
-  - mysql:`user` / `password`
-  - redis:`password`
+- engine 默认为 mongo
+- 收 mongo 凭据:`mongo_user` / `mongo_password` / `auth_db`(默认 admin)
 - 全收齐 → 进 1.3。1.3 探测仍跑,只是后续不再问凭据
 
 **用户选 2(自动探测)**:直接进 1.3,凭据由 1.3bis 在探测命中后再问
@@ -316,37 +312,29 @@ Bash(command="node ${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/scripts/ssh.mjs --o
 
 #### 实例选择
 
-**0 实例** + `engine=auto`/缺省 → 远端三引擎进程都没起。打:
-> ━ 远端未发现数据库进程 ━
-> 已扫:mongod / mysqld / redis-server,均无 pgrep 命中。
-> 请确认目标主机数据库是否已启动,或显式传 `engine=mongo|mysql|redis`(将以默认端口推断方式继续)。
+**0 实例** → 远端 mongod 没起。打:
+> ━ 远端未发现 mongod 进程 ━
+> 已扫:mongod 无 pgrep 命中。
+> 请确认目标主机 MongoDB 是否已启动,或继续以默认端口 27017 推断方式跑。
 
 Stop and wait for the next turn。
 
-**0 实例** + 显式 `engine=mongo|mysql|redis` → **信用户**,走兜底:bind=127.0.0.1,port=默认(27017/3306/6379),pid 留空(火焰图自动跳过 oncpu),打:
+**0 实例** + 用户继续 → **信用户**,走兜底:bind=127.0.0.1, port=27017, pid 留空(火焰图自动跳过 oncpu),打:
 ```
-  · 警告 · 远端未发现数据库进程 · 按用户配置 engine=<X> 继续 · bind=127.0.0.1:<默认端口>
-  · 数据库实例 · <engine> @ 127.0.0.1:<默认端口>(默认端口推断 · 火焰图采集将跳过)
-```
-
-**1 实例** + 无 hint / hint 一致 → 直接锁定。
-
-**1 实例** + 显式 hint 不一致(用户 mongo,远端只有 mysqld) → **信用户**,打 warning:
-```
-  · 警告 · 用户传入 engine=<X>,远端发现 <Y>;按用户配置继续,如连不上将反向确认
-  · 数据库实例 · <X> @ 127.0.0.1:<X 默认端口>(默认端口推断)
+  · 警告 · 远端未发现 mongod 进程 · 按默认配置继续 · bind=127.0.0.1:27017
+  · 数据库实例 · mongo @ 127.0.0.1:27017(默认端口推断 · 火焰图采集将跳过)
 ```
 
-**多实例** + `engine=auto` → ask the user (topic = `选择诊断目标`):
+**1 实例** → 直接锁定。
+
+**多实例** (多个 mongod) → ask the user (topic = `选择诊断目标`):
 ```
-检测到多个数据库实例:
+检测到多个 mongod 实例:
   1. mongo @ <bind>:<port> (pid=<pid>)
-  2. mysql @ <bind>:<port> (pid=<pid>)
+  2. mongo @ <bind>:<port> (pid=<pid>)
 请选择诊断目标。
 ```
 Stop and wait for the next turn。用户选定后继续。
-
-**多实例** + 显式 hint → 取 instances 里 engine 字段匹配 hint 的那一条;无匹配 → 走 0 实例 + 显式 hint 的兜底(信用户,默认端口推断)。
 
 #### 锁定的状态
 
@@ -370,17 +358,12 @@ Stop and wait for the next turn。用户选定后继续。
 
 按 engine 检查必需凭据是否已齐:
 
-| engine | 必需凭据 |
-|---|---|
-| mongo | `mongo_user` + `mongo_password`(`auth_db` 默认 admin 可省) |
-| mysql | db `user` + `password`(注意:这俩是连 DB 用的,不是 SSH 用的) |
-| redis | `password`(可空 = 无 AUTH) |
+必需凭据:`mongo_user` + `mongo_password`(`auth_db` 默认 admin 可省)。
 
 **齐** → 跳过本子步,直接进 1.4。
 
-**缺** → ask the user(topic = `<engine> 凭据`):
+**缺** → ask the user(topic = `MongoDB 凭据`):
 
-mongo 例:
 ```
 ━ MongoDB 凭据(已探测命中) ━
 远端检测到 mongod 实例 @ <bind>:<port> (pid=<pid>)。
@@ -389,23 +372,6 @@ mongo 例:
   - mongo_password(必填)
   - auth_db(默认 admin · 可省)
 直接回 "跳过" = 仍按匿名试一次(失败会在采集阶段反向问)。
-```
-
-mysql 例:
-```
-━ MySQL 凭据(已探测命中) ━
-远端检测到 mysqld 实例 @ <bind>:<port> (pid=<pid>)。
-连接需要凭据,请提供:
-  - user(MySQL 数据库用户)
-  - password
-直接回 "跳过" = 不带凭据试一次(失败会在采集阶段反向问)。
-```
-
-redis 例:
-```
-━ Redis 密码(已探测命中) ━
-远端检测到 redis-server 实例 @ <bind>:<port> (pid=<pid>)。
-请提供 password(空回车 = 无 AUTH 直连)。
 ```
 
 Stop and wait for the next turn。
@@ -427,8 +393,8 @@ The 5 phases (English subject for portability, with Chinese display titles):
 | # | Display title (subject) | Spinner verb (activeForm) | Count placeholder |
 |---|-------------------------|---------------------------|-------------------|
 | 1 | OS/硬件采集 (50 项)     | 采集 OS/硬件              | 50 (fixed) |
-| 2 | <Engine> 运行时采集 (<N> 项) | 采集运行时           | mongo=18 项;mysql/redis 不挂数字;**`<Engine>` 替换为 `MongoDB` / `MySQL` / `Redis`** |
-| 3 | 规则诊断 (<R> 条)       | 诊断规则                  | <R>:mongo=59; mysql=38; redis=39 |
+| 2 | MongoDB 运行时采集 (18 项) | 采集运行时           | 18 (fixed) |
+| 3 | 规则诊断 (44 条)        | 诊断规则                  | 44 (audited baseline) |
 | 4 | 知识库检索 (54 篇)      | 检索知识库                | 54 (fixed) |
 | 5 | 报告渲染                | 渲染报告                  | (no count) |
 
@@ -437,24 +403,17 @@ The 5 phases (English subject for portability, with Chinese display titles):
 **命名规则**:
 - subject 名词在前 + 动词在后(`X采集` / `X诊断` / `X检索` / `X渲染`)
 - activeForm 动词在前(spinner verb 自然中文)
-- **task 2「运行时采集」必须挂 engine 前缀**(`MongoDB 运行时采集` / `MySQL 运行时采集` / `Redis 运行时采集`)— 因为运行时数据完全 engine-specific,不挂前缀语义模糊
-- task 1 / 3 / 4 / 5 **不挂 engine 前缀**(OS、规则诊断流程、KB 检索、报告渲染对所有 engine 一致)
-- 字符长度不强限,task UI 容得下
+- 0.9.2 起只支持 mongo · task 2 固定 `MongoDB 运行时采集 (18 项)` · 不再有多 engine 切换
+- task 1 / 3 / 4 / 5 名称统一(OS、规则诊断流程、KB 检索、报告渲染)
 
 **phase 项数对照表**(数值来自实测,不要编):
 
-| engine | task 1 (`OS/硬件采集`) | task 2 (`运行时采集`) | task 3 (`规则诊断`) | task 4 (`知识库检索`) |
-|--------|----------------------|---------------------|--------------------|---------------------|
-| mongo  | 50 项                 | 18 项                | 59 条               | 54 篇                |
-| mysql  | 50 项                 | (不挂)               | 38 条               | 54 篇                |
-| redis  | 50 项                 | (不挂)               | 39 条               | 54 篇                |
-
-- task 1 = `src/shared/os-collector.ts` 中 `out["..."] = ...` 的去重 key 数(50)
-- task 2 = `src/engines/<engine>/collector.ts` 中 `out["..."] = ...` 的去重 key 数(mongo=18 · mysql/redis 用结构体返回不平摊 · 不挂)
-- task 3 = `sqlite3 data/knowledge.sqlite "SELECT count(*) FROM rules WHERE enabled=1 AND (engine='<engine>' OR engine='any')"`
-- task 4 = `sqlite3 data/knowledge.sqlite "SELECT count(DISTINCT doc_id) FROM knowledge"`
-
-mysql/redis 的 task 2 项数无法平摊 · 整段 `(<N> 项)` 删掉 · 不要瞎编。
+| task | 项数 | 来源 |
+|---|---|---|
+| task 1 OS/硬件采集 | 50 项 | `src/shared/os-collector.ts` 中 `out["..."] = ...` 的去重 key 数 |
+| task 2 MongoDB 运行时采集 | 18 项 | `src/engines/mongo/collector.ts` 中 `out["..."] = ...` 的去重 key 数 |
+| task 3 规则诊断 | 44 条 | `sqlite3 data/knowledge.sqlite "SELECT count(*) FROM rules WHERE enabled=1 AND engine IN ('mongo','any')"` |
+| task 4 知识库检索 | 54 篇 | `sqlite3 data/knowledge.sqlite "SELECT count(DISTINCT doc_id) FROM knowledge"` |
 
 ---
 
@@ -619,23 +578,14 @@ Bash(command="node ${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/scripts/ssh.mjs --o
 
 ### 2.7 · DB 批量采集
 
-打分组活动行(按 engine):
+打分组活动行:
 ```
-# engine=mongo · 3 行
   · WiredTiger · cache / 并发 ticket / ...
   · 连接池 · 当前 / 可用上限 / ...
   · 锁与断言 · global lock / asserts / ...
-
-# engine=mysql · 2 行
-  · 引擎状态 · variables / status / processlist / ...
-  · 连接 · max_connections / threads_connected / ...
-
-# engine=redis · 2 行
-  · INFO 指标 · memory / stats / clients / ...
-  · slowlog / 大 key / ...
 ```
 
-按 SSH execution pattern 跑(见 Architecture · 统一走 `ssh.mjs --op exec`),`<command>` = `dbBatchTemplates[engine]` 占位符替换后的字符串。占位符:`__BIND__` / `__DB_PORT__` / `__USER__` / `__PWD__`(MongoDB 专属:`__MONGO_USER__` / `__MONGO_PWD__` / `__AUTH_DB__` / `__AUTH_ARGS__`)。
+按 SSH execution pattern 跑(见 Architecture · 统一走 `ssh.mjs --op exec`),`<command>` = `dbBatchTemplates.mongo` 占位符替换后的字符串。占位符:`__BIND__` / `__DB_PORT__` / `__MONGO_USER__` / `__MONGO_PWD__` / `__AUTH_DB__` / `__AUTH_ARGS__`。
 
 模板(dbBatchCmd 含 ' / " / $ 混杂 → 走 --command-file):
 ```
@@ -659,11 +609,11 @@ Set timeout ≈ 60 seconds。
 
 Stop and wait for the next turn。
 
-**MySQL stderr `Can't connect to MySQL server` / `Access denied` / Redis stderr `Connection refused` / `NOAUTH` 或 stdout 空** → 反向确认配置:
-> ━ <engine> 连接失败 ━
-> 已尝试:`<bind>:<port>` 用户=`<user>`(来自 Step 1.3 探测 / 用户显式传入)
-> 可能原因:engine 类型给错 / bind / port / 密码 / 防火墙
-> 请确认配置,或改 `engine=mongo|mysql|redis` 重新触发本 skill。
+**mongosh stderr `connect failed` / `Authentication failed` 或 stdout 空** → 反向确认配置:
+> ━ MongoDB 连接失败 ━
+> 已尝试:`<bind>:<port>` 用户=`<mongo_user>`(来自 Step 1.3 探测 / 用户显式传入)
+> 可能原因:bind / port / 凭据 / auth_db / 防火墙
+> 请确认配置后重新触发本 skill。
 
 Stop and wait for the next turn。
 
@@ -711,15 +661,13 @@ Mark phase 3 (`规则诊断 (<R> 条)`) as in_progress in the task list.
   · info <I>     · <代表项 1> / <代表项 2> / <代表项 3> / ...
 ```
 
-严重度计数(数值来自实测,不要编):
+严重度计数(数值来自实测,不要编 · 0.9.2 起只 mongo):
 
-| engine | 总规则 R | critical C | warning W | info I |
-|--------|--------|----------|-----------|--------|
-| mongo  | 59     | 5        | 35        | 19     |
-| mysql  | 38     | 3        | 20        | 15     |
-| redis  | 39     | 4        | 21        | 14     |
+| 总规则 R | critical C | warning W | info I |
+|----------|------------|-----------|--------|
+| 44       | 5          | 26        | 13     |
 
-来源 `sqlite3 data/knowledge.sqlite "SELECT severity, count(*) FROM rules WHERE enabled=1 AND (engine='<engine>' OR engine='any') GROUP BY severity"`。代表项从 diagnose.mjs 输出 top issues 抽 · 优先 critical · 不要瞎编。
+来源 `sqlite3 data/knowledge.sqlite "SELECT severity, count(*) FROM rules WHERE enabled=1 AND engine IN ('mongo','any') GROUP BY severity"`。代表项从 diagnose.mjs 输出 top issues 抽 · 优先 critical · 不要瞎编。
 
 ### 3.1 · Bash 调 diagnose.mjs
 
@@ -892,7 +840,7 @@ results 空 → 模板 B:
 - 不跳过 Step 1.3 环境探测(instance discovery 已合并入 1.3)
 - 不跳过 Step 4 落盘报告
 - **Step 1.3 环境探测无条件先跑,再声明 task list**;不许先声明带 `(待探测)` 占位的 task list
-- **显式 `engine=mongo|mysql|redis` 时,优先信用户配置**:1.3 探测结果与显式 engine 不符 → 打 warning + 仍按用户配置走;0 实例 → 按用户 engine 默认端口推断;**只有 Step 2.7 DB 连不上时反向问用户 engine/bind/port/凭据**
+- 0.9.2 起只支持 `engine=mongo` (默认即 mongo);0 实例 → 按 mongo 默认端口 27017 推断;**只有 Step 2.7 DB 连不上时反向问用户 bind/port/凭据**
 - **Step 2 整段绝对禁止任何探测性 SSH**(`command -v perf` / `pgrep` / `ss -lntp` 等):perf 探测在 1.3 已做、实例发现在 1.3 已做、连接性等到真正采集时才暴露
 - **火焰图采集只发生在 Step 2.5,作为 phase 1 子项展示;Step 3 / Step 4 严禁 SSH;没有"火焰图补采"路径(原 Step 5 已删除)**
 - task 工具可用时(Claude Code / Codex CLI),**只许调 task 工具,不许另外用纯文本渲染 `━ 5 阶段任务清单 ━` / `◻ phase 1 · ...` 重复列出**
@@ -978,7 +926,7 @@ prose so the LLM can quote them back to the user.
   - `password`: SSH password · ssh.mjs 走 OpenSSH 内建 SSH_ASKPASS · 不再依赖 sshpass · Codex CLI / Claude Code / ohsql 全支持
 
 **Optional**:
-- `engine=<mongo|mysql|redis>` — database engine; auto-detected if omitted
+- `engine=mongo` — database engine (0.9.2 起只支持 mongo · 默认即 mongo · MySQL/Redis 暂不支持)
 - `port=<ssh_port>` — SSH port (default: `22`)
 - `mongo_user=<user>` — MongoDB auth user (auto-asked on auth failure)
 - `mongo_password=<pw>` — MongoDB auth password
@@ -986,7 +934,7 @@ prose so the LLM can quote them back to the user.
 
 **Examples**:
 ```
-/perf-kp-sql host=10.0.0.1 user=root privateKeyPath=~/.ssh/id_ed25519 engine=mongo
-/perf-kp-sql host=10.0.0.1 user=root password=secret engine=mysql port=2222
+/perf-kp-sql host=10.0.0.1 user=root privateKeyPath=~/.ssh/id_ed25519
+/perf-kp-sql host=10.0.0.1 user=root password=secret port=2222
 /perf-kp-sql host=db.internal user=ec2-user privateKeyPath=~/.ssh/aws-prod
 ```
