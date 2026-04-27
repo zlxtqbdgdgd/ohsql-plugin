@@ -14,7 +14,7 @@
       "url": "https://dev.mysql.com/doc/refman/8.0/en/innodb-buffer-pool.html",
       "title": "Buffer Pool Configuration",
       "quote": "Ideally, you set the size of the buffer pool to as large a value as practical, leaving enough memory for other processes on the server to run without excessive paging.",
-      "accessed": "2026-04-20"
+      "fetched_at": "2026-04-20"
     },
     "engine": "mysql",
     "confidence": "high",
@@ -39,7 +39,7 @@
       "url": "https://dev.mysql.com/doc/refman/8.0/en/innodb-buffer-pool.html",
       "title": "Buffer Pool LRU Algorithm",
       "quote": "A table scan, performed for a mysqldump operation or a SELECT statement with no WHERE clause, for example, can bring a large amount of data into the buffer pool and evict an equivalent amount of older data, even if the new data is never used again.",
-      "accessed": "2026-04-20"
+      "fetched_at": "2026-04-20"
     },
     "engine": "mysql",
     "confidence": "high",
@@ -64,7 +64,7 @@
       "url": "https://dev.mysql.com/doc/refman/8.0/en/innodb-buffer-pool.html",
       "title": "Monitoring the Buffer Pool Using the InnoDB Standard Monitor",
       "quote": "If you see very low youngs/s values when there are no large scans occurring, consider reducing the delay time or increasing the percentage of the buffer pool used for the old sublist.",
-      "accessed": "2026-04-20"
+      "fetched_at": "2026-04-20"
     },
     "engine": "mysql",
     "confidence": "high",
@@ -89,7 +89,7 @@
       "url": "https://dev.mysql.com/doc/refman/8.0/en/innodb-buffer-pool.html",
       "title": "Monitoring the Buffer Pool Using the InnoDB Standard Monitor",
       "quote": "If you do not see a higher non-youngs/s value when performing large table scans (and a higher youngs/s value), increase the delay value.",
-      "accessed": "2026-04-20"
+      "fetched_at": "2026-04-20"
     },
     "engine": "mysql",
     "confidence": "high",
@@ -114,7 +114,7 @@
       "url": "https://dev.mysql.com/doc/refman/8.0/en/innodb-buffer-pool.html",
       "title": "Buffer Pool Configuration",
       "quote": "On 64-bit systems with sufficient memory, you can split the buffer pool into multiple parts to minimize contention for memory structures among concurrent operations.",
-      "accessed": "2026-04-20"
+      "fetched_at": "2026-04-20"
     },
     "engine": "mysql",
     "confidence": "high",
@@ -139,7 +139,7 @@
       "url": "https://dev.mysql.com/doc/refman/8.0/en/innodb-disk-io.html",
       "title": "Doublewrite Buffer",
       "quote": "InnoDB uses a novel file flush technique involving a structure called the doublewrite buffer, which is enabled by default in most cases (innodb_doublewrite=ON). It adds safety to recovery following an unexpected exit or power outage, and improves performance on most varieties of Unix by reducing the need for fsync() operations.",
-      "accessed": "2026-04-20"
+      "fetched_at": "2026-04-20"
     },
     "engine": "mysql",
     "confidence": "high",
@@ -164,7 +164,7 @@
       "url": "https://dev.mysql.com/doc/refman/8.0/en/innodb-disk-io.html",
       "title": "Read-Ahead",
       "quote": "If InnoDB can determine there is a high probability that data might be needed soon, it performs read-ahead operations to bring that data into the buffer pool so that it is available in memory.",
-      "accessed": "2026-04-20"
+      "fetched_at": "2026-04-20"
     },
     "engine": "mysql",
     "confidence": "high",
@@ -189,7 +189,7 @@
       "url": "https://dev.mysql.com/doc/refman/8.0/en/innodb-disk-io.html",
       "title": "Read-Ahead",
       "quote": "Making a few large read requests for contiguous data can be more efficient than making several small, spread-out requests.",
-      "accessed": "2026-04-20"
+      "fetched_at": "2026-04-20"
     },
     "engine": "mysql",
     "confidence": "high",
@@ -214,7 +214,7 @@
       "url": "https://dev.mysql.com/doc/refman/8.0/en/optimization-indexes.html",
       "title": "10.3 Optimization and Indexes",
       "quote": "The best way to improve the performance of SELECT operations is to create indexes on one or more of the columns that are tested in the query.",
-      "accessed": "2026-04-20"
+      "fetched_at": "2026-04-20"
     },
     "engine": "mysql",
     "confidence": "high",
@@ -239,7 +239,7 @@
       "url": "https://dev.mysql.com/doc/refman/8.0/en/optimization-indexes.html",
       "title": "10.3 Optimization and Indexes",
       "quote": "Indexes also add to the cost of inserts, updates, and deletes because each index must be updated.",
-      "accessed": "2026-04-20"
+      "fetched_at": "2026-04-20"
     },
     "engine": "mysql",
     "confidence": "high",
@@ -264,7 +264,7 @@
       "url": "https://dev.mysql.com/doc/refman/8.0/en/optimization-indexes.html",
       "title": "10.3 Optimization and Indexes",
       "quote": "Although it can be tempting to create an indexes for every possible column used in a query, unnecessary indexes waste space and waste time for MySQL to determine which indexes to use.",
-      "accessed": "2026-04-20"
+      "fetched_at": "2026-04-20"
     },
     "engine": "mysql",
     "confidence": "high",
@@ -289,7 +289,7 @@
       "url": "https://dev.mysql.com/doc/refman/8.0/en/innodb-consistent-read.html",
       "title": "17.7.2.3 Consistent Nonlocking Reads",
       "quote": "If the transaction isolation level is REPEATABLE READ (the default level), all consistent reads within the same transaction read the snapshot established by the first such read in that transaction. You can get a fresher snapshot for your queries by committing the current transaction and after that issuing new queries.",
-      "accessed": "2026-04-20"
+      "fetched_at": "2026-04-20"
     },
     "engine": "mysql",
     "confidence": "high",
@@ -314,7 +314,7 @@
       "url": "https://dev.mysql.com/doc/refman/8.0/en/innodb-consistent-read.html",
       "title": "17.7.2.3 Consistent Nonlocking Reads",
       "quote": "With READ COMMITTED isolation level, each consistent read within a transaction sets and reads its own fresh snapshot.",
-      "accessed": "2026-04-20"
+      "fetched_at": "2026-04-20"
     },
     "engine": "mysql",
     "confidence": "high",
@@ -339,7 +339,7 @@
       "url": "https://dev.mysql.com/doc/refman/8.0/en/innodb-consistent-read.html",
       "title": "17.7.2.3 Consistent Nonlocking Reads",
       "quote": "If you want to see the “freshest” state of the database, use either the READ COMMITTED isolation level or a locking read: SELECT * FROM t FOR SHARE;",
-      "accessed": "2026-04-20"
+      "fetched_at": "2026-04-20"
     },
     "engine": "mysql",
     "confidence": "high",
@@ -364,7 +364,7 @@
       "url": "https://dev.mysql.com/doc/refman/8.0/en/innodb-consistent-read.html",
       "title": "17.7.2.3 Consistent Nonlocking Reads",
       "quote": "Consistent read does not work over ALTER TABLE operations that make a temporary copy of the original table and delete the original table when the temporary copy is built... the transaction returns an error: ER_TABLE_DEF_CHANGED, “Table definition has changed, please retry transaction”.",
-      "accessed": "2026-04-20"
+      "fetched_at": "2026-04-20"
     },
     "engine": "mysql",
     "confidence": "high",
@@ -389,7 +389,7 @@
       "url": "https://dev.mysql.com/doc/refman/8.0/en/performance-schema.html",
       "title": "Chapter 29 MySQL Performance Schema",
       "quote": "The MySQL Performance Schema is a feature for monitoring MySQL Server execution at a low level.",
-      "accessed": "2026-04-20"
+      "fetched_at": "2026-04-20"
     },
     "engine": "mysql",
     "confidence": "high",
@@ -414,7 +414,7 @@
       "url": "https://dev.mysql.com/doc/refman/8.0/en/performance-schema.html",
       "title": "Chapter 29 MySQL Performance Schema",
       "quote": "Current events are available, as well as event histories and summaries. This enables you to determine how many times instrumented activities were performed and how much time they took.",
-      "accessed": "2026-04-20"
+      "fetched_at": "2026-04-20"
     },
     "engine": "mysql",
     "confidence": "high",
@@ -439,7 +439,7 @@
       "url": "https://dev.mysql.com/doc/refman/8.0/en/performance-schema.html",
       "title": "Chapter 29 MySQL Performance Schema",
       "quote": "An “event” is anything the server does that takes time and has been instrumented so that timing information can be collected.",
-      "accessed": "2026-04-20"
+      "fetched_at": "2026-04-20"
     },
     "engine": "mysql",
     "confidence": "high",
@@ -464,7 +464,7 @@
       "url": "https://dev.mysql.com/doc/refman/8.0/en/performance-schema.html",
       "title": "Chapter 29 MySQL Performance Schema",
       "quote": "Most Performance Schema tables have indexes, which gives the optimizer access to execution plans other than full table scans.",
-      "accessed": "2026-04-20"
+      "fetched_at": "2026-04-20"
     },
     "engine": "mysql",
     "confidence": "high",
@@ -489,7 +489,7 @@
       "url": "https://dev.mysql.com/doc/refman/8.0/en/slow-query-log.html",
       "title": "Slow Query Log Parameters",
       "quote": "By default, the slow query log is disabled.",
-      "accessed": "2026-04-20"
+      "fetched_at": "2026-04-20"
     },
     "engine": "mysql",
     "confidence": "high",
@@ -514,7 +514,7 @@
       "url": "https://dev.mysql.com/doc/refman/8.0/en/slow-query-log.html",
       "title": "Slow Query Log Contents",
       "quote": "If the destination is NONE, the server writes no queries even if the slow query log is enabled.",
-      "accessed": "2026-04-20"
+      "fetched_at": "2026-04-20"
     },
     "engine": "mysql",
     "confidence": "high",
@@ -539,7 +539,7 @@
       "url": "https://dev.mysql.com/doc/refman/8.0/en/slow-query-log.html",
       "title": "Slow Query Log Parameters",
       "quote": "The minimum and default values of long_query_time are 0 and 10, respectively.",
-      "accessed": "2026-04-20"
+      "fetched_at": "2026-04-20"
     },
     "engine": "mysql",
     "confidence": "high",
@@ -564,7 +564,7 @@
       "url": "https://dev.mysql.com/doc/refman/8.0/en/slow-query-log.html",
       "title": "Slow Query Log Parameters",
       "quote": "When queries that do not use an index are logged, the slow query log may grow quickly. It is possible to put a rate limit on these queries by setting the log_throttle_queries_not_using_indexes system variable.",
-      "accessed": "2026-04-20"
+      "fetched_at": "2026-04-20"
     },
     "engine": "mysql",
     "confidence": "high",

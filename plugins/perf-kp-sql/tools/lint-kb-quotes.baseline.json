@@ -1,7 +1,7 @@
 {
   "note": "已知遗留违规 (军规 2 / 3) · 跑 lint 时这些 key 不计为 fail · 修复后从此处删除该 key",
-  "generated_at": "2026-04-27T04:16:16.629Z",
-  "count": 111,
+  "generated_at": "2026-04-27T04:27:23.782Z",
+  "count": 124,
   "keys": [
     "data/common/kunpeng-rules.json|openeuler.sched.steal_node_limit|Add sched_steal_node_limit=4 to the end of the kernel startu",
     "data/common/kunpeng-rules.json|mongo-network-tcp-rmem|tcp_rmem - vector of 3 INTEGERs: min, default, max",
@@ -113,6 +113,19 @@
     "sqlite|mongo.config.wt_cache_pct_kunpeng:trade_off|值越大，性能越好，但数据丢失可能性更大。",
     "sqlite|kunpeng.vm.swappiness_strict:threshold|Set vm.swappiness to 1 or 0",
     "sqlite|kunpeng.vm.swappiness_strict:remediation|Set vm.swappiness to 1 or 0",
-    "sqlite|os.thp.kernel_mode:threshold|transparent_hugepages=never"
+    "sqlite|os.thp.kernel_mode:threshold|transparent_hugepages=never",
+    "data/mysql/rules.json|mysql-config-innodb-buffer-pool-too-small|",
+    "data/mysql/rules.json|mysql-runtime-innodb-read-ahead-ineffective|",
+    "data/mysql/rules.json|mysql-design-missing-where-index|",
+    "data/mysql/rules.json|mysql-runtime-long-trx-stale-snapshot|",
+    "data/mysql/rules.json|mysql-query-performance-schema-full-scan-risk|",
+    "data/redis/rules.json|redis-query-keys-in-production|",
+    "data/redis/rules.json|redis-design-small-objects-use-hashes|",
+    "data/redis/rules.json|redis-runtime-rss-fragmentation-after-free|",
+    "data/redis/rules.json|redis-config-maxmemory-headroom-too-low-write-heavy|",
+    "data/redis/rules.json|redis-config-repl-backlog-too-small|",
+    "data/redis/rules.json|redis-runtime-full-resync-frequency|",
+    "data/redis/rules.json|redis-config-maxmemory-too-high-for-replication-persistence|",
+    "data/redis/rules.json|redis-query-cache-hit-rate-low|"
   ]
 }

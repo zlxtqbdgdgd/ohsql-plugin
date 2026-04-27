@@ -8,7 +8,7 @@
       "url": "https://docs.kernel.org/arch/arm64/elf_hwcaps.html",
       "title": "鲲鹏代码移植指南 · ARM64 原子指令与编译",
       "quote": "Functionality implied by ID_AA64ISAR0_EL1.Atomic == 0b0010.",
-      "accessed": "2026-04-26"
+      "fetched_at": "2026-04-26"
     },
     "engine": "any",
     "audit": {
@@ -29,7 +29,7 @@
       "url": "https://www.cnblogs.com/huaweicloud/p/11861191.html",
       "title": "鲲鹏代码移植指南 · 内核页大小",
       "quote": "相同业务场景下的TLB命中率就越高",
-      "accessed": "2026-04-26"
+      "fetched_at": "2026-04-26"
     },
     "engine": "any",
     "audit": {
@@ -50,7 +50,7 @@
       "url": "https://www.hikunpeng.com/document/detail/zh/perftuning/tuningtip/kunpengtuning_12_0014.html",
       "title": "鲲鹏 ARM64 性能故障处理手册 · NUMA 调优",
       "quote": "跨CPU > 跨NUMA不跨CPU > NUMA内",
-      "accessed": "2026-04-26"
+      "fetched_at": "2026-04-26"
     },
     "engine": "any",
     "audit": {
@@ -71,7 +71,7 @@
       "url": "https://docs.openeuler.org/en/docs/22.09/docs/SystemOptimization/mysql-performance-tuning.html",
       "title": "openEuler · MySQL 性能调优指南(类推 MongoDB)",
       "quote": "echo STEAL > /sys/kernel/debug/sched_features",
-      "accessed": "2026-04-26"
+      "fetched_at": "2026-04-26"
     },
     "engine": "any",
     "audit": {
@@ -92,7 +92,7 @@
       "url": "https://docs.openeuler.org/en/docs/22.09/docs/SystemOptimization/mysql-performance-tuning.html",
       "title": "openEuler · 调度器 sched_steal_node_limit",
       "quote": "Add sched_steal_node_limit=4 to the end of the kernel startup items in /etc/grub2-efi.cfg.",
-      "accessed": "2026-04-22"
+      "fetched_at": "2026-04-22"
     },
     "engine": "any",
     "audit": {
@@ -113,7 +113,7 @@
       "url": "https://docs.openeuler.org/en/docs/22.09/docs/SystemOptimization/mysql-performance-tuning.html",
       "title": "openEuler · BIOS SMMU 调优",
       "quote": "Disable the SMMU (only for the Kunpeng server).",
-      "accessed": "2026-04-22"
+      "fetched_at": "2026-04-22"
     },
     "engine": "any",
     "audit": {
@@ -134,7 +134,7 @@
       "url": "https://www.cnblogs.com/huaweicloud/p/11861191.html",
       "title": "Huawei Kunpeng CPU/Memory Tuning · BIOS Prefetch",
       "quote": "对于数据比较集中的场景，预取的命中率高，适合打开CPU预取，反之需要关闭CPU预取。目前发现speccpu和X265软件场景适合打开CPU预取，STREAM测试工具、Nginx和数据库场景需要关闭CPU预取。",
-      "accessed": "2026-04-22"
+      "fetched_at": "2026-04-22"
     },
     "engine": "any",
     "audit": {
@@ -155,7 +155,7 @@
       "url": "https://docs.openeuler.org/en/docs/22.09/docs/SystemOptimization/mysql-performance-tuning.html",
       "title": "调优指南",
       "quote": "You can configure advanced BIOS settings for different server hardware to improve server performance.",
-      "accessed": "2026-04-26"
+      "fetched_at": "2026-04-26"
     },
     "engine": "any",
     "audit": {
@@ -176,7 +176,7 @@
       "url": "https://www.kernel.org/doc/Documentation/networking/ip-sysctl.txt",
       "title": "调优指南",
       "quote": "tcp_max_syn_backlog for additional tuning for TCP sockets.",
-      "accessed": "2026-04-26"
+      "fetched_at": "2026-04-26"
     },
     "engine": "any",
     "audit": {
@@ -197,7 +197,7 @@
       "url": "https://www.kernel.org/doc/Documentation/networking/ip-sysctl.txt",
       "title": "调优指南",
       "quote": "Limit of socket listen() backlog, known in userspace as SOMAXCONN.",
-      "accessed": "2026-04-26"
+      "fetched_at": "2026-04-26"
     },
     "engine": "any",
     "audit": {
@@ -218,7 +218,7 @@
       "url": "https://www.kernel.org/doc/Documentation/networking/ip-sysctl.txt",
       "title": "MongoDB Tuning Guide",
       "quote": "tcp_rmem - vector of 3 INTEGERs: min, default, max",
-      "accessed": "2026-04-26"
+      "fetched_at": "2026-04-26"
     },
     "engine": "any",
     "audit": {
@@ -239,7 +239,7 @@
       "url": "https://www.kernel.org/doc/Documentation/networking/ip-sysctl.txt",
       "title": "MongoDB Tuning Guide",
       "quote": "tcp_wmem - vector of 3 INTEGERs: min, default, max",
-      "accessed": "2026-04-26"
+      "fetched_at": "2026-04-26"
     },
     "engine": "any",
     "audit": {
@@ -260,7 +260,7 @@
       "url": "https://www.kernel.org/doc/Documentation/networking/ip-sysctl.txt",
       "title": "MongoDB Tuning Guide",
       "quote": "Maximal number of timewait sockets held by system simultaneously. If this number is exceeded time-wait socket is immediately destroyed.",
-      "accessed": "2026-04-26"
+      "fetched_at": "2026-04-26"
     },
     "engine": "any",
     "audit": {
@@ -281,7 +281,7 @@
       "url": "https://www.kernel.org/doc/Documentation/sysctl/vm.txt",
       "title": "MongoDB Tuning Guide",
       "quote": "This control is used to define how aggressive the kernel will swap memory pages.",
-      "accessed": "2026-04-26"
+      "fetched_at": "2026-04-26"
     },
     "engine": "any",
     "audit": {
@@ -302,7 +302,7 @@
       "url": "https://www.kernel.org/doc/Documentation/networking/ip-sysctl.txt",
       "title": "MongoDB 调优指南",
       "quote": "Enable reuse of TIME-WAIT sockets for new connections when it is safe from protocol viewpoint.",
-      "accessed": "2026-04-26"
+      "fetched_at": "2026-04-26"
     },
     "engine": "any",
     "audit": {
@@ -323,7 +323,7 @@
       "url": "https://www.kernel.org/doc/Documentation/networking/ip-sysctl.txt",
       "title": "MongoDB 调优指南",
       "quote": "Defines the local port range that is used by TCP and UDP to choose the local port.",
-      "accessed": "2026-04-26"
+      "fetched_at": "2026-04-26"
     },
     "engine": "any",
     "audit": {
@@ -344,7 +344,7 @@
       "url": "https://docs.openeuler.org/en/docs/22.09/docs/SystemOptimization/mysql-performance-tuning.html",
       "title": "Kunpeng 920 专属(BIOS + kernel 层)",
       "quote": "numactl -C 0-90 -i 0-3",
-      "accessed": "2026-04-26"
+      "fetched_at": "2026-04-26"
     },
     "engine": "any",
     "audit": {
@@ -365,7 +365,7 @@
       "url": "https://docs.kernel.org/arch/arm64/cpu-feature-registers.html",
       "title": "ARM64 通用(所有 ARM64 适用) > 3.1 · LSE atomics 三连查",
       "quote": "the infrastructure emulates only the following system register space: Op0=3, Op1=0, CRn=0, CRm=0,2,3,4,5,6,7",
-      "accessed": "2026-04-26"
+      "fetched_at": "2026-04-26"
     },
     "engine": "any",
     "audit": {
@@ -386,7 +386,7 @@
       "url": "https://www.mongodb.com/docs/manual/administration/production-notes/",
       "title": "MongoDB 通用 sysctl(官方要求)",
       "quote": "MongoDB performs best where swapping can be avoided or kept to a minimum. As such you should set vm.swappiness to either 1 or 0 depending on your application needs and cluster configuration.",
-      "accessed": "2026-04-26"
+      "fetched_at": "2026-04-26"
     },
     "engine": "any",
     "audit": {
@@ -407,7 +407,7 @@
       "url": "https://www.kernel.org/doc/Documentation/sysctl/vm.txt",
       "title": "MongoDB 通用 sysctl(官方要求)",
       "quote": "This file contains the maximum number of memory map areas a process may have.",
-      "accessed": "2026-04-26"
+      "fetched_at": "2026-04-26"
     },
     "engine": "any",
     "audit": {
@@ -428,7 +428,7 @@
       "url": "https://www.mongodb.com/docs/manual/administration/production-notes/",
       "title": "MongoDB 通用 sysctl(官方要求)",
       "quote": "To change the tcp_keepalive_time value, you can use one of the following commands, supplying a <value> in seconds: sudo sysctl -w net.ipv4.tcp_keepalive_time=<value>",
-      "accessed": "2026-04-26"
+      "fetched_at": "2026-04-26"
     },
     "engine": "any",
     "audit": {
@@ -449,7 +449,7 @@
       "url": "https://www.mongodb.com/docs/manual/administration/production-notes/",
       "title": "MongoDB 通用 sysctl(官方要求)",
       "quote": "If the ulimit value for number of open files is under 64000, MongoDB generates a startup warning.",
-      "accessed": "2026-04-26"
+      "fetched_at": "2026-04-26"
     },
     "engine": "any",
     "audit": {
@@ -470,7 +470,7 @@
       "url": "https://www.mongodb.com/docs/manual/administration/production-notes/",
       "title": "MongoDB 通用 sysctl(官方要求)",
       "quote": "Set the readahead setting between 8 and 32 regardless of storage media type (spinning disk, SSD, etc.).",
-      "accessed": "2026-04-26"
+      "fetched_at": "2026-04-26"
     },
     "engine": "any",
     "audit": {
@@ -491,7 +491,7 @@
       "url": "https://www.mongodb.com/docs/manual/administration/production-notes/",
       "title": "MongoDB 通用 sysctl(官方要求)",
       "quote": "On Linux, you must disable zone reclaim and also ensure that your mongod and mongos instances are started by numactl, which is generally configured through your platform's init system.",
-      "accessed": "2026-04-26"
+      "fetched_at": "2026-04-26"
     },
     "engine": "any",
     "audit": {
@@ -512,7 +512,7 @@
       "url": "https://www.kernel.org/doc/Documentation/sysctl/vm.txt",
       "title": "Memory Management",
       "quote": "This percentage value controls the tendency of the kernel to reclaim the memory which is used for caching of directory and inode objects.",
-      "accessed": "2026-04-26"
+      "fetched_at": "2026-04-26"
     },
     "engine": "any",
     "engine_version_min": "",
@@ -535,7 +535,7 @@
       "url": "https://www.mongodb.com/docs/v7.0/tutorial/transparent-huge-pages/",
       "title": "MongoDB Manual · Disable THP (v7.0)",
       "quote": "When running MongoDB on Linux, THP should be disabled for best performance.",
-      "accessed": "2026-04-26"
+      "fetched_at": "2026-04-26"
     },
     "engine": "any",
     "audit": {

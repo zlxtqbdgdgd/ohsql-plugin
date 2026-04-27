@@ -3553,7 +3553,7 @@ function enrichResultsFromKb(results, dbPath) {
     ).get();
     if (!has || has.cnt === 0) return results;
     const stmt = db.prepare(
-      "SELECT fact_type, quote, source_url FROM knowledge WHERE rule_id = ? AND quote IS NOT NULL AND quote != ''"
+      "SELECT fact_type, quote, source_url, provenance FROM knowledge WHERE rule_id = ? AND quote IS NOT NULL AND quote != ''"
     );
     return results.map((r) => {
       try {
@@ -3567,12 +3567,15 @@ function enrichResultsFromKb(results, dbPath) {
     db.close();
   }
 }
+var FORBID_MODEL_GEN_FOR = /* @__PURE__ */ new Set(["threshold", "remediation"]);
 function mergeFactsIntoResult(r, rows) {
   const factsByType = /* @__PURE__ */ new Map();
   for (const row of rows) {
     if (!row.quote) continue;
+    const prov = row.provenance ?? "verified";
+    if (FORBID_MODEL_GEN_FOR.has(row.fact_type) && prov === "model-generated") continue;
     if (!factsByType.has(row.fact_type)) factsByType.set(row.fact_type, []);
-    factsByType.get(row.fact_type).push({ quote: row.quote, source_url: row.source_url });
+    factsByType.get(row.fact_type).push({ quote: row.quote, source_url: row.source_url, provenance: prov });
   }
   const pick = (type) => factsByType.get(type)?.[0];
   const all = (type) => factsByType.get(type) ?? [];

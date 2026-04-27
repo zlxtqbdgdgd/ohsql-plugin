@@ -26,6 +26,7 @@ interface KbFactRow {
   fact_type: string;
   quote: string;
   source_url: string | null;
+  provenance?: string | null;
 }
 
 function loadSqlite(): unknown {
@@ -68,7 +69,7 @@ export function enrichResultsFromKb(
     if (!has || has.cnt === 0) return results;
 
     const stmt = db.prepare(
-      "SELECT fact_type, quote, source_url FROM knowledge WHERE rule_id = ? AND quote IS NOT NULL AND quote != ''",
+      "SELECT fact_type, quote, source_url, provenance FROM knowledge WHERE rule_id = ? AND quote IS NOT NULL AND quote != ''",
     );
 
     return results.map((r) => {
@@ -87,7 +88,11 @@ export function enrichResultsFromKb(
 interface FactByType {
   quote: string;
   source_url: string | null;
+  provenance: string;
 }
+
+// 军规 1.5 · model-generated 不许进"执行命令"和"具体阈值"字段
+const FORBID_MODEL_GEN_FOR = new Set(["threshold", "remediation"]);
 
 /**
  * 合并 KB facts 进 CheckResult · KB 强覆盖 · 没 fact 留空
@@ -96,8 +101,11 @@ function mergeFactsIntoResult(r: CheckResult, rows: KbFactRow[]): CheckResult {
   const factsByType = new Map<string, FactByType[]>();
   for (const row of rows) {
     if (!row.quote) continue;
+    const prov = row.provenance ?? "verified";
+    // 军规 1.5 守门: model-generated 不进 threshold / remediation
+    if (FORBID_MODEL_GEN_FOR.has(row.fact_type) && prov === "model-generated") continue;
     if (!factsByType.has(row.fact_type)) factsByType.set(row.fact_type, []);
-    factsByType.get(row.fact_type)!.push({ quote: row.quote, source_url: row.source_url });
+    factsByType.get(row.fact_type)!.push({ quote: row.quote, source_url: row.source_url, provenance: prov });
   }
 
   const pick = (type: string): FactByType | undefined => factsByType.get(type)?.[0];

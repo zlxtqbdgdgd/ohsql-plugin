@@ -115,9 +115,19 @@ const issues = {
   SHORT_QUOTE: [],
   CACHE_MISS: [],
   EMPTY_URL: [],
-  BAD_PROVENANCE: [],   // 军规 1 · provenance 必须 ∈ {verified|inferred|model-generated}
+  BAD_PROVENANCE: [],         // 军规 1 · provenance 必须 ∈ {verified|inferred|model-generated}
+  MISSING_FETCHED_AT: [],     // 军规 1.3 / 2.1 · verified 必须有 source.fetched_at
+  MISSING_DERIVED_FROM: [],   // 军规 1.4 · inferred 必须 derived_from
+  NUMERIC_THRESHOLD_GAP: [],  // 军规 3 · 阈值数字必须能在 quote 字面读到
 };
 const VALID_PROVENANCE = new Set(["verified", "inferred", "model-generated"]);
+
+// 抽 quote / threshold 字段里的数字 (整数 / 小数 / 含单位前缀的)
+function extractNumbers(s) {
+  if (!s) return [];
+  // 抓连续数字串(可含小数点) 长度≥2 (避免 "1" "2" 这种短数误报)
+  return [...String(s).matchAll(/\d+(?:\.\d+)?/g)].map(m => m[0]).filter(n => n.length >= 2);
+}
 let total = 0, passed = 0;
 
 // ---------- rules.json files ----------
@@ -139,6 +149,23 @@ for (const path of jsonFiles) {
     // 'model-generated' 不许带 quote (因为 quote 字段意味着引文校验)
     if (prov === "model-generated" && rule.source?.quote) {
       issues.BAD_PROVENANCE.push({ file, id, reason: "model-generated 不许有 source.quote (quote=有出处)" });
+    }
+    // 军规 1.4 · inferred 必须 derived_from
+    if (prov === "inferred" && !rule.derived_from) {
+      issues.MISSING_DERIVED_FROM.push({ file, id, reason: "inferred 必须挂 derived_from" });
+    }
+    // 军规 1.3 / 2.1 · verified 必须 source.fetched_at
+    if ((prov === "verified" || prov == null) && rule.source?.url && !rule.source?.fetched_at) {
+      issues.MISSING_FETCHED_AT.push({ file, id });
+    }
+    // 军规 3 · 阈值数字 (rule.threshold 或 metric_expr) 必须在 quote 字面读到
+    if (rule.source?.quote && (rule.threshold || rule.metric_expr)) {
+      const thresholdNums = extractNumbers((rule.threshold ?? "") + " " + (rule.metric_expr ?? ""));
+      const cQuote = canonical(rule.source.quote);
+      const missing = thresholdNums.filter(n => !cQuote.includes(n));
+      if (missing.length > 0) {
+        issues.NUMERIC_THRESHOLD_GAP.push({ file, id, missing_numbers: missing, threshold: rule.threshold ?? rule.metric_expr });
+      }
     }
     if (!url) { issues.EMPTY_URL.push({ file, id, where: "rules.json" }); continue; }
     if (!quote) { continue; }  // 没 quote 不强制
@@ -183,6 +210,9 @@ console.log(`⚠ SHORT_QUOTE (quote < ${MIN_QUOTE_LEN} 字,军规 2 违反): ${i
 console.log(`⊘ CACHE_MISS (URL 缓存缺失,无法校验): ${issues.CACHE_MISS.length}`);
 console.log(`⚠ EMPTY_URL  (有 quote 但无 source.url): ${issues.EMPTY_URL.length}`);
 console.log(`✗ BAD_PROVENANCE (军规 1 · provenance 非法 / model-generated 带 quote): ${issues.BAD_PROVENANCE.length}`);
+console.log(`✗ MISSING_DERIVED_FROM (军规 1.4 · inferred 缺 derived_from): ${issues.MISSING_DERIVED_FROM.length}`);
+console.log(`✗ NUMERIC_THRESHOLD_GAP (军规 3 · 阈值数字不在 quote 字面): ${issues.NUMERIC_THRESHOLD_GAP.length}`);
+console.log(`⚠ MISSING_FETCHED_AT (军规 1.3/2.1 · verified 缺 source.fetched_at · warn-only): ${issues.MISSING_FETCHED_AT.length}`);
 
 for (const [k, list] of Object.entries(issues)) {
   if (list.length === 0) continue;
@@ -199,7 +229,8 @@ if (args.json) {
 }
 
 // ---------- baseline 处理 ----------
-const fatalCategories = ["QUOTE_FALSE", "SHORT_QUOTE", "EMPTY_URL", "BAD_PROVENANCE"];
+const fatalCategories = ["QUOTE_FALSE", "SHORT_QUOTE", "EMPTY_URL", "BAD_PROVENANCE", "MISSING_DERIVED_FROM", "NUMERIC_THRESHOLD_GAP"];
+// MISSING_FETCHED_AT 暂为 warn-only (现存大量,需逐步补)
 const allFatal = fatalCategories.flatMap(k => issues[k].map(it => ({ ...it, _cat: k, _key: violationKey(it) })));
 
 if (args["update-baseline"]) {
