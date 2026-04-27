@@ -1,19 +1,22 @@
 name: lint-kb-quotes
 
+# 默认只 manual 触发. KB 跨 i18n drift (本地 puppeteer 抓 zh-CN, CI runner 抓 en-US)
+# 待修后再 enable PR/push 自动触发. 取消下方注释即可重启自动跑.
 on:
-  pull_request:
-    paths:
-      - "plugins/perf-kp-sql/data/**/rules.json"
-      - "plugins/perf-kp-sql/data/knowledge.sqlite"
-      - "plugins/perf-kp-sql/tools/lint-kb-quotes.mjs"
-      - "plugins/perf-kp-sql/tools/refresh-url-cache.mjs"
-      - "plugins/perf-kp-sql/tools/lint-kb-quotes.baseline.json"
-      - ".github/workflows/lint-kb-quotes.yml"
-  push:
-    branches: [main]
-    paths:
-      - "plugins/perf-kp-sql/data/**/rules.json"
-      - "plugins/perf-kp-sql/data/knowledge.sqlite"
+  workflow_dispatch:
+  # pull_request:
+  #   paths:
+  #     - "plugins/perf-kp-sql/data/**/rules.json"
+  #     - "plugins/perf-kp-sql/data/knowledge.sqlite"
+  #     - "plugins/perf-kp-sql/tools/lint-kb-quotes.mjs"
+  #     - "plugins/perf-kp-sql/tools/refresh-url-cache.mjs"
+  #     - "plugins/perf-kp-sql/tools/lint-kb-quotes.baseline.json"
+  #     - ".github/workflows/lint-kb-quotes.yml"
+  # push:
+  #   branches: [main]
+  #   paths:
+  #     - "plugins/perf-kp-sql/data/**/rules.json"
+  #     - "plugins/perf-kp-sql/data/knowledge.sqlite"
 
 jobs:
   lint-kb-quotes:

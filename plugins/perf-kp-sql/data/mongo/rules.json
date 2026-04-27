@@ -6,7 +6,7 @@
     "source": {
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#mongodb-dbpath",
-      "title": "MongoDB dbPath",
+      "title": "mongo AV EDR 扫描排除配置",
       "quote": "If you use an antivirus (AV) scanner or an endpoint detection and response (EDR) scanner, configure your scanner to exclude the database storage path and the database log path from the scan.",
       "fetched_at": "2026-04-25"
     },
@@ -141,7 +141,7 @@
     "source": {
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/core/wiredtiger/",
-      "title": "mongo 票据并发限制",
+      "title": "mongo 票据队列过载检查",
       "quote": "A low value of available in queues.execution does not indicate a cluster overload. Use the number of queued read and write tickets as an indication of cluster overload.",
       "fetched_at": "2026-04-25"
     },
@@ -225,7 +225,7 @@
     "source": {
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/administration/tcmalloc-performance/",
-      "title": "MongoDB tcmalloc 关闭每核缓存",
+      "title": "MongoDB TCMalloc 启用每核缓存",
       "quote": "Starting in MongoDB 8.0, MongoDB uses an upgraded version of TCMalloc that uses per-CPU caches , instead of per-thread caches , to reduce memory fragmentation and make your database more resilient to high-stress workloads.",
       "fetched_at": "2026-04-26"
     },
@@ -267,7 +267,7 @@
     "source": {
       "tier": "official",
       "url": "https://www.mongodb.com/docs/atlas/performance-advisor/",
-      "title": "Mongo缺失索引导致慢查询",
+      "title": "mongo 缺失索引慢查询监控",
       "quote": "If a query is slow, common reasons include: The query is unsupported by your current indexes.",
       "fetched_at": "2026-04-25"
     },
@@ -288,7 +288,7 @@
     "source": {
       "tier": "official",
       "url": "https://www.mongodb.com/docs/atlas/performance-advisor/",
-      "title": "mongo-query 内存排序优化",
+      "title": "mongo 查询内存排序监控",
       "quote": "In Memory Sort Current number of affected queries per hour that needed to be sorted in memory.",
       "fetched_at": "2026-04-25"
     },
@@ -330,7 +330,7 @@
     "source": {
       "tier": "official",
       "url": "https://www.mongodb.com/docs/atlas/performance-advisor/",
-      "title": "mongo-query $lookup 慢查询",
+      "title": "mongo $lookup 大查询优化",
       "quote": "One query retrieves information from multiple collections with $lookup .",
       "fetched_at": "2026-04-25"
     },
@@ -540,7 +540,7 @@
     "source": {
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/tutorial/manage-journaling/",
-      "title": "mongo journal 提交窗口优化",
+      "title": "mongo 日志提交窗口写丢失",
       "quote": "You can get commit acknowledgment with the Write Concern and the j option.",
       "fetched_at": "2026-04-25"
     },
@@ -582,7 +582,7 @@
     "source": {
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/tutorial/manage-journaling/",
-      "title": "mongo Journal 压缩器重启",
+      "title": "mongo Journal 压缩器更改重启",
       "quote": "If you encounter an unclean shutdown for a mongod during this procedure, you must use the old compressor settings to recover using the journal files. Once recovered, you can retry the procedure.",
       "fetched_at": "2026-04-25"
     },
@@ -724,7 +724,7 @@
     "source": {
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/core/index-creation/",
-      "title": "mongo 索引构建并发问题",
+      "title": "mongo 索引构建提交仲裁检查",
       "quote": "Changed in version 8.0 : The commit quorum specifies how many nodes must be ready to finish the index build before the primary commits the index build.",
       "fetched_at": "2026-04-25"
     },
@@ -745,7 +745,7 @@
     "source": {
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/core/index-creation/",
-      "title": "mongo-config 索引构建空间监控",
+      "title": "mongo 索引构建空间检查",
       "quote": "You can also set the minimum available disk space required for index builds using the new indexBuildMinAvailableDiskSpaceMB parameter, which stops index builds if disk space is too low.",
       "fetched_at": "2026-04-25"
     },
@@ -787,7 +787,7 @@
     "source": {
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/core/index-creation/",
-      "title": "mongo.createIndexes 内存限制",
+      "title": "mongo 索引构建内存溢出检查",
       "quote": "The default memory limit is 200 megabytes per createIndexes command, shared equally among all indexes built in that command.",
       "fetched_at": "2026-04-25"
     },
@@ -808,7 +808,7 @@
     "source": {
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/core/index-creation/",
-      "title": "mongo-index-build 写重窗口优化",
+      "title": "mongo 索引构建写重监控",
       "quote": "Building indexes during time periods where the target collection is under heavy write load can result in reduced write performance and longer index builds.",
       "fetched_at": "2026-04-25"
     },
@@ -976,7 +976,7 @@
     "source": {
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/core/wiredtiger/",
-      "title": "mongo WiredTiger 最大并发数",
+      "title": "mongo WiredTiger 最大并发事务优化",
       "quote": "The maximum number of concurrent storage engine transactions, or read and write tickets, never exceeds 128 read tickets and 128 write tickets and may differ across nodes in a cluster.",
       "fetched_at": "2026-04-25"
     },
@@ -1627,7 +1627,7 @@
     "source": {
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/administration/tcmalloc-performance/",
-      "title": "MongoDB THP 启动优化",
+      "title": "MongoDB THP 启动脚本优化",
       "quote": "Provides:          enable-transparent-hugepages",
       "fetched_at": "2026-04-26"
     },
@@ -1711,7 +1711,7 @@
     "source": {
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/reference/parameters/#mongodb-parameter-param.storageEngineConcurrentReadTransactions",
-      "title": "mongo 事务时间限制",
+      "title": "mongo WiredTiger 事务并发上限",
       "quote": "Starting in version 7.0, MongoDB dynamically adjusts the number of tickets to optimize performance, with a highest possible value of 128.",
       "fetched_at": "2026-04-25"
     },
@@ -1879,7 +1879,7 @@
     "source": {
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/core/journaling/",
-      "title": "mongo-storage-journal 磁盘放置",
+      "title": "mongo 日志文件磁盘优化",
       "quote": "MongoDB creates a subdirectory named journal under the dbPath directory.",
       "fetched_at": "2026-04-26"
     },
@@ -2047,7 +2047,7 @@
     "source": {
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/administration/production-checklist-operations/#linuxLinux",
-      "title": "Deployments to Cloud Hardware",
+      "title": "mongo TCP keepalive 设置",
       "quote": "A value of 120 often provides better performance for replica sets and sharded clusters.",
       "fetched_at": "2026-04-25"
     },
@@ -2068,7 +2068,7 @@
     "source": {
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/administration/production-checklist-operations/#monitoringMonitoring",
-      "title": "mongo 磁盘空间虚拟文件",
+      "title": "mongo 磁盘空间虚拟文件监控",
       "quote": "Create a dummy 4 GB file on the storage.dbPath drive to ensure available space if the disk becomes full.",
       "fetched_at": "2026-04-25"
     },
@@ -2152,7 +2152,7 @@
     "source": {
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/reference/parameters/#mongodb-parameter-param.storageEngineConcurrentWriteTransactions",
-      "title": "mongo storageConcurrentWriteLimit",
+      "title": "mongo 并发写事务限制",
       "quote": "Specifies the maximum number of concurrent write transactions allowed into the WiredTiger storage engine.",
       "fetched_at": "2026-04-25"
     },
@@ -2204,7 +2204,7 @@
     "source": {
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/core/wiredtiger/#journalJournal",
-      "title": "WiredTiger 日志压缩调优",
+      "title": "WiredTiger 日志压缩优化",
       "quote": "WiredTiger journal is compressed using the snappy compression library. To specify a different compression algorithm or no compression, use the storage.wiredTiger.engineConfig.journalCompressor setting.",
       "fetched_at": "2026-04-25"
     },
@@ -2267,7 +2267,7 @@
     "source": {
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/core/wiredtiger/#memory-use",
-      "title": "Memory Use",
+      "title": "mongo WiredTiger 缓存优化",
       "quote": "The default WiredTiger internal cache size is the larger of either: 50% of (RAM - 1GB), or 0.256 GB.",
       "fetched_at": "2026-04-25"
     },
@@ -2332,7 +2332,7 @@
     "source": {
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/tutorial/transparent-huge-pages/#create-the-systemd-unit-file",
-      "title": "MongoDB THP 状态检查",
+      "title": "MongoDB THP 状态监控",
       "quote": "Enable Transparent Hugepages (THP)",
       "fetched_at": "2026-04-25"
     },
@@ -2353,7 +2353,7 @@
     "source": {
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/tutorial/transparent-huge-pages/#configure-your-operating-system-to-run-it-on-boot",
-      "title": "Mongo 启用 Transparent Hugepages",
+      "title": "mongo 启用透明大页优化",
       "quote": "Transparent Hugepages (THP) is a Linux memory management system that reduces the overhead of Translation Lookaside Buffer (TLB) lookups.",
       "fetched_at": "2026-04-25"
     },
@@ -2374,7 +2374,7 @@
     "source": {
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/tutorial/transparent-huge-pages/#enable-per-cpu-caches",
-      "title": "禁用 glibc rseq",
+      "title": "TCMalloc 关闭 glibc rseq",
       "quote": "Starting in MongoDB 8.0, MongoDB uses an upgraded version of TCMalloc that uses per-CPU caches , instead of per-thread caches , to reduce memory fragmentation and make your database more resilient to high-stress workloads.",
       "fetched_at": "2026-04-25"
     },
@@ -2437,7 +2437,7 @@
     "source": {
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/tutorial/manage-the-database-profiler/#profiling-levels",
-      "title": "mongo profiler 操作模式",
+      "title": "mongo 数据库 profiler 模式设置",
       "quote": "See Database Profiler Overhead .",
       "fetched_at": "2026-04-25"
     },
@@ -2458,7 +2458,7 @@
     "source": {
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/tutorial/manage-the-database-profiler/#profiling-levels",
-      "title": "mongo 慢查询阈值",
+      "title": "mongo 慢查询阈值监控",
       "quote": "Run show profile from mongosh : show profile Profiler Overhead When enabled, profiling affects database performance, especially at profiling level 2 or when using a low slowms threshold with level 1 .",
       "fetched_at": "2026-04-25"
     },
@@ -2479,7 +2479,7 @@
     "source": {
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/tutorial/manage-the-database-profiler/#profiling-levels",
-      "title": "mongo profiler 采样率调优",
+      "title": "mongo profiler 采样率优化",
       "quote": "The database profiler can degrade MongoDB performance.",
       "fetched_at": "2026-04-25"
     },
@@ -2500,7 +2500,7 @@
     "source": {
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/tutorial/manage-the-database-profiler/#change-size-of-system.profile-collection-on-the-primary",
-      "title": "mongoDB profiler 大小调整",
+      "title": "mongoDB profiler 大小监控",
       "quote": "View Profiler Data The profiler logs database operations to the system.profile collection.",
       "fetched_at": "2026-04-25"
     },
@@ -2521,7 +2521,7 @@
     "source": {
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/core/index-creation/#sharded-collections",
-      "title": "mongo-index-builds 检查重复",
+      "title": "mongo 索引构建验证无重复",
       "quote": "To mitigate the risk of this occurrence, before creating the index: Validate that no documents in the collection violate the index constraints.",
       "fetched_at": "2026-04-25"
     },
@@ -2542,7 +2542,7 @@
     "source": {
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/core/index-creation/#insufficient-available-system-memory--ram",
-      "title": "mongo-index-builds 最大内存",
+      "title": "mongo 索引构建内存优化",
       "quote": "Adjust the memory limit with the maxIndexBuildMemoryUsageMegabytes parameter. Increasing this parameter is only necessary in rare cases, such as when you run many simultaneous index builds with a single createIndexes command or when you index a data set larger than 500GB.",
       "fetched_at": "2026-04-25"
     },
@@ -2690,7 +2690,7 @@
     "source": {
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/core/query-optimization/#use-index-hints",
-      "title": "Mongo 查询优化: 使用 index hints",
+      "title": "mongo 查询优化使用索引提示",
       "quote": "However, you can force a specific index using the hint() method. This is useful for performance testing or when a field appears in several indexes and you need to guarantee which index MongoDB uses.",
       "fetched_at": "2026-04-25"
     },
@@ -2711,7 +2711,7 @@
     "source": {
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/core/query-optimization/#run-covered-queries",
-      "title": "Mongo 覆盖索引优化策略",
+      "title": "mongo 覆盖索引查询优化",
       "quote": "Example To achieve a covered query, index the projected fields.",
       "fetched_at": "2026-04-25"
     },
@@ -2753,7 +2753,7 @@
     "source": {
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/core/query-optimization/#run-covered-queries",
-      "title": "Mongo 覆盖查询与索引",
+      "title": "mongo 覆盖查询需包含分片键",
       "quote": "Query optimization reduces the amount of data a query must process.",
       "fetched_at": "2026-04-25"
     },
@@ -2837,7 +2837,7 @@
     "source": {
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/administration/production-checklist-operations/#linuxLinux",
-      "title": "Deployments to Cloud Hardware",
+      "title": "mongo TCP keepalive 配置",
       "quote": "Ensure that the system default TCP keepalive is set correctly. A value of 120 often provides better performance for replica sets and sharded clusters.",
       "fetched_at": "2026-04-25"
     },
@@ -2879,7 +2879,7 @@
     "source": {
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/reference/ulimit/#red-hat-linux-enterprise-server-and-centos",
-      "title": "mongo nproc 限制配置",
+      "title": "mongo nproc 限制检查",
       "quote": "RHEL / CentOS 7 4096 /etc/security/limits.d/20-nproc.conf",
       "fetched_at": "2026-04-25"
     },
@@ -2902,7 +2902,7 @@
     "source": {
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/reference/ulimit/#red-hat-linux-enterprise-server-and-centos",
-      "title": "Mongo nproc 限制优化",
+      "title": "Mongo nproc 限制检查",
       "quote": "RHEL / CentOS 6 1024 /etc/security/limits.d/90-nproc.conf",
       "fetched_at": "2026-04-25"
     },
@@ -3011,7 +3011,7 @@
     "source": {
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/core/query-optimization/#create-selective-queries",
-      "title": "Create Selective Queries",
+      "title": "mongo 查询选择性检查",
       "quote": "Less selective queries match more documents and use indexes less efficiently. For instance, the inequality operators $nin and $ne are not very selective since they often match a large portion of the index.",
       "fetched_at": "2026-04-25"
     },
@@ -3053,7 +3053,7 @@
     "source": {
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/core/index-creation/#sharded-collections",
-      "title": "mongo 索引构建阻止写入",
+      "title": "mongo 索引构建阻塞写入",
       "quote": "Stop all writes to the collection from applications that cannot guarantee violation-free write operations.",
       "fetched_at": "2026-04-25"
     },
@@ -3074,7 +3074,7 @@
     "source": {
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/reference/command/createIndexes/#mongodb-dbcommand-dbcmd.createIndexes",
-      "title": "mongo index commitQuorum 默认值",
+      "title": "mongo index commitQuorum 检查",
       "quote": "If a data-bearing voting node becomes unreachable and the commitQuorum is set to the default votingMembers , index builds can hang until that node comes back online.",
       "fetched_at": "2026-04-25"
     },
@@ -3201,7 +3201,7 @@
     "source": {
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/tutorial/manage-the-database-profiler/#disable-profiling",
-      "title": "禁用 mongo 数据库分析器",
+      "title": "mongo 禁用数据库分析器",
       "quote": "Disabling profiling can improve database performance and lower disk use.",
       "fetched_at": "2026-04-25"
     },
@@ -3222,7 +3222,7 @@
     "source": {
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/tutorial/manage-the-database-profiler/#profiling-levels",
-      "title": "启用 mongo 数据库分析器",
+      "title": "启用 mongo 数据库分析器监控",
       "quote": "Pass the following options to mongod at startup: mongod --profile 1 --slowms 15 --slowOpSampleRate 0.5",
       "fetched_at": "2026-04-25"
     },
@@ -3243,7 +3243,7 @@
     "source": {
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/tutorial/manage-the-database-profiler/#change-size-of-system.profile-collection-on-the-primary",
-      "title": "mongo-profiler 清理与重建",
+      "title": "mongo profiler 系统配置检查",
       "quote": "View Profiler Data The profiler logs database operations to the system.profile collection.",
       "fetched_at": "2026-04-25"
     },
@@ -3399,7 +3399,7 @@
     "source": {
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#manage-connection-pool-sizes",
-      "title": "mongo 连接池大小调整",
+      "title": "mongo 连接池大小监控",
       "quote": "Avoid overloading the connection resources of a mongod or mongos instance by adjusting the connection pool size to suit your use case. Start at 110-115% of the typical number of current database requests, and modify the connection pool size as needed.",
       "fetched_at": "2026-04-25"
     },
@@ -3441,7 +3441,7 @@
     "source": {
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#wiredtiger-1",
-      "title": "WiredTiger",
+      "title": "WiredTiger 缓存大小调整",
       "quote": "Avoid increasing the WiredTiger internal cache size above its default value.",
       "fetched_at": "2026-04-25"
     },
@@ -3462,7 +3462,7 @@
     "source": {
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/#mongodb-setting-storage.wiredTiger.engineConfig.cacheSizeGB",
-      "title": "MongoDB Configuration Options",
+      "title": "mongo WiredTiger 缓存大小检查",
       "quote": "To accommodate the additional consumers of RAM, you may have to decrease WiredTiger internal cache size. The default WiredTiger internal cache size value assumes that there is a single mongod instance per machine. If a single machine contains multiple MongoDB instances, decrease the setting to accommodate the other mongod instances.",
       "fetched_at": "2026-04-25"
     },
@@ -3781,7 +3781,7 @@
     "source": {
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#system-c-library",
-      "title": "System C Library",
+      "title": "更新系统 glibc 库",
       "quote": "For best results, use the latest update available for this system-provided version. You can check whether you have the latest version installed by using your",
       "fetched_at": "2026-04-25"
     },
@@ -4382,7 +4382,7 @@
     "source": {
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/#mongodb-setting-net.unixDomainSocket.pathPrefix",
-      "title": "mongo unixDomainSocket 权限",
+      "title": "mongo unixDomainSocket 路径配置",
       "quote": "The path for the UNIX socket. net.unixDomainSocket.pathPrefix applies only to Unix-based systems.",
       "fetched_at": "2026-04-25"
     },
@@ -4550,7 +4550,7 @@
     "source": {
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/#mongodb-setting-security.encryptionCipherMode",
-      "title": "Mongo 加密模式 AES256-GCM",
+      "title": "mongo 加密模式检查",
       "quote": "Available only on Linux. MongoDB Enterprise on Windows no longer supports AES256-GCM as a block cipher for encryption at rest. This usage is only supported on Linux.",
       "fetched_at": "2026-04-25"
     },
@@ -4675,27 +4675,6 @@
     "provenance": "verified"
   },
   {
-    "id": "mongo-enterprise-kmip-keystatepollingseconds",
-    "bucket": 1,
-    "severity": "INFO",
-    "source": {
-      "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/#mongodb-setting-security.kmip.keyStatePollingSeconds",
-      "title": "kmip.keystatePollingSeconds设置",
-      "quote": "Note Enterprise Feature Available in MongoDB Enterprise only. security.kmip.serverCAFile Type : string Path to CA File.",
-      "fetched_at": "2026-04-25"
-    },
-    "engine": "mongo",
-    "audit": {
-      "status": "verified_literal",
-      "pass": true,
-      "last_audited": "2026-04-26"
-    },
-    "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
-    "provenance": "verified"
-  },
-  {
     "id": "mongo-security-sasl-hostname-config",
     "bucket": 1,
     "severity": "WARNING",
@@ -4748,7 +4727,7 @@
     "source": {
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/#setparameter-ldap-options",
-      "title": "mongo 传输安全 TLS 配置",
+      "title": "mongo LDAP 传输安全 TLS 配置",
       "quote": "By default, mongod or mongos creates a TLS/SSL secured connection to the LDAP server.",
       "fetched_at": "2026-04-25"
     },
@@ -4938,7 +4917,7 @@
     "source": {
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/#mongodb-setting-storage.dbPath",
-      "title": "MongoDB dbPath 自定义",
+      "title": "mongo dbPath 自定义配置",
       "quote": "If you use the Linux packages and change storage.dbPath , you must use your own init scripts and disable the built-in scripts. storage.journal.commitIntervalMs Type : number Default : 100 The maximum amount of time in milliseconds that the mongod process allows between journal operations.",
       "fetched_at": "2026-04-25"
     },
@@ -5263,7 +5242,7 @@
     "source": {
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/core/index-creation/",
-      "title": "mongo索引构建最大内存",
+      "title": "mongo 索引构建内存优化",
       "quote": "Adjust the memory limit with the maxIndexBuildMemoryUsageMegabytes parameter. Increasing this parameter is only necessary in rare cases, such as when you run many simultaneous index builds with a single createIndexes command or when you index a data set larger than 500GB.",
       "fetched_at": "2026-04-25"
     },
@@ -5309,7 +5288,7 @@
     "source": {
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/core/index-creation/",
-      "title": "mongo 索引构建 4.4 兼容性",
+      "title": "mongo 4.4 索引构建兼容性检查",
       "quote": "Each mongod in the replica set or sharded cluster must have featureCompatibilityVersion set to at least 4.4 to start index builds simultaneously across replica set members.",
       "fetched_at": "2026-04-25"
     },
@@ -5331,7 +5310,7 @@
     "source": {
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/reference/parameters/",
-      "title": "mongo-authentication 超时设置",
+      "title": "mongo 认证失败等待时间优化",
       "quote": "Type : Document The amount of time to wait from a Health Managers Overview failure until the mongos is removed from the cluster, in seconds.",
       "fetched_at": "2026-04-25"
     },
@@ -5398,7 +5377,7 @@
     "source": {
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/reference/parameters/",
-      "title": "LDAP 连接池最小连接数",
+      "title": "mongo LDAP 连接池最小连接设置",
       "quote": "The minimum number of connections to keep open to each LDAP server.",
       "fetched_at": "2026-04-25"
     },
@@ -5441,7 +5420,7 @@
     "source": {
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/reference/parameters/",
-      "title": "ldapUserCache 刷新间隔",
+      "title": "mongo ldapUserCache 刷新间隔设置",
       "quote": "The interval (in seconds) that the mongod instance waits between external user cache flushes. After MongoDB flushes the external user cache, MongoDB reacquires authorization data from the LDAP server the next time an LDAP-authorized user issues an operation.",
       "fetched_at": "2026-04-25"
     },

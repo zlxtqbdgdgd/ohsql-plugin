@@ -174,7 +174,7 @@
     "source": {
       "tier": "vendor-primary",
       "url": "https://www.kernel.org/doc/Documentation/networking/ip-sysctl.txt",
-      "title": "tcp_max_syn_backlog 调优",
+      "title": "mongo TCP 最大 SYN 排队优化",
       "quote": "tcp_max_syn_backlog for additional tuning for TCP sockets.",
       "fetched_at": "2026-04-26"
     },
@@ -321,7 +321,7 @@
     "source": {
       "tier": "vendor-primary",
       "url": "https://www.kernel.org/doc/Documentation/networking/ip-sysctl.txt",
-      "title": "mongo-network-local-port范围调整",
+      "title": "mongo 本地端口范围检查",
       "quote": "Defines the local port range that is used by TCP and UDP to choose the local port.",
       "fetched_at": "2026-04-26"
     },
@@ -363,7 +363,7 @@
     "source": {
       "tier": "vendor-primary",
       "url": "https://docs.kernel.org/arch/arm64/cpu-feature-registers.html",
-      "title": "ARM64 通用(所有 ARM64 适用) > 3.1 · LSE atomics 三连查",
+      "title": "mongo ARM64 启用 LSE",
       "quote": "the infrastructure emulates only the following system register space: Op0=3, Op1=0, CRn=0, CRm=0,2,3,4,5,6,7",
       "fetched_at": "2026-04-26"
     },
@@ -489,7 +489,7 @@
     "source": {
       "tier": "vendor-primary",
       "url": "https://www.mongodb.com/docs/manual/administration/production-notes/",
-      "title": "MongoDB 通用 sysctl(官方要求)",
+      "title": "mongo sysctl 禁用区域回收",
       "quote": "Note If the ulimit value for number of open files is under 64000 , MongoDB generates a startup warning.",
       "fetched_at": "2026-04-26"
     },
@@ -504,13 +504,13 @@
     "provenance": "verified"
   },
   {
-    "id": "mongo-memory-slab-cache-pressure",
+    "id": "mongo-memory-vfs-cache-pressure",
     "bucket": 2,
     "severity": "WARNING",
     "source": {
       "tier": "vendor-primary",
       "url": "https://www.kernel.org/doc/Documentation/sysctl/vm.txt",
-      "title": "mongo slab 缓存压力调优",
+      "title": "mongo slab 缓存压力监控",
       "quote": "This percentage value controls the tendency of the kernel to reclaim the memory which is used for caching of directory and inode objects.",
       "fetched_at": "2026-04-26"
     },

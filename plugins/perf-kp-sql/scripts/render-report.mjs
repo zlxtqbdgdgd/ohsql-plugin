@@ -70,7 +70,7 @@ export function renderReport(input, data, _mdPath = "") {
   lines.push("## 优先调优项");
   lines.push("");
   for (let i = 0; i < (input.top_issues ?? []).length; i++) {
-    lines.push(renderTopIssue(input.top_issues[i], i + 1));
+    lines.push(renderTopIssue(input.top_issues[i], i + 1, input.evidence_trail ?? []));
     lines.push("");
   }
   lines.push("## 完整诊断结果");
@@ -273,7 +273,20 @@ function fnRef(r) {
   return refs.length > 0 ? `[参考${refs[0]}]` : "";
 }
 
-function renderTopIssue(r, idx) {
+/** v0.24.0 · 支持过的 fnRef · 给定该 line 的 text · text token 不在引文 verbatim 不贴 [参考N] */
+function fnRefSupported(r, text, evidenceTrail) {
+  const refs = r.footnote_refs ?? [];
+  if (refs.length === 0) return "";
+  // 占位文本不挂角标 (n/a / - / 空 表示无数据 · 不应让用户以为 URL 支持)
+  const t = String(text ?? "").trim().toLowerCase();
+  if (t === "" || t === "-" || t === "n/a" || t === "未抽到") return "";
+  const url = pickRuleUrl(r, evidenceTrail);
+  if (!url) return `[参考${refs[0]}]`;  // 没 url 时回退老逻辑
+  if (!quoteSupportsText(text, url, r, evidenceTrail)) return "";
+  return `[参考${refs[0]}]`;
+}
+
+function renderTopIssue(r, idx, evidenceTrail = []) {
   const scopeTag = (r.scope?.arch === "arm64" || r.scope?.vendor)
     ? ` — ${r.scope.arch}${r.scope.vendor ? " · " + r.scope.vendor : ""}`
     : "";
@@ -286,13 +299,12 @@ function renderTopIssue(r, idx) {
     `   - 影响: ${impactLine(r)}`,
     `   - Action: \`${r.recommendations?.[0]?.action ?? "-"}\``,
   ];
-  const ref = fnRef(r);
   const why = r.recommendations?.[0]?.rationale ?? r.reason ?? r.summary ?? "-";
-  lines.push(`   - Why: ${why}${ref}`);
+  lines.push(`   - Why: ${why}${fnRefSupported(r, why, evidenceTrail)}`);
   if (r.rationale) {
-    if (r.rationale.mechanism) lines.push(`   - 机制: ${r.rationale.mechanism}${ref}`);
-    if (r.rationale.trade_offs) lines.push(`   - 代价: ${r.rationale.trade_offs}${ref}`);
-    if (r.rationale.when_to_deviate) lines.push(`   - 例外: ${r.rationale.when_to_deviate}${ref}`);
+    if (r.rationale.mechanism) lines.push(`   - 机制: ${r.rationale.mechanism}${fnRefSupported(r, r.rationale.mechanism, evidenceTrail)}`);
+    if (r.rationale.trade_offs) lines.push(`   - 代价: ${r.rationale.trade_offs}${fnRefSupported(r, r.rationale.trade_offs, evidenceTrail)}`);
+    if (r.rationale.when_to_deviate) lines.push(`   - 例外: ${r.rationale.when_to_deviate}${fnRefSupported(r, r.rationale.when_to_deviate, evidenceTrail)}`);
   }
   // 版本适配
   const vmin = r.engine_version_min_display;
@@ -481,18 +493,49 @@ function pickRuleUrl(r, evidenceTrail) {
   return entry?.url ?? null;
 }
 
+/** v0.24.0 · 军规 3+4 守门: text 里的"硬"token (具体数字 ≥3 位 / 含下划线参数名 / 长名词)
+ *  必须在 url 对应的 evidence quote / citation anchor 里 verbatim 出现, 否则不挂 [参考N].
+ *
+ *  分级 token 严格度:
+ *   · "硬" token (key claim): ≥3 位数字 (262144 / 128000 / 65535) · 含下划线参数名
+ *     (max_map_count / vm_swappiness / slow_count) · 长 ASCII 词 ≥7 字 (transparent / wiredtiger)
+ *     → 任意一个必须在 corpus 里 verbatim 出现; 都 miss → 拒贴
+ *   · "软" token (背景词): 短 ASCII 词 (mongo / linux / ampere) · 短数字 (10/50)
+ *     → 不参与判定 (避免泛词误命中文件名 / URL path)
+ *   · 完全没"硬" token (text 是纯中文叙述) → 回退为 true (无可校验 · 不强禁)
+ */
+export function quoteSupportsText(text, url, r, evidenceTrail) {
+  if (!text || !url) return false;
+  const lower = String(text).toLowerCase();
+  // 抽 hard tokens
+  const numHard = (lower.match(/\b\d{3,}\b/g) || []);                    // ≥3 位数字
+  const paramHard = (lower.match(/[a-z][a-z0-9]*_[a-z0-9_]+/g) || []);   // 下划线参数名
+  const longHard = (lower.match(/[a-z]{7,}/g) || []);                    // 长 ASCII 词
+  const hard = [...new Set([...numHard, ...paramHard, ...longHard])];
+  if (hard.length === 0) return true;
+  const cite = (r?.citations ?? []).filter(c => c.url === url);
+  const ev = (evidenceTrail ?? []).filter(e => e.url === url);
+  const corpus = [...cite.map(c => c.anchor || c.title || ""), ...ev.map(e => e.quote || e.anchor || "")].join(" ").toLowerCase();
+  return hard.some(t => corpus.includes(t));
+}
+
 /** 从 finding + evidence_trail 推出"推荐值"单元格文本
  *  v0.4.4 · 角标化:`<text>[参考N]` · 同 url 共号 · 新 url 通过 registry 注册
  *  v0.4.4 之前:`[<text>](<url>)` markdown 链接(LLM 复刻终端字面会乱码 · 已撤)
  *  当 registry 缺省 · 兼容旧路径返裸文本(no [参考N])
+ *
+ *  v0.24.0 · 军规 3 守门: threshold_display 含具名 token (e.g. slow_count / 128000)
+ *  时, 该 token 必须在 cited URL 的 quote 里 verbatim 出现, 否则不贴 [参考N] —
+ *  避免"slow_count == 0 [参考2]" 但 [参考2] URL 根本不讨论 slow_count 的误导。
  */
 function extractThresholdCell(r, evidenceTrail, registry = null) {
   const threshold = r.threshold_display ?? "-";
-  if (!registry) return threshold;
+  if (!registry || threshold === "-") return threshold;
   const url = pickRuleUrl(r, evidenceTrail);
   if (!url) return threshold;
+  if (!quoteSupportsText(threshold, url, r, evidenceTrail)) return threshold;
   const n = registry.register(url);
-  return `${threshold}[参考${n}]`;  // v0.5.3 · [N] → [参考N]
+  return `${threshold}[参考${n}]`;
 }
 
 function renderHealthyTable(allFindings, evidenceTrail = [], checkCatalog = null, registry = null) {

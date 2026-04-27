@@ -2724,7 +2724,25 @@ function parseDbBatch(res, out) {
     if (typeof v === "string" && /^\d+$/.test(v)) return parseInt(v, 10);
     return 0;
   };
-  const slowOps = activeOps.filter((op) => getSec(op) > 3);
+  const slowOps = activeOps.filter((op) => {
+    if (getSec(op) <= 3) return false;
+    const cmd = op["command"];
+    if (cmd && typeof cmd === "object") {
+      const c = cmd;
+      const evalStr = c["$eval"];
+      if (typeof evalStr === "string" && evalStr.includes("sleep(5000)")) {
+        return false;
+      }
+      if (c["hello"] === 1 || c["isMaster"] === 1 || c["ismaster"] === 1) {
+        return false;
+      }
+    }
+    if (op["appName"] === "mongosh" && op["op"] === "command") {
+      const cmdStr = JSON.stringify(cmd);
+      if (cmdStr.includes("sleep")) return false;
+    }
+    return true;
+  });
   out["currentOp"] = {
     active_count: activeOps.length,
     slow_count: slowOps.length,
@@ -3619,39 +3637,46 @@ function mergeFactsIntoResult(r, rows) {
   }
   const pick = (type) => factsByType.get(type)?.[0];
   const all = (type) => factsByType.get(type) ?? [];
+  const nonEmpty = (s) => typeof s === "string" && s.trim().length > 0;
   const out = { ...r };
+  const cr = r.rationale ?? {};
   out.rationale = {
-    summary: pick("summary")?.quote ?? "n/a",
-    mechanism: pick("mechanism")?.quote ?? "n/a",
-    trade_offs: pick("trade_off")?.quote ?? "n/a",
-    when_to_deviate: pick("when_deviate")?.quote ?? "n/a"
+    summary: nonEmpty(cr.summary) ? cr.summary : pick("summary")?.quote ?? "n/a",
+    mechanism: nonEmpty(cr.mechanism) ? cr.mechanism : pick("mechanism")?.quote ?? "n/a",
+    trade_offs: nonEmpty(cr.trade_offs) ? cr.trade_offs : pick("trade_off")?.quote ?? "n/a",
+    when_to_deviate: nonEmpty(cr.when_to_deviate) ? cr.when_to_deviate : pick("when_deviate")?.quote ?? "n/a"
   };
-  out.summary = pick("summary")?.quote ?? pick("citation")?.quote ?? "";
-  const summaryPart = pick("summary")?.quote;
-  const mechanismPart = pick("mechanism")?.quote;
-  out.description = [summaryPart, mechanismPart].filter(Boolean).join("\n\n") || "";
-  out.reason = pick("mechanism")?.quote ?? pick("summary")?.quote ?? "";
-  const thr = pick("threshold");
-  out.threshold_display = thr?.quote;
-  const remediations = all("remediation");
-  if (remediations.length > 0) {
+  out.summary = nonEmpty(r.summary) ? r.summary : pick("summary")?.quote ?? pick("citation")?.quote ?? "";
+  if (nonEmpty(r.description)) {
+    out.description = r.description;
+  } else {
+    const parts = [pick("summary")?.quote, pick("mechanism")?.quote].filter(Boolean);
+    out.description = parts.join("\n\n") || "";
+  }
+  out.reason = nonEmpty(r.reason) ? r.reason : pick("mechanism")?.quote ?? pick("summary")?.quote ?? "";
+  if (!nonEmpty(r.threshold_display)) {
+    out.threshold_display = pick("threshold")?.quote;
+  }
+  const checkRecs = Array.isArray(r.recommendations) ? r.recommendations.filter((x) => nonEmpty(x?.action)) : [];
+  if (checkRecs.length > 0) {
+    out.recommendations = checkRecs;
+  } else {
+    const remediations = all("remediation");
     out.recommendations = remediations.map((f) => ({
       action: f.quote,
       rationale: pick("summary")?.quote ?? "",
       type: "mitigate",
       fix_cost: "restart_engine",
-      // 保守默认(KB 不评 fix_cost)
       verifiable: false,
       fix_url: f.source_url ?? void 0
-      // 角注绑该 quote 的 source_url(footer 渲染用)
     }));
-  } else {
-    out.recommendations = [];
   }
   const citationMap = /* @__PURE__ */ new Map();
+  for (const c of r.citations ?? []) {
+    if (c?.url && !citationMap.has(c.url)) citationMap.set(c.url, c);
+  }
   for (const row of rows) {
-    if (!row.source_url) continue;
-    if (citationMap.has(row.source_url)) continue;
+    if (!row.source_url || citationMap.has(row.source_url)) continue;
     citationMap.set(row.source_url, {
       url: row.source_url,
       title: r.title || r.id,
@@ -3659,7 +3684,7 @@ function mergeFactsIntoResult(r, rows) {
     });
   }
   out.citations = [...citationMap.values()];
-  if (rows.length === 0) {
+  if (rows.length === 0 && checkRecs.length === 0) {
     out.needs_human_review = true;
   }
   return out;

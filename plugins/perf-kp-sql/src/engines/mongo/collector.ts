@@ -288,7 +288,28 @@ function parseDbBatch(res: DbBatchResult, out: Record<string, unknown>): void {
     if (typeof v === "string" && /^\d+$/.test(v)) return parseInt(v, 10);
     return 0;
   };
-  const slowOps = activeOps.filter((op) => getSec(op) > 3);
+  const slowOps = activeOps.filter((op) => {
+    if (getSec(op) <= 3) return false;
+    // 忽略监控脚本本身（通常带有 $eval 包含 sleep 或者 command 本身就是针对自身状态查询的特殊特征）
+    const cmd = op["command"];
+    if (cmd && typeof cmd === "object") {
+      const c = cmd as Record<string, unknown>;
+      const evalStr = c["$eval"];
+      if (typeof evalStr === "string" && evalStr.includes("sleep(5000)")) {
+        return false;
+      }
+      // 忽略 MongoDB Driver 的拓扑监控长轮询 (hello/isMaster 带有 maxAwaitTimeMS)
+      if (c["hello"] === 1 || c["isMaster"] === 1 || c["ismaster"] === 1) {
+        return false;
+      }
+    }
+    // mongosh 默认的 appName 也会触发，如果是的话可以过滤
+    if (op["appName"] === "mongosh" && op["op"] === "command") {
+      const cmdStr = JSON.stringify(cmd);
+      if (cmdStr.includes("sleep")) return false;
+    }
+    return true;
+  });
   out["currentOp"] = {
     active_count: activeOps.length,
     slow_count: slowOps.length,

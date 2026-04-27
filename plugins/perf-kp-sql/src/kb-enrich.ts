@@ -95,7 +95,15 @@ interface FactByType {
 const FORBID_MODEL_GEN_FOR = new Set(["threshold", "remediation"]);
 
 /**
- * 合并 KB facts 进 CheckResult · KB 强覆盖 · 没 fact 留空
+ * 合并 KB facts 进 CheckResult.
+ *
+ * 规则 (修 2026-04-27 报告里 [参考N] 指错文档的 bug):
+ *   - check 自己写了字段 → 保留 check 的 (它是被人审过的 ground truth · KB 蒸馏可能带噪)
+ *   - check 没写 → 才用 KB fact 兜底
+ *   - rationale / citations 是"附加"语义 · KB 始终注入 (作为补充 · 不覆盖 check 的同名字段)
+ *
+ * 旧实现 KB 强覆盖会把 check 写好的 "对慢查询加索引" 推荐给替成 KB 蒸馏出的
+ * "API 文档示例" · 直接误导用户. 现在 check + KB 是并集 (check 优先).
  */
 function mergeFactsIntoResult(r: CheckResult, rows: KbFactRow[]): CheckResult {
   const factsByType = new Map<string, FactByType[]>();
@@ -110,54 +118,59 @@ function mergeFactsIntoResult(r: CheckResult, rows: KbFactRow[]): CheckResult {
 
   const pick = (type: string): FactByType | undefined => factsByType.get(type)?.[0];
   const all = (type: string): FactByType[] => factsByType.get(type) ?? [];
+  const nonEmpty = (s: unknown): boolean => typeof s === "string" && s.trim().length > 0;
 
   const out: CheckResult = { ...r };
 
-  // ── rationale (4 字段) ── KB 强覆盖 · 没 fact 留 n/a
+  // ── rationale ── 用 check 自带的 4 字段;字段空才回退 KB · "n/a" 代表两边都没有
+  const cr = r.rationale ?? {};
   out.rationale = {
-    summary: pick("summary")?.quote ?? "n/a",
-    mechanism: pick("mechanism")?.quote ?? "n/a",
-    trade_offs: pick("trade_off")?.quote ?? "n/a",
-    when_to_deviate: pick("when_deviate")?.quote ?? "n/a",
+    summary: nonEmpty(cr.summary) ? cr.summary! : (pick("summary")?.quote ?? "n/a"),
+    mechanism: nonEmpty(cr.mechanism) ? cr.mechanism! : (pick("mechanism")?.quote ?? "n/a"),
+    trade_offs: nonEmpty(cr.trade_offs) ? cr.trade_offs! : (pick("trade_off")?.quote ?? "n/a"),
+    when_to_deviate: nonEmpty(cr.when_to_deviate) ? cr.when_to_deviate! : (pick("when_deviate")?.quote ?? "n/a"),
   };
 
-  // ── summary / description / reason ── KB 强覆盖
-  // summary: 诊断主句 · 用 KB summary fact 的字面;没 → citation 兜底;再没 → 留空
-  out.summary = pick("summary")?.quote ?? pick("citation")?.quote ?? "";
+  // ── summary / description / reason ── check 优先 · 空才回退 KB
+  out.summary = nonEmpty(r.summary) ? r.summary! : (pick("summary")?.quote ?? pick("citation")?.quote ?? "");
 
-  // description: summary + mechanism 拼接
-  const summaryPart = pick("summary")?.quote;
-  const mechanismPart = pick("mechanism")?.quote;
-  out.description = [summaryPart, mechanismPart].filter(Boolean).join("\n\n") || "";
+  if (nonEmpty(r.description)) {
+    out.description = r.description!;
+  } else {
+    const parts = [pick("summary")?.quote, pick("mechanism")?.quote].filter(Boolean);
+    out.description = parts.join("\n\n") || "";
+  }
 
-  // reason: 用 KB mechanism;没就用 summary;再没留空
-  out.reason = pick("mechanism")?.quote ?? pick("summary")?.quote ?? "";
+  out.reason = nonEmpty(r.reason) ? r.reason! : (pick("mechanism")?.quote ?? pick("summary")?.quote ?? "");
 
-  // ── threshold_display ── KB threshold fact 字面 · 没就留 undefined(报告渲染显示"未抽到")
-  const thr = pick("threshold");
-  out.threshold_display = thr?.quote;
+  // ── threshold_display ── check 优先 · 空才回退 KB
+  if (!nonEmpty(r.threshold_display)) {
+    out.threshold_display = pick("threshold")?.quote;
+  }
 
-  // ── recommendations ── 每条 KB remediation fact 一条 · action=quote · fix_url=source_url
-  // 没 KB remediation → recommendations 留空数组(报告渲染显示"未抽到字面建议")
-  const remediations = all("remediation");
-  if (remediations.length > 0) {
+  // ── recommendations ── check 写了就保留;空才用 KB remediation 兜底
+  const checkRecs = Array.isArray(r.recommendations) ? r.recommendations.filter(x => nonEmpty(x?.action)) : [];
+  if (checkRecs.length > 0) {
+    out.recommendations = checkRecs;
+  } else {
+    const remediations = all("remediation");
     out.recommendations = remediations.map<Recommendation>((f) => ({
       action: f.quote,
       rationale: pick("summary")?.quote ?? "",
       type: "mitigate",
-      fix_cost: "restart_engine",  // 保守默认(KB 不评 fix_cost)
+      fix_cost: "restart_engine",
       verifiable: false,
-      fix_url: f.source_url ?? undefined,  // 角注绑该 quote 的 source_url(footer 渲染用)
+      fix_url: f.source_url ?? undefined,
     }));
-  } else {
-    out.recommendations = [];
   }
 
-  // ── citations ── KB 各 fact distinct source_url 各一条 · quote 当 anchor
+  // ── citations ── check 写的 + KB 派生的并集 (按 url dedup) · KB 提供文档脚注追溯
   const citationMap = new Map<string, Citation>();
+  for (const c of (r.citations ?? [])) {
+    if (c?.url && !citationMap.has(c.url)) citationMap.set(c.url, c);
+  }
   for (const row of rows) {
-    if (!row.source_url) continue;
-    if (citationMap.has(row.source_url)) continue;
+    if (!row.source_url || citationMap.has(row.source_url)) continue;
     citationMap.set(row.source_url, {
       url: row.source_url,
       title: r.title || r.id,
@@ -166,8 +179,7 @@ function mergeFactsIntoResult(r: CheckResult, rows: KbFactRow[]): CheckResult {
   }
   out.citations = [...citationMap.values()];
 
-  // ── needs_human_review ── KB 完全没 fact 时标 true(让 LLM 知道这条规则要人工补)
-  if (rows.length === 0) {
+  if (rows.length === 0 && checkRecs.length === 0) {
     out.needs_human_review = true;
   }
 

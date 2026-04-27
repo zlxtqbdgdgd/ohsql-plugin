@@ -1,6 +1,7 @@
 name: kb-reverse-check (军规 4 LLM 反向校验)
 
-# 手动触发 + 大改动 PR 触发 (KB / 规则 / 工具). 每跑一次 ~$0.10 OpenAI 成本.
+# 默认只 manual 触发 (workflow_dispatch). 每跑一次 ~$0.10 OpenAI 成本 · 不挂 PR
+# 自动跑避免每个 KB 微改都烧钱. 想 PR 自动跑时, 取消下方 pull_request 块的注释即可.
 # 目的: 监控 reverse-check pass-rate 不退化.
 on:
   workflow_dispatch:
@@ -9,13 +10,13 @@ on:
         description: "Minimum pass rate (e.g. 0.80 = 80%)"
         required: false
         default: "0.80"
-  pull_request:
-    paths:
-      - "plugins/perf-kp-sql/data/knowledge.sqlite"
-      - "plugins/perf-kp-sql/data/**/rules.json"
-      - "plugins/perf-kp-sql/tools/kb-audit.mjs"
-      - "plugins/perf-kp-sql/src/engines/**/*.ts"
-      - ".github/workflows/kb-reverse-check.yml"
+  # pull_request:
+  #   paths:
+  #     - "plugins/perf-kp-sql/data/knowledge.sqlite"
+  #     - "plugins/perf-kp-sql/data/**/rules.json"
+  #     - "plugins/perf-kp-sql/tools/kb-audit.mjs"
+  #     - "plugins/perf-kp-sql/src/engines/**/*.ts"
+  #     - ".github/workflows/kb-reverse-check.yml"
 
 jobs:
   kb-reverse-check:

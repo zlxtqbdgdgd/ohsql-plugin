@@ -105,6 +105,21 @@ function buildFooterRefMap() {
   }
   return map;
 }
+// v0.24.0 · 军规 3+4 守门: 对齐 render-report.mjs 的 quoteSupportsText
+// 分级 hard token: ≥3 位数字 / 下划线参数名 / 长 ASCII 词 ≥7 字 · 都 miss → 拒贴
+function quoteHasText(text, url, top) {
+  if (!text || !url) return false;
+  const lower = String(text).toLowerCase();
+  const numHard = (lower.match(/\b\d{3,}\b/g) || []);
+  const paramHard = (lower.match(/[a-z][a-z0-9]*_[a-z0-9_]+/g) || []);
+  const longHard = (lower.match(/[a-z]{7,}/g) || []);
+  const hard = [...new Set([...numHard, ...paramHard, ...longHard])];
+  if (hard.length === 0) return true;
+  const cite = (top?.citations ?? []).filter(c => c.url === url);
+  const ev = (ri?.evidence_trail ?? []).filter(e => e.url === url);
+  const corpus = [...cite.map(c => c.anchor || c.title || ""), ...ev.map(e => e.quote || e.anchor || "")].join(" ").toLowerCase();
+  return hard.some(t => corpus.includes(t));
+}
 function firstStepLine() {
   const refMap = buildFooterRefMap();
   for (const top of (ri.top_issues ?? [])) {
@@ -113,6 +128,7 @@ function firstStepLine() {
     const action = rec.action;
     const url = rec.fix_url ?? top.citations?.[0]?.url;
     const fn = url ? refMap.get(url) : null;
+    if (fn && !quoteHasText(action, url, top)) return action;  // URL 不支持该 action · 不挂角标
     return fn ? `${action}[参考${fn}]` : action;
   }
   return "—";
