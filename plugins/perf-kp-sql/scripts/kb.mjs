@@ -6,7 +6,7 @@ const require = createRequire(import.meta.url);
 const __filename = __fileURLToPath(import.meta.url);
 const __dirname = __pathDirname(__filename);
 
-// ../ohsql-plugin/plugins/perf-kp-sql/src/cli-kb.ts
+// plugins/perf-kp-sql/src/cli-kb.ts
 import Database from "better-sqlite3";
 import * as sqliteVec from "sqlite-vec";
 import { parseArgs } from "node:util";

@@ -6,15 +6,15 @@ const require = createRequire(import.meta.url);
 const __filename = __fileURLToPath(import.meta.url);
 const __dirname = __pathDirname(__filename);
 
-// ../ohsql-plugin/plugins/perf-kp-sql/src/cli-ssh.ts
-import { Client } from "ssh2";
-import { createWriteStream, mkdirSync } from "node:fs";
+// plugins/perf-kp-sql/src/cli-ssh.ts
+import { spawn } from "node:child_process";
+import { createWriteStream, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { createHash } from "node:crypto";
 
-// ../ohsql-plugin/plugins/perf-kp-sql/src/shared/utils.ts
+// plugins/perf-kp-sql/src/shared/utils.ts
 function parseOsIntoMetrics(osStdout) {
   const out = {};
   parseOsBatch(osStdout, out);
@@ -152,7 +152,7 @@ function parseIntOr(s, fallback) {
   return fallback;
 }
 
-// ../ohsql-plugin/plugins/perf-kp-sql/src/cli-ssh.ts
+// plugins/perf-kp-sql/src/cli-ssh.ts
 function parseArgs(args) {
   const out = {};
   for (let i = 0; i < args.length; i++) {
@@ -274,108 +274,7 @@ function parseExecArgs(argv) {
     outputFile
   };
 }
-var READY_TIMEOUT_MS = 6e4;
-var RETRY_BACKOFFS = [0, 3e3, 6e3];
-var TRANSIENT_PATTERNS = [
-  /timed out while waiting for handshake/i,
-  /all configured authentication methods failed/i,
-  /ECONNRESET/i,
-  /ETIMEDOUT/i,
-  /EPIPE/i
-];
-function isTransient(msg) {
-  return TRANSIENT_PATTERNS.some((p) => p.test(msg));
-}
-function sleep(ms) {
-  return new Promise((r) => setTimeout(r, ms));
-}
-async function loadPrivateKey(path) {
-  const fs = await import("node:fs/promises");
-  return fs.readFile(path);
-}
-async function connectOnce(args) {
-  const client = new Client();
-  await new Promise((resolve, reject) => {
-    let settled = false;
-    const timer = setTimeout(() => {
-      if (settled) return;
-      settled = true;
-      try {
-        client.end();
-      } catch {
-      }
-      reject(new Error("SSH \u63E1\u624B\u8D85\u65F6"));
-    }, READY_TIMEOUT_MS + 2e3);
-    client.on("ready", () => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      client.removeListener("error", onError);
-      resolve();
-    });
-    function onError(e) {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      try {
-        client.end();
-      } catch {
-      }
-      client.on("error", () => {
-      });
-      reject(e);
-    }
-    client.on("error", onError);
-    const cfg = {
-      host: args.host,
-      port: args.port,
-      username: args.user,
-      readyTimeout: READY_TIMEOUT_MS,
-      keepaliveInterval: 1e4,
-      keepaliveCountMax: 3
-    };
-    if (args.privateKeyPath) {
-      loadPrivateKey(args.privateKeyPath).then((key) => {
-        cfg.privateKey = key;
-        cfg.authHandler = ["publickey"];
-        client.connect(cfg);
-      }).catch((e) => {
-        if (!settled) {
-          settled = true;
-          clearTimeout(timer);
-          reject(e);
-        }
-      });
-    } else if (args.password) {
-      cfg.password = args.password;
-      cfg.authHandler = ["password", "keyboard-interactive"];
-      cfg.tryKeyboard = true;
-      client.on("keyboard-interactive", (_name, _instructions, _lang, _prompts, finish) => {
-        finish([args.password]);
-      });
-      client.connect(cfg);
-    } else {
-      clearTimeout(timer);
-      reject(new Error("\u5FC5\u987B\u63D0\u4F9B --password \u6216 --privateKeyPath"));
-    }
-  });
-  return client;
-}
-async function connectWithRetry(args) {
-  let lastErr = null;
-  for (const delay of RETRY_BACKOFFS) {
-    if (delay > 0) await sleep(delay);
-    try {
-      return await connectOnce(args);
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      if (!isTransient(msg)) throw e;
-      lastErr = e instanceof Error ? e : new Error(msg);
-    }
-  }
-  throw lastErr ?? new Error("SSH \u8FDE\u63A5\u5931\u8D25");
-}
-function execCommand(client, command, timeoutMs, outputFile) {
+function runSshExec(plan, timeoutMs, outputFile) {
   return new Promise((resolve) => {
     let proc;
     let cleanupCalled = false;
@@ -556,16 +455,12 @@ async function readCommandFileWithDiag(commandFile) {
     const entries = fs.readdirSync(dir);
     diag.dirEntries = entries;
     diag.exactMatch = entries.includes(targetBase);
-    diag.candidateNeighbours = entries
-      .filter(
-        (n) => n.includes(targetBase.slice(0, 25)) || targetBase.includes(n.slice(0, 25))
-      )
-      .map((n) => ({
-        name: n,
-        nameByteLen: Buffer.byteLength(n, "utf8"),
-        sameAsTarget: n === targetBase,
-        codepoints: Array.from(n).map((c) => c.codePointAt(0))
-      }));
+    diag.candidateNeighbours = entries.filter((n) => n.includes(targetBase.slice(0, 25)) || targetBase.includes(n.slice(0, 25))).map((n) => ({
+      name: n,
+      nameByteLen: Buffer.byteLength(n, "utf8"),
+      sameAsTarget: n === targetBase,
+      codepoints: Array.from(n).map((c) => c.codePointAt(0))
+    }));
   } catch (dirErr) {
     diag.dirReadError = dirErr instanceof Error ? dirErr.message : String(dirErr);
   }
@@ -858,7 +753,7 @@ async function main() {
   if (op === "probe-parse") return runProbeParse(argv);
   process.stdout.write(JSON.stringify({
     ok: false,
-    err: `unknown --op: ${op || "(missing)"} \xB7 expect: exec | discover | probe-parse`
+    err: `unknown --op: ${op || "(missing)"} \xB7 expect: exec | session-close | discover | probe-parse`
   }) + "\n");
   process.exit(2);
 }

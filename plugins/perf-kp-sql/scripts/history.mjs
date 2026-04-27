@@ -6,7 +6,7 @@ const require = createRequire(import.meta.url);
 const __filename = __fileURLToPath(import.meta.url);
 const __dirname = __pathDirname(__filename);
 
-// ../ohsql-plugin/plugins/perf-kp-sql/src/cli-history.ts
+// plugins/perf-kp-sql/src/cli-history.ts
 import { homedir } from "node:os";
 import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";

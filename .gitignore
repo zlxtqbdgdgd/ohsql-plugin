@@ -18,3 +18,10 @@ plugins/perf-kp-sql/tools/url-cache/
 
 # rules.json 备份 (audit 修复时手动产生 · 不入仓)
 *.json.bak-*
+
+# @xenova/transformers 自动下载的 ONNX 模型 (运行时按需 cache · 不入仓)
+plugins/perf-kp-sql/data/models/
+
+# 一次性 audit 的临时 python 脚本
+plugins/perf-kp-sql/_audit_counts.py
+plugins/perf-kp-sql/tools/audit_kb_urls.py

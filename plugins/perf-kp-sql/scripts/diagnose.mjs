@@ -12,12 +12,12 @@ var __require = /* @__PURE__ */ ((x) => typeof require !== "undefined" ? require
   throw Error('Dynamic require of "' + x + '" is not supported');
 });
 
-// ../ohsql-plugin/plugins/perf-kp-sql/src/cli-diagnose.ts
+// plugins/perf-kp-sql/src/cli-diagnose.ts
 import { readFile } from "node:fs/promises";
 import { join as join3, dirname as dirname2 } from "node:path";
 import { fileURLToPath as fileURLToPath2 } from "node:url";
 
-// ../ohsql-plugin/plugins/perf-kp-sql/src/models.ts
+// plugins/perf-kp-sql/src/models.ts
 function osVal(ctx, key, def) {
   const v = ctx.os_metrics[key];
   return v === void 0 ? def : v;
@@ -125,7 +125,7 @@ function templateFixExperiment(args) {
   };
 }
 
-// ../ohsql-plugin/plugins/perf-kp-sql/src/shared/utils.ts
+// plugins/perf-kp-sql/src/shared/utils.ts
 function isDigitString(v) {
   return /^\d+$/.test(String(v));
 }
@@ -227,7 +227,7 @@ var WAIT_CLASS_MAP = {
   "kunpeng.numa.topology": "\u5185\u5B58",
   "kunpeng.numa.distance_matrix": "\u5185\u5B58",
   "mongo.config.wt_cache_vs_memory": "\u5185\u5B58",
-  "mongo.runtime.wt_cache_hit_rate": "\u5185\u5B58",
+  "mongo.config.wt_cache_size_advisory": "\u5185\u5B58",
   "mongo.config.db_cache_vs_total_mem": "\u5185\u5B58",
   "kunpeng.vm.swappiness_strict": "\u5185\u5B58",
   "kunpeng.numa.interleave_recommendation": "\u5185\u5B58",
@@ -426,7 +426,7 @@ function parseIntOr(s, fallback) {
   return fallback;
 }
 
-// ../ohsql-plugin/plugins/perf-kp-sql/src/shared/legacy-checks.ts
+// plugins/perf-kp-sql/src/shared/legacy-checks.ts
 function requireArm64(ctx, id, title, bucket) {
   const engine = ctx.db_type;
   const scope = deriveScope(ctx, engine);
@@ -1523,7 +1523,7 @@ var osChecks = [
   check_kernel_version_rseq
 ];
 
-// ../ohsql-plugin/plugins/perf-kp-sql/src/shared/index.ts
+// plugins/perf-kp-sql/src/shared/index.ts
 var sharedChecks = [
   ...kunpengChecks,
   ...arm64Checks,
@@ -1531,7 +1531,7 @@ var sharedChecks = [
   ...osChecks
 ];
 
-// ../ohsql-plugin/plugins/perf-kp-sql/src/engines/mongo/checks.ts
+// plugins/perf-kp-sql/src/engines/mongo/checks.ts
 function mongoScope(ctx) {
   return deriveScope(ctx, "mongo");
 }
@@ -1669,53 +1669,93 @@ var check_wt_cache_vs_memory = (ctx) => {
     }
   });
 };
-var check_wt_cache_hit = (ctx) => {
-  const id = "mongo.runtime.wt_cache_hit_rate";
-  const title = "WiredTiger \u7F13\u5B58\u547D\u4E2D\u7387";
-  const skip = notMongoSkip(ctx, id, title, 5);
+var check_wt_cache_size_advisory = (ctx) => {
+  const id = "mongo.config.wt_cache_size_advisory";
+  const title = "WT cache \u5927\u5C0F\u914D\u7F6E";
+  const skip = notMongoSkip(ctx, id, title, 2);
   if (skip) return skip;
   const scope = mongoScope(ctx);
-  const detail = dbVal(ctx, "_wt_cache_detail", {});
-  const pages_read = toInt(detail["pages read into cache"] ?? 0, 0);
-  const pages_req = toInt(detail["pages requested from the cache"] ?? 0, 0);
-  const hit = pages_req > 0 ? (1 - pages_read / pages_req) * 100 : 100;
-  if (hit >= 95) {
-    return okResult({ id, title, bucket: 5, scope, summary: `hit=${hit.toFixed(1)}%`, reason: "\u7F13\u5B58\u547D\u4E2D\u7387\u6B63\u5E38", threshold_display: "\u2265 95%", citations: [{ title: "MongoDB WiredTiger", url: "https://www.mongodb.com/docs/manual/core/wiredtiger/" }] });
+  const total_mem_mb = toInt(osVal(ctx, "total_mem_mb", 0), 0);
+  const wt_bytes = toInt(dbVal(ctx, "wt_cache_maximum_bytes", 0), 0);
+  if (total_mem_mb === 0 || wt_bytes === 0) {
+    return infoResult({
+      id,
+      title,
+      bucket: 2,
+      scope,
+      summary: "\u672A\u80FD\u8BFB\u53D6 WT cache size \u6216 OS \u603B\u5185\u5B58",
+      reason: "serverStatus.wiredTiger.cache \u6216 /proc/meminfo \u8BFB\u53D6\u5931\u8D25",
+      skip_reason: "runtime_data_missing"
+    });
   }
-  const severity = hit < 90 ? "critical" : "warning";
+  const total_bytes = total_mem_mb * 1024 * 1024;
+  const recommended_bytes = Math.max(
+    0.256 * 1024 * 1024 * 1024,
+    0.5 * Math.max(0, total_bytes - 1024 * 1024 * 1024)
+  );
+  const ratio = wt_bytes / recommended_bytes;
+  const wt_gb = (wt_bytes / 1024 / 1024 / 1024).toFixed(2);
+  const rec_gb = (recommended_bytes / 1024 / 1024 / 1024).toFixed(2);
+  const pct_ram = wt_bytes / total_bytes * 100;
+  const baseCitations = [
+    KUNPENG_REFS.boostkitMongo,
+    { title: "MongoDB WiredTiger \xB7 cache sizing", url: "https://www.mongodb.com/docs/manual/core/wiredtiger/" }
+  ];
+  const baseEvidence = [
+    { kind: "metric", value: `wt_cache_maximum_bytes=${wt_bytes}` },
+    { kind: "metric", value: `os_total_mem_mb=${total_mem_mb}` },
+    { kind: "metric", value: `recommended_default_bytes=${Math.round(recommended_bytes)}` }
+  ];
+  const thresholdDisplay = "\u9ED8\u8BA4 = max(0.256GB, 50% \xD7 (RAM - 1GB))";
+  if (ratio >= 0.5 && ratio <= 1.2) {
+    return okResult({
+      id,
+      title,
+      bucket: 2,
+      scope,
+      summary: `WT=${wt_gb}GB \u2248 \u63A8\u8350 ${rec_gb}GB (ratio=${ratio.toFixed(2)})`,
+      reason: "WT cache \u5728\u5B98\u65B9\u63A8\u8350\u9ED8\u8BA4\u8303\u56F4\u5185",
+      threshold_display: thresholdDisplay,
+      citations: baseCitations
+    });
+  }
+  if (ratio > 1.2 && pct_ram <= 80) {
+    return infoResult({
+      id,
+      title,
+      bucket: 2,
+      scope,
+      summary: `WT=${wt_gb}GB > \u63A8\u8350 ${rec_gb}GB (ratio=${ratio.toFixed(2)}, ${pct_ram.toFixed(1)}% RAM)`,
+      reason: "\u9AD8\u4E8E\u5B98\u65B9\u9ED8\u8BA4 \xB7 \u5B89\u5168\u8FB9\u754C\u53E6\u7531 wt_cache_vs_memory \u628A\u5B88"
+    });
+  }
   return finding({
     id,
     title,
-    severity,
-    bucket: 5,
+    severity: "warning",
+    bucket: 2,
     scope,
-    summary: `hit=${hit.toFixed(1)}% < ${severity === "critical" ? 90 : 95}%`,
-    description: "\u4F4E\u7F13\u5B58\u547D\u4E2D\u7387\u5BFC\u81F4\u9891\u7E41\u78C1\u76D8\u8BFB\u53D6,\u653E\u5927 IOPS \u548C\u5EF6\u8FDF\u3002",
-    reason: `pages_read=${pages_read} / pages_requested=${pages_req}`,
-    threshold_display: "\u2265 95%",
-    evidence: [
-      { kind: "metric", value: `wt_pages_read=${pages_read}` },
-      { kind: "metric", value: `wt_pages_requested=${pages_req}` }
-    ],
-    impact: { metric: "cache_miss_rate", value: +(100 - hit).toFixed(1), unit: "percent", confidence: "high" },
-    citations: [
-      KUNPENG_REFS.boostkitMongo,
-      { title: "MongoDB WiredTiger \xB7 Cache and Eviction", url: "https://www.mongodb.com/docs/manual/core/wiredtiger/" }
-    ],
+    summary: `WT=${wt_gb}GB << \u63A8\u8350 ${rec_gb}GB (ratio=${ratio.toFixed(2)})`,
+    description: "WT cache \u8FDC\u4F4E\u4E8E\u5B98\u65B9\u9ED8\u8BA4 \xB7 \u5DE5\u4F5C\u96C6\u6613\u6EA2\u51FA \xB7 \u53CD\u590D\u4ECE\u78C1\u76D8\u8865\u9875\u653E\u5927 IOPS\u3002",
+    reason: `\u5F53\u524D cache (${wt_gb}GB) \u4E0D\u8DB3\u5B98\u65B9\u9ED8\u8BA4\u503C (${rec_gb}GB) \u7684 50%`,
+    threshold_display: thresholdDisplay,
+    evidence: baseEvidence,
+    impact: { metric: "cache_under_default_ratio", value: +ratio.toFixed(2), unit: "ratio", confidence: "high" },
+    citations: baseCitations,
     recommendations: [
       {
-        action: "\u589E\u5927 wiredTigerCacheSizeGB(\u4E0D\u8D85\u8FC7\u7269\u7406\u5185\u5B58 50%)\xB7 \u6216\u6392\u67E5 working set \u662F\u5426\u66B4\u589E",
-        rationale: "\u7F13\u5B58\u4E0D\u8DB3\u4EE5\u5BB9\u7EB3\u5DE5\u4F5C\u96C6,\u63D0\u5347 cache \u6216\u7F29\u51CF\u5DE5\u4F5C\u96C6",
+        action: `db.adminCommand({setParameter:1, wiredTigerEngineRuntimeConfig:'cache_size=${rec_gb}G'})`,
+        rationale: "\u5B98\u65B9\u9ED8\u8BA4\u5373 50%(RAM-1GB) \xB7 \u4E3B\u52A8\u8C03\u5C0F\u901A\u5E38\u662F\u8BEF\u914D,\u9664\u975E\u5BBF\u4E3B\u6709\u591A\u5B9E\u4F8B\u5171\u4EAB\u5185\u5B58",
         type: "repair",
         fix_cost: "restart_engine",
         verifiable: true
       }
     ],
     rationale: {
-      summary: "WT cache \u547D\u4E2D\u7387 < 95% \u8BF4\u660E\u5DE5\u4F5C\u96C6\u8D85\u51FA cache \u5BB9\u91CF \xB7 \u6BCF\u6B21 miss \u8D70 read() syscall \u62C9\u78C1\u76D8 \xB7 \u5EF6\u8FDF\u4ECE\u4E9A\u6BEB\u79D2\u8DC3\u5347\u5230\u6BEB\u79D2\u7EA7 \xB7 \u8BFB IOPS \u6309 miss \u7387\u653E\u5927\u5230\u5B58\u50A8\u5C42\u3002",
-      mechanism: "mongod \u6BCF\u6B21\u8BFB\u8BF7\u6C42\u5148\u67E5 WT cache \xB7 miss \u5C31\u8C03 pread() \u4ECE\u78C1\u76D8\u62C9 page \xB7 \u5373\u4F7F SSD \u4E5F\u6709 100-500\u03BCs \u5EF6\u8FDF \xB7 \u662F cache hit (< 10\u03BCs) \u7684 10-50 \u500D\u3002cache \u5BB9\u91CF\u4E0D\u8DB3\u65F6 evict \u7EBF\u7A0B\u9891\u7E41\u6E05\u7406 dirty page \xB7 \u8FDB\u4E00\u6B65\u6D88\u8017 CPU \xB7 \u5F62\u6210\u6076\u6027\u5FAA\u73AF\u3002",
-      trade_offs: "\u589E\u5927 cacheSizeGB \u51CF\u5C11 miss \u4F46\u53D7\u7269\u7406\u5185\u5B58\u4E0A\u9650\u7EA6\u675F(\u89C1 wt_cache_vs_memory \u89C4\u5219)\u3002\u538B\u7F29\u96C6\u5408\u6216\u52A0\u7D22\u5F15\u7F29\u5C0F\u5DE5\u4F5C\u96C6\u662F\u53E6\u4E00\u8DEF\u5F84 \xB7 \u4F46\u538B\u7F29\u63D0\u9AD8 CPU \u4F7F\u7528\u7387 \xB7 \u7D22\u5F15\u591A\u5360\u78C1\u76D8\u548C\u5199\u5165\u5F00\u9500\u3002",
-      when_to_deviate: "\u6279\u5904\u7406 / OLAP workload \u672C\u8EAB\u6D41\u5F0F\u626B\u63CF \xB7 cache \u547D\u4E2D\u7387\u4F4E\u6B63\u5E38 \xB7 \u5173\u6CE8 pages evicted rate \u5373\u53EF\u3002OLTP \u573A\u666F < 95% \u5FC5\u987B\u6392\u67E5\u3002"
+      summary: "WT cache \u663E\u8457\u5C0F\u4E8E\u5B98\u65B9\u9ED8\u8BA4\u65F6 \xB7 \u5DE5\u4F5C\u96C6\u957F\u671F\u8D85\u51FA cache \u5BB9\u91CF \xB7 \u6BCF\u6B21\u8BFB miss \u8D70 pread() \u62C9\u78C1\u76D8 \xB7 \u5EF6\u8FDF\u8DC3\u5347 10-50 \u500D\u3002",
+      mechanism: "MongoDB \u6587\u6863\u660E\u786E `default cache = max(0.256GB, 50% \xD7 (RAM-1GB))` \xB7 \u8BE5\u503C\u662F\u9762\u5411\u5355\u5B9E\u4F8B OLTP \u7ECF\u9A8C\u6700\u4F18\u3002 cache << \u9ED8\u8BA4\u65F6 evict \u7EBF\u7A0B\u9891\u7E41\u6E05\u7406 \xB7 CPU \u4E0A\u5347 + IO \u653E\u5927 \xB7 OLTP \u573A\u666F p99 \u901A\u5E38\u7FFB\u500D\u3002",
+      trade_offs: "\u8C03\u9AD8 cache \u51CF\u5C11 miss \u4F46\u53D7 OS \u5B89\u5168\u8FB9\u754C (\u2264 80% RAM) \u7EA6\u675F \xB7 \u7531 wt_cache_vs_memory \u72EC\u7ACB\u628A\u5B88\u3002\u591A\u5B9E\u4F8B\u5BBF\u4E3B\u4F8B\u5916\u89C1 when_to_deviate\u3002",
+      when_to_deviate: "\u5355\u5BBF\u4E3B\u8DD1\u591A\u4E2A mongod \xB7 \u5FC5\u987B\u6309\u5B9E\u4F8B\u6570\u7B49\u5206\u5185\u5B58 \xB7 \u6B64\u65F6 cache \u8FDC\u4F4E\u4E8E\u9ED8\u8BA4\u662F\u9884\u671F\u3002\u5BB9\u5668/cgroup \u573A\u666F\u987B\u4EE5 limit \u800C\u975E\u5BBF\u4E3B RAM \u8BA1\u7B97\u9ED8\u8BA4\u503C\u3002"
     }
   });
 };
@@ -2505,7 +2545,7 @@ var check_wt_pages_read_volume = (ctx) => {
 var mongoChecks = [
   check_mongo_connections,
   check_wt_cache_vs_memory,
-  check_wt_cache_hit,
+  check_wt_cache_size_advisory,
   check_oplog_window,
   // check_compression_algorithm · removed 2026-04-26 audit · NO_URL (mongo.config.wt_block_compressor)
   check_db_cache_vs_memory,
@@ -2524,7 +2564,7 @@ var mongoChecks = [
   check_wt_pages_read_volume
 ];
 
-// ../ohsql-plugin/plugins/perf-kp-sql/src/engines/mongo/collector.ts
+// plugins/perf-kp-sql/src/engines/mongo/collector.ts
 var OS_BATCH_CMD = [
   "echo '###THP###'",
   "cat /sys/kernel/mm/transparent_hugepage/enabled 2>/dev/null || echo unknown",
@@ -2741,7 +2781,7 @@ function extractJsonObject(stdout) {
   return lastObject;
 }
 
-// ../ohsql-plugin/plugins/perf-kp-sql/src/report.ts
+// plugins/perf-kp-sql/src/report.ts
 var SEVERITY_WEIGHT = {
   critical: 10,
   warning: 5,
@@ -2913,7 +2953,7 @@ function collectEvidenceTrail(ranked) {
   return sorted;
 }
 
-// ../ohsql-plugin/plugins/perf-kp-sql/src/rule-engine-v2.ts
+// plugins/perf-kp-sql/src/rule-engine-v2.ts
 var FIELD_BRACKET_RE = /^\['([^']+)'\]|^\["([^"]+)"\]|^\[(\d+)\]/;
 function resolveField(metrics, path) {
   let cur = metrics;
@@ -3232,7 +3272,7 @@ function evaluateRule(rule, metrics) {
   return { rule_id: rule.rule_id, status: "ok" };
 }
 
-// ../ohsql-plugin/plugins/perf-kp-sql/src/rule-engine.ts
+// plugins/perf-kp-sql/src/rule-engine.ts
 function evaluateRule2(rule, collected) {
   const base = {
     rule_id: rule.rule_id,
@@ -3522,7 +3562,7 @@ function formatActual(v) {
   return String(v);
 }
 
-// ../ohsql-plugin/plugins/perf-kp-sql/src/kb-enrich.ts
+// plugins/perf-kp-sql/src/kb-enrich.ts
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 function loadSqlite() {
@@ -3625,7 +3665,7 @@ function mergeFactsIntoResult(r, rows) {
   return out;
 }
 
-// ../ohsql-plugin/plugins/perf-kp-sql/src/baseline-store.ts
+// plugins/perf-kp-sql/src/baseline-store.ts
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { join as join2 } from "node:path";
 import { homedir } from "node:os";
@@ -3680,7 +3720,7 @@ function tryLoadBaseline(hostname) {
   }
 }
 
-// ../ohsql-plugin/plugins/perf-kp-sql/src/cli-diagnose.ts
+// plugins/perf-kp-sql/src/cli-diagnose.ts
 async function main() {
   const inputs = await readInputs();
   let ctx;

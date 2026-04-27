@@ -362,7 +362,7 @@ function mergeThemes(ranked) {
 const HEALTHY_WHITELIST = [
   { id: "mongo.config.wt_block_compressor",  wait_class: "CPU",   title: "压缩算法" },
   { id: "os.iosched.device_scheduler",       wait_class: "I/O",   title: "IO scheduler" },
-  { id: "mongo.runtime.wt_cache_hit_rate",   wait_class: "I/O",   title: "WT cache 命中率" },
+  { id: "mongo.config.wt_cache_size_advisory", wait_class: "内存", title: "WT cache 大小配置" },
   { id: "os.io.disk_await_ms",               wait_class: "I/O",   title: "磁盘 await" },
   { id: "os.io.disk_usage_pct",              wait_class: "I/O",   title: "磁盘使用" },
   { id: "mongo.config.wt_cache_vs_memory",   wait_class: "内存",  title: "WT cache 用量" },

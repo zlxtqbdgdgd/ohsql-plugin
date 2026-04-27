@@ -153,7 +153,7 @@
     "source": {
       "tier": "vendor-primary",
       "url": "https://docs.openeuler.org/en/docs/22.09/docs/SystemOptimization/mysql-performance-tuning.html",
-      "title": "调优指南",
+      "title": "mongo SMMU 禁用",
       "quote": "You can configure advanced BIOS settings for different server hardware to improve server performance.",
       "fetched_at": "2026-04-26"
     },
@@ -300,7 +300,7 @@
     "source": {
       "tier": "vendor-primary",
       "url": "https://www.kernel.org/doc/Documentation/networking/ip-sysctl.txt",
-      "title": "MongoDB 调优指南",
+      "title": "tcp_tw_reuse 启用",
       "quote": "Enable reuse of TIME-WAIT sockets for new connections when it is safe from protocol viewpoint.",
       "fetched_at": "2026-04-26"
     },
@@ -321,7 +321,7 @@
     "source": {
       "tier": "vendor-primary",
       "url": "https://www.kernel.org/doc/Documentation/networking/ip-sysctl.txt",
-      "title": "MongoDB 调优指南",
+      "title": "MongoDB 本地端口范围配置",
       "quote": "Defines the local port range that is used by TCP and UDP to choose the local port.",
       "fetched_at": "2026-04-26"
     },
@@ -342,7 +342,7 @@
     "source": {
       "tier": "vendor-primary",
       "url": "https://docs.openeuler.org/en/docs/22.09/docs/SystemOptimization/mysql-performance-tuning.html",
-      "title": "Kunpeng 920 专属(BIOS + kernel 层)",
+      "title": "mongo NUMA 绑定优化",
       "quote": "numactl -C 0-90 -i 0-3 $mysql_path/bin/mysqld --defaults-file = /etc/my.",
       "fetched_at": "2026-04-26"
     },
@@ -426,7 +426,7 @@
     "source": {
       "tier": "vendor-primary",
       "url": "https://www.mongodb.com/docs/manual/administration/production-notes/",
-      "title": "MongoDB 通用 sysctl(官方要求)",
+      "title": "tcp_keepalive_time 设置",
       "quote": "To change the tcp_keepalive_time value, you can use one of the following commands, supplying a <value> in seconds: sudo sysctl -w net.ipv4.tcp_keepalive_time=<value>",
       "fetched_at": "2026-04-26"
     },
@@ -510,7 +510,7 @@
     "source": {
       "tier": "vendor-primary",
       "url": "https://www.kernel.org/doc/Documentation/sysctl/vm.txt",
-      "title": "Memory Management",
+      "title": "mongo 内存 slab 压力",
       "quote": "This percentage value controls the tendency of the kernel to reclaim the memory which is used for caching of directory and inode objects.",
       "fetched_at": "2026-04-26"
     },

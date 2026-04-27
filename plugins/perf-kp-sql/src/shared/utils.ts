@@ -162,7 +162,7 @@ const WAIT_CLASS_MAP: Record<string, WaitClass> = {
   "kunpeng.numa.topology": "内存",
   "kunpeng.numa.distance_matrix": "内存",
   "mongo.config.wt_cache_vs_memory": "内存",
-  "mongo.runtime.wt_cache_hit_rate": "内存",
+  "mongo.config.wt_cache_size_advisory": "内存",
   "mongo.config.db_cache_vs_total_mem": "内存",
   "kunpeng.vm.swappiness_strict": "内存",
   "kunpeng.numa.interleave_recommendation": "内存",

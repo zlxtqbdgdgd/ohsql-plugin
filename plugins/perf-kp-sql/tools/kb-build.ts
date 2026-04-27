@@ -1555,7 +1555,6 @@ function badCtx(): any {
       memory_total_mb: 16 * 1024,
       connections_current: 500,
       connections_available: 100,
-      wt_cache_hit_rate: 80,
       oplog_window_hours: 1,
       wt_block_compressor: "none",
     },
