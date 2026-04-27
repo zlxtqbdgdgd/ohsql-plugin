@@ -12,12 +12,12 @@ var __require = /* @__PURE__ */ ((x) => typeof require !== "undefined" ? require
   throw Error('Dynamic require of "' + x + '" is not supported');
 });
 
-// skills/perf-kp-sql/src/cli-diagnose.ts
+// plugins/perf-kp-sql/src/cli-diagnose.ts
 import { readFile } from "node:fs/promises";
-import { join, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join as join3, dirname as dirname2 } from "node:path";
+import { fileURLToPath as fileURLToPath2 } from "node:url";
 
-// skills/perf-kp-sql/src/models.ts
+// plugins/perf-kp-sql/src/models.ts
 function osVal(ctx, key, def) {
   const v = ctx.os_metrics[key];
   return v === void 0 ? def : v;
@@ -35,7 +35,7 @@ function deriveScope(ctx, engine, instance = "default") {
   const vendor = cpuVendor.includes("hisilicon") || cpuVendor.includes("kunpeng") || cpuVendor.includes("taishan") ? "kunpeng" : cpuVendor.includes("graviton") || cpuVendor.includes("aws") ? "graviton" : cpuVendor.includes("ampere") || cpuVendor.includes("altra") ? "ampere" : cpuVendor.includes("amd") ? "amd" : cpuVendor.includes("intel") || cpuVendor.includes("genuine") ? "intel" : void 0;
   const osName = String(os.os_id ?? os.os_name ?? "").toLowerCase();
   const osTag = osName.includes("openeuler") ? "openeuler" : osName.includes("almalinux") || osName.includes("alma") ? "almalinux" : osName.includes("ubuntu") ? "ubuntu" : osName.includes("centos") ? "centos" : osName.includes("rhel") || osName.includes("redhat") ? "rhel" : void 0;
-  const engine_version = engine === "redis" ? db.info?.redis_version : db.version;
+  const engine_version = db.version;
   return {
     engine,
     instance,
@@ -48,12 +48,12 @@ function deriveScope(ctx, engine, instance = "default") {
 function okResult(args) {
   return {
     id: args.id,
-    title: args.title,
+    title: args.title ?? args.id,
     severity: "ok",
     scope: args.scope,
-    summary: args.summary,
-    description: args.description ?? args.summary,
-    reason: args.reason,
+    summary: args.summary ?? "",
+    description: args.description ?? args.summary ?? "",
+    reason: args.reason ?? "",
     evidence: args.evidence ?? [],
     impact: { metric: args.impactMetric ?? "db_time_pct", value: 0, unit: "percent", confidence: "high" },
     citations: args.citations ?? [],
@@ -73,19 +73,19 @@ function infoResult(args) {
 function finding(args) {
   return {
     id: args.id,
-    title: args.title,
+    title: args.title ?? args.id,
     severity: args.severity,
     scope: args.scope,
-    summary: args.summary,
-    description: args.description,
-    reason: args.reason,
+    summary: args.summary ?? "",
+    description: args.description ?? args.summary ?? "",
+    reason: args.reason ?? "",
     evidence: args.evidence,
     impact: args.impact,
-    citations: args.citations,
-    recommendations: args.recommendations,
+    citations: args.citations ?? [],
+    recommendations: args.recommendations ?? [],
     bucket: args.bucket,
     workload_tag: args.workload_tag,
-    needs_human_review: args.needs_human_review ?? false,
+    needs_human_review: args.needs_human_review ?? (args.recommendations ?? []).length === 0,
     rationale: args.rationale,
     surfaceable_only: args.surfaceable_only,
     threshold_display: args.threshold_display
@@ -125,7 +125,7 @@ function templateFixExperiment(args) {
   };
 }
 
-// skills/perf-kp-sql/src/shared/utils.ts
+// plugins/perf-kp-sql/src/shared/utils.ts
 function isDigitString(v) {
   return /^\d+$/.test(String(v));
 }
@@ -170,12 +170,6 @@ var KUNPENG_REFS = {
     title: "openEuler \xB7 MySQL \u6027\u80FD\u8C03\u4F18\u6307\u5357",
     url: "https://docs.openeuler.org/en/docs/22.09/docs/SystemOptimization/mysql-performance-tuning.html"
   },
-  /** 华为云 Kunpeng BoostKit · Redis 硬件调优(MTU / NIC / IRQ)
-   *  (替代旧 kunpengredishdp_05_0009.html 死链 · 2026-04-25 实测 200 OK) */
-  redisNicTuning: {
-    title: "\u534E\u4E3A\u4E91\u9CB2\u9E4F BoostKit \xB7 Redis \u786C\u4EF6\u8C03\u4F18(\u914D\u7F6E MTU)",
-    url: "https://support.huaweicloud.com/tngg-kunpengbds/kunpengredishdp_05_0011.html"
-  },
   /** 鲲鹏性能调优 · THP / 内存大页(2026-04-25 新增 · 替代 boostkitMongo 在 OS 级错配) */
   thpTuning: {
     title: "\u9CB2\u9E4F\u6027\u80FD\u4F18\u5316\u5341\u677F\u65A7 \xB7 \u8C03\u6574\u5185\u5B58\u9875\u7684\u5927\u5C0F(THP)",
@@ -185,6 +179,18 @@ var KUNPENG_REFS = {
   numactlTool: {
     title: "\u9CB2\u9E4F\u6027\u80FD\u4F18\u5316\u5341\u677F\u65A7 \xB7 numactl \u5DE5\u5177",
     url: "https://www.hikunpeng.com/document/detail/zh/perftuning/tuningtip/kunpengtuning_12_0009.html"
+  },
+  /** Ampere MongoDB Tuning Guide · 含 sysctl net.core.somaxconn / vm.max_map_count 等 ARM 调优字面值
+   *  (2026-04-26 新增 · 用于 somaxconn 类规则的字面引用,鲲鹏官方页未涵盖该 sysctl) */
+  ampereMongo: {
+    title: "Ampere \xB7 MongoDB Tuning Guide",
+    url: "https://amperecomputing.com/tuning-guides/mongoDB-tuning-guide"
+  },
+  /** MongoDB 官方 Production Notes · 含 swappiness / keepalive / 110-115% / connection pool 等
+   *  (2026-04-26 新增 · 用于 swappiness 类规则的字面引用,鲲鹏官方页未涵盖该 sysctl) */
+  mongoProdNotes: {
+    title: "MongoDB Production Notes",
+    url: "https://www.mongodb.com/docs/manual/administration/production-notes/"
   }
 };
 var WAIT_CLASS_MAP = {
@@ -200,7 +206,6 @@ var WAIT_CLASS_MAP = {
   "openeuler.sched.feature_steal": "CPU",
   "openeuler.cmdline.nohz": "CPU",
   "mongo.config.wt_block_compressor": "CPU",
-  "redis.runtime.slowlog": "CPU",
   "os.cpu.cores_minimum": "CPU",
   "os.kernel.version_rseq": "CPU",
   "os.env.virt_type": "CPU",
@@ -211,9 +216,6 @@ var WAIT_CLASS_MAP = {
   "os.vm.dirty_ratio": "I/O",
   "os.io.disk_await_ms": "I/O",
   "os.io.disk_usage_pct": "I/O",
-  "mysql.config.innodb_flush_log_at_trx_commit": "I/O",
-  "mysql.config.sync_binlog": "I/O",
-  "redis.config.persistence": "I/O",
   // ---- 内存 (页表 / 大页 / swap / NUMA 本地性 / cache 命中) ----
   "os.thp.kernel_mode": "\u5185\u5B58",
   "os.hugepages.static_reserved": "\u5185\u5B58",
@@ -225,14 +227,8 @@ var WAIT_CLASS_MAP = {
   "kunpeng.numa.topology": "\u5185\u5B58",
   "kunpeng.numa.distance_matrix": "\u5185\u5B58",
   "mongo.config.wt_cache_vs_memory": "\u5185\u5B58",
-  "mongo.runtime.wt_cache_hit_rate": "\u5185\u5B58",
+  "mongo.config.wt_cache_size_advisory": "\u5185\u5B58",
   "mongo.config.db_cache_vs_total_mem": "\u5185\u5B58",
-  "mysql.config.innodb_buffer_pool_size": "\u5185\u5B58",
-  "mysql.runtime.buffer_pool_hit_rate": "\u5185\u5B58",
-  "mysql.design.schema_sizes": "\u5185\u5B58",
-  "redis.config.maxmemory": "\u5185\u5B58",
-  "redis.config.maxmemory_policy": "\u5185\u5B58",
-  "redis.runtime.mem_fragmentation_ratio": "\u5185\u5B58",
   "kunpeng.vm.swappiness_strict": "\u5185\u5B58",
   "kunpeng.numa.interleave_recommendation": "\u5185\u5B58",
   "mongo.config.wt_cache_pct_kunpeng": "\u5185\u5B58",
@@ -241,9 +237,6 @@ var WAIT_CLASS_MAP = {
   // ---- 并发 (连接 / 复制 / 慢日志 / 锁 / 票证) ----
   "mongo.runtime.connection_pool": "\u5E76\u53D1",
   "mongo.config.oplog_window_hours": "\u5E76\u53D1",
-  "mysql.config.slow_query_log": "\u5E76\u53D1",
-  "mysql.runtime.connection_util": "\u5E76\u53D1",
-  "redis.runtime.connected_clients": "\u5E76\u53D1",
   "mongo.runtime.wt_ticket_read": "\u5E76\u53D1",
   "mongo.runtime.wt_ticket_write": "\u5E76\u53D1",
   "mongo.runtime.global_lock_queue": "\u5E76\u53D1",
@@ -291,10 +284,6 @@ function moduleOf(ruleId) {
       return "\u786C\u4EF6";
     case "mongo":
       return "mongo";
-    case "mysql":
-      return "mysql";
-    case "redis":
-      return "redis";
     default:
       return "\u5176\u4ED6";
   }
@@ -303,15 +292,8 @@ var MODULE_ORDER = [
   "os",
   "\u786C\u4EF6",
   "mongo",
-  "mysql",
-  "redis",
   "\u5176\u4ED6"
 ];
-function parseOsIntoMetrics(osStdout) {
-  const out = {};
-  parseOsBatch(osStdout, out);
-  return out;
-}
 function parseOsBatch(stdout, out) {
   const sections = stdout.split("###");
   const thp = getSection(sections, "THP");
@@ -401,8 +383,6 @@ function parseOsBatch(stdout, out) {
   if (lseDmesg) {
     out["lse_dmesg_has_lse"] = /LSE/i.test(lseDmesg);
   }
-  const lseMysqldFirst = getSection(sections, "LSE_MYSQLD").trim().split("\n")[0]?.trim() ?? "";
-  out["lse_mysqld_count"] = lseMysqldFirst === "na" ? null : parseIntOr(lseMysqldFirst, 0);
   const lseMongodFirst = getSection(sections, "LSE_MONGOD").trim().split("\n")[0]?.trim() ?? "";
   out["lse_mongod_count"] = lseMongodFirst === "na" ? null : parseIntOr(lseMongodFirst, 0);
   out["pagesize_bytes"] = parseIntOr(getSection(sections, "PAGESIZE").trim(), 0);
@@ -446,7 +426,7 @@ function parseIntOr(s, fallback) {
   return fallback;
 }
 
-// skills/perf-kp-sql/src/shared/legacy-checks.ts
+// plugins/perf-kp-sql/src/shared/legacy-checks.ts
 function requireArm64(ctx, id, title, bucket) {
   const engine = ctx.db_type;
   const scope = deriveScope(ctx, engine);
@@ -514,88 +494,6 @@ var check_arm64_lse_cpu = (ctx) => {
     }
   });
 };
-var check_arm64_lse_kernel = (ctx) => {
-  const id = "arm64.lse.kernel_enabled";
-  const title = "LSE atomics \u5185\u6838\u65E5\u5FD7";
-  const { skip, scope } = requireArm64(ctx, id, title, 1);
-  if (skip) return skip;
-  const hasKernel = osVal(ctx, "lse_dmesg_has_lse", false);
-  if (!hasKernel) {
-    return infoResult({
-      id,
-      title,
-      bucket: 1,
-      scope,
-      summary: "dmesg \u672A\u663E\u793A LSE atomics \u542F\u7528\u4FE1\u606F",
-      reason: "\u53EF\u80FD dmesg \u6743\u9650\u4E0D\u8DB3(\u975E root)\u6216\u542F\u52A8\u65E5\u5FD7\u5DF2\u8F6E\u8F6C \xB7 \u53EF\u7528 lscpu atomics \u4EA4\u53C9\u786E\u8BA4"
-    });
-  }
-  return okResult({ id, title, bucket: 1, scope, summary: "\u5185\u6838\u542F\u52A8\u65E5\u5FD7\u786E\u8BA4 LSE \u542F\u7528", reason: "Linux \u5185\u6838\u5728\u542F\u52A8\u65F6\u8BC6\u522B\u5E76\u542F\u7528\u4E86 LSE atomics" });
-};
-function engineBinary(engine) {
-  if (engine === "mysql") return "mysqld";
-  if (engine === "mongo") return "mongod";
-  return null;
-}
-var check_arm64_lse_binary = (ctx) => {
-  const id = "arm64.lse.db_binary_opcodes";
-  const title = "DB \u4E8C\u8FDB\u5236 LSE \u6307\u4EE4";
-  const { skip, scope } = requireArm64(ctx, id, title, 1);
-  if (skip) return skip;
-  const engine = scope.engine;
-  const bin = engineBinary(engine);
-  if (!bin) {
-    return infoResult({ id, title, bucket: 1, scope, summary: `${engine} \u4E0D\u9002\u7528`, reason: "\u4EC5 mysqld / mongod \u9700\u8981\u68C0\u67E5" });
-  }
-  const countKey = bin === "mysqld" ? "lse_mysqld_count" : "lse_mongod_count";
-  const count = osVal(ctx, countKey, null);
-  if (count === null) {
-    return infoResult({ id, title, bucket: 1, scope, summary: `\u672A\u627E\u5230 ${bin} \u4E8C\u8FDB\u5236`, reason: `command -v ${bin} \u65E0\u8FD4\u56DE(\u6216 nm \u4E0D\u53EF\u7528)` });
-  }
-  if (count > 0) {
-    return okResult({
-      id,
-      title,
-      bucket: 1,
-      scope,
-      summary: `${bin} .dynsym \u542B ${count} \u4E2A outline-atomics \u7B26\u53F7`,
-      reason: `\u4E8C\u8FDB\u5236\u7F16\u8BD1\u65F6\u5E26\u4E86 -moutline-atomics(\u9ED8\u8BA4 gcc 10+),\u8FD0\u884C\u671F\u5728\u9CB2\u9E4F CPU \u4E0A\u4F1A\u8C03\u5EA6\u5230 LSE \u539F\u5B50\u6307\u4EE4`
-    });
-  }
-  return finding({
-    id,
-    title,
-    severity: "info",
-    bucket: 1,
-    scope,
-    summary: `${bin} .dynsym \u672A\u53D1\u73B0 outline-atomics \u7B26\u53F7 \xB7 \u9700\u624B\u52A8\u786E\u8BA4 LSE \u662F\u5426\u542F\u7528`,
-    description: `${bin} \u4E8C\u8FDB\u5236 .dynsym \u6BB5\u6CA1\u6709 __aarch64_(cas|ldadd|swp|ldset) \u7B49 outline-atomics \u52A8\u6001\u7B26\u53F7\u3002\u8FD9\u6709\u4E09\u79CD\u53EF\u80FD,\u65E0\u6CD5\u9760 nm -D \u533A\u5206: (a) \u7F16\u8BD1\u65F6\u65E2\u6CA1\u5E26 -moutline-atomics \u4E5F\u6CA1 -march=armv8.1-a+lse \u00B7 \u7ADE\u4E89\u8DEF\u5F84\u9000\u56DE ldxr/stxr \u00B7 ARM64 \u4E0A\u541E\u5410\u8170\u65A9(\u6700\u5E38\u89C1 \u00B7 \u8001 distro repo build); (b) \u7528 -march=armv8.1-a+lse \u76F4\u63A5\u5185\u8054 LSE \u00B7 \u5DF2\u662F\u6700\u4F18 build \u4F46 outline \u7B26\u53F7\u81EA\u7136\u4E0D\u51FA\u73B0; (c) \u9759\u6001\u94FE\u63A5 libgcc \u00B7 outline-atomics \u51FD\u6570\u88AB inline \u8FDB\u4E8C\u8FDB\u5236 \u00B7 \u4E5F\u4E0D\u5728 .dynsym\u3002\u5EFA\u8BAE\u624B\u52A8 readelf -A / \u6216\u5BF9\u6BD4 perf \u706B\u7130\u56FE\u7684 ldxr/stxr \u5360\u6BD4\u6765\u533A\u5206\u3002`,
-    reason: `nm -D $(command -v ${bin}) \u4E2D __aarch64_(have_lse_atomics|cas|ldadd|swp|ldset) \u7B49 outline-atomics \u52A8\u6001\u7B26\u53F7\u51FA\u73B0 0 \u6B21 \u00B7 \u4F46\u65E0\u6CD5\u636E\u6B64\u72EC\u7ACB\u5224\u65AD\u662F\u5426\u8D70\u4E86 LSE`,
-    threshold_display: "> 0 outline-atomics symbols (info-only \xB7 \u4E0D\u5224 warning)",
-    evidence: [{ kind: "metric", value: `lse_outline_symbols_${bin}=0` }],
-    impact: { metric: "throughput_qps", value: 25, unit: "percent", confidence: "high" },
-    citations: [
-      KUNPENG_REFS.arm64Porting,
-      { title: "AWS Graviton \xB7 C/C++ LSE (-moutline-atomics)", url: "https://github.com/aws/aws-graviton-getting-started/blob/main/c-c%2B%2B.md" },
-      { title: "Percona \xB7 ARM64 MySQL builds", url: "https://www.percona.com/blog/percona-server-for-mysql-and-percona-xtrabackup-now-available-for-arm64/" }
-    ],
-    recommendations: [
-      {
-        action: `\u6362\u88C5\u5E26 LSE \u7684 ${bin} \u6784\u5EFA(Percona ARM64 RPM / \u81EA\u7F16\u8BD1 -march=armv8.1-a / -moutline-atomics)`,
-        rationale: "LSE atomics \u662F ARM64 DB \u541E\u5410\u7684\u6700\u5927\u5355\u4E00\u6760\u6746",
-        type: "repair",
-        fix_cost: "restart_engine",
-        verifiable: true
-      }
-    ],
-    rationale: {
-      summary: "\u5373\u4F7F CPU \u548C\u5185\u6838\u90FD\u652F\u6301 LSE \xB7 DB \u4E8C\u8FDB\u5236\u672C\u8EAB\u5FC5\u987B\u7528 LSE-aware \u7F16\u8BD1\u5668\u6784\u5EFA\u624D\u80FD\u7528\u4E0A\u3002\u8001\u53D1\u884C\u7248 repo \u7684 mongod / mysqld \u5E38\u662F -march=armv8-a \u6784\u5EFA \xB7 \u8FD0\u884C\u5728\u9CB2\u9E4F\u4E0A\u4E5F\u662F ldxr \u5FAA\u73AF \xB7 \u786C\u4EF6\u767D\u7ED9\u4E0D\u7528\u3002",
-      mechanism: "\u4E8C\u8FDB\u5236\u91CC\u6709\u6CA1\u6709 LSE \u770B objdump -d \u4E2D\u7684 cas*/ldadd*/swp*/cas* \u7CFB\u5217 opcode\u3002\u82E5\u8BA1\u6570\u4E3A 0 \u8BF4\u660E\u7F16\u8BD1\u5668\u6CA1\u5E26 -march=armv8.1-a \u6216 -moutline-atomics\u3002\u540E\u8005\u66F4\u5B9E\u7528:\u7F16\u8BD1\u65F6\u751F\u6210 runtime-dispatch stub \xB7 \u8001 CPU \u8D70 ldxr \u8DEF\u5F84 \xB7 LSE CPU \u8D70 cas \u8DEF\u5F84 \xB7 \u4E00\u4E2A\u4E8C\u8FDB\u5236\u4E24\u5904\u8DD1\u3002",
-      trade_offs: "\u6362\u5E26 LSE \u7684\u4E8C\u8FDB\u5236\u9700\u8981\u91CD\u88C5 package(Percona ARM64 repo / MongoDB \u5B98\u65B9 aarch64 rpm)\u6216\u81EA\u7F16\u8BD1\u3002\u91CD\u88C5\u5F15\u5165 engine restart \xB7 rolling restart \u65E0\u635F\u3002LSE \u541E\u5410\u589E\u76CA\u5728\u9AD8\u7ADE\u4E89 OLTP \u573A\u666F\u53EF\u8FBE 25-40%\u3002",
-      when_to_deviate: "\u53D7\u9650\u73AF\u5883\u53EA\u80FD\u88C5\u53D1\u884C\u7248 repo \u4E8C\u8FDB\u5236\u65F6\u6CA1\u5F97\u9009\u3002\u53EF\u8003\u8651 LD_PRELOAD \u7684 glibc atomics \u517C\u5BB9\u5C42 \xB7 \u4F46\u6548\u679C\u4E0D\u5982\u91CD\u7F16\u8BD1\u5F7B\u5E95\u3002"
-    }
-  });
-};
 var check_arm64_pagesize = (ctx) => {
   const id = "arm64.kernel.page_size";
   const title = "ARM64 \u5185\u6838\u9875\u5927\u5C0F";
@@ -617,8 +515,8 @@ var check_arm64_pagesize = (ctx) => {
 };
 var arm64Checks = [
   check_arm64_lse_cpu,
-  check_arm64_lse_kernel,
-  check_arm64_lse_binary,
+  // check_arm64_lse_kernel · removed 2026-04-26 audit · NO_URL
+  // check_arm64_lse_binary · removed 2026-04-26 audit · TOPIC_MISMATCH (kernel.org elf_hwcaps 不含 opcodes/binary)
   check_arm64_pagesize
 ];
 function requireKunpeng(ctx, id, title, bucket) {
@@ -637,71 +535,6 @@ function requireKunpeng(ctx, id, title, bucket) {
   }
   return { scope };
 }
-var check_cpu_governor = (ctx) => {
-  const id = "kunpeng.cpu.governor";
-  const title = "CPU Governor \u8C03\u9891\u7B56\u7565";
-  const gate = requireKunpeng(ctx, id, title, 1);
-  if ("severity" in gate) return gate;
-  const { scope } = gate;
-  const governor = osVal(ctx, "cpu_governor", "");
-  if (!governor || governor === "SKIP") {
-    return infoResult({
-      id,
-      title,
-      bucket: 1,
-      scope,
-      summary: "\u672A\u91C7\u96C6\u5230 scaling_governor",
-      reason: "cpufreq \u4E0D\u53EF\u8BFB(\u53EF\u80FD\u5185\u6838\u4E0D\u652F\u6301\u6216\u6743\u9650\u4E0D\u8DB3)"
-    });
-  }
-  const governors = governor.split(",").map((g) => g.trim()).filter(Boolean);
-  const bad = governors.filter((g) => g === "powersave" || g === "ondemand");
-  if (bad.length === 0) {
-    return okResult({
-      id,
-      title,
-      bucket: 1,
-      scope,
-      summary: `governor=${governor}`,
-      reason: "\u5DF2\u914D\u7F6E\u9AD8\u6027\u80FD\u8C03\u9891\u7B56\u7565"
-    });
-  }
-  return finding({
-    id,
-    title,
-    severity: "warning",
-    bucket: 1,
-    scope,
-    summary: `governor=${bad.join(",")} \u975E\u9AD8\u6027\u80FD\u6A21\u5F0F`,
-    description: "CPU \u8C03\u9891\u7B56\u7565\u5728 powersave/ondemand \u4E0B,\u8D1F\u8F7D\u5CF0\u503C\u4F1A\u56E0\u9891\u7387\u5207\u6362\u5F15\u5165\u989D\u5916\u5EF6\u8FDF,\u9CB2\u9E4F\u4E0A\u5C24\u5176\u660E\u663E\u3002",
-    reason: `governor=${governor} \xB7 \u6570\u636E\u5E93\u751F\u4EA7\u573A\u666F\u8981\u6C42 performance`,
-    threshold_display: "performance",
-    evidence: [
-      { kind: "config", value: `scaling_governor=${governor}`, source_url: "/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor" }
-    ],
-    impact: { metric: "latency_p95_ms", value: 15, unit: "percent", confidence: "medium" },
-    citations: [
-      KUNPENG_REFS.boostkitOverview,
-      { title: "Ampere Redis Setup and Tuning Guide \xB7 CPU scaling", url: "https://amperecomputing.com/en/tuning-guides/Redis-setup-and-tuning-guide" },
-      { title: "openEuler MySQL Performance Tuning", url: "https://docs.openeuler.org/en/docs/22.09/docs/SystemOptimization/mysql-performance-tuning.html" }
-    ],
-    recommendations: [
-      {
-        action: "echo performance | tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor",
-        rationale: "DB \u751F\u4EA7\u8D1F\u8F7D\u8981\u6C42\u9891\u7387\u7A33\u5B9A,\u907F\u514D\u8C03\u9891\u5F15\u5165\u6296\u52A8",
-        type: "repair",
-        fix_cost: "trivial",
-        verifiable: true
-      }
-    ],
-    rationale: {
-      summary: "CPU governor \u63A7\u5236\u9891\u7387\u52A8\u6001\u8C03\u8282 \xB7 powersave/ondemand \u5728\u4F4E\u8D1F\u8F7D\u65F6\u964D\u9891\u7701\u7535 \xB7 \u7A81\u53D1\u8BF7\u6C42\u65F6\u9700 \u03BCs \u7EA7\u722C\u9891 \xB7 DB \u573A\u666F\u4E0B\u5BB9\u6613\u8BA9 p99 \u5EF6\u8FDF\u6296\u52A8\u3002performance \u56FA\u5B9A\u6700\u9AD8\u9891 \xB7 \u7A33\u6001\u529F\u8017\u7565\u9AD8\u4F46\u6027\u80FD\u53EF\u9884\u6D4B\u3002",
-      mechanism: "ondemand \u6BCF 10ms \u91C7\u6837 CPU \u5229\u7528\u7387\u51B3\u5B9A\u662F\u5426\u5347\u9891 \xB7 \u5347\u9891\u8981 CPU \u53D1 PMIC \u547D\u4EE4 \xB7 \u5178\u578B 50-200\u03BCs \u5EF6\u8FDF\u3002DB \u8BF7\u6C42\u547D\u4E2D\u4F4E\u9891\u7A97\u53E3\u65F6 \xB7 \u5F00\u59CB\u5904\u7406\u540E\u624D\u89E6\u53D1\u5347\u9891 \xB7 \u9996 request \u989D\u5916\u62C9\u957F 100\u03BCs+\u3002performance \u907F\u5F00\u8FD9\u4E2A\u6296\u52A8 \xB7 \u4EE3\u4EF7\u662F\u95F2\u65F6\u6301\u7EED\u9AD8\u9891\u3002",
-      trade_offs: "performance \u6BD4 powersave \u6574\u673A\u529F\u8017\u9AD8 10-20W(2U \u9CB2\u9E4F 920 \u670D\u52A1\u5668\u5178\u578B)\xB7 \u6362\u6765 p99 \u7A33\u5B9A\u3002\u751F\u4EA7 DB \u7269\u7406\u673A\u51E0\u4E4E\u90FD\u8BE5 performance \xB7 \u529F\u8017\u654F\u611F\u7684\u8FB9\u7F18\u8282\u70B9\u53EF\u4FDD ondemand\u3002",
-      when_to_deviate: "VM / \u5BB9\u5668\u573A\u666F governor \u5E38\u7531 hypervisor \u63A7\u5236 \xB7 cpufreq \u63A5\u53E3\u53EF\u80FD\u65E0\u6548 \xB7 \u6B64\u65F6\u9700 hypervisor \u5C42\u914D\u7F6E\u3002\u6D4B\u8BD5 / \u5F00\u53D1\u73AF\u5883\u529F\u8017\u4F18\u5148\u53EF\u4FDD powersave\u3002"
-    }
-  });
-};
 var check_numa = (ctx) => {
   const id = "kunpeng.numa.balancing";
   const title = "NUMA \u81EA\u52A8\u5E73\u8861";
@@ -757,160 +590,6 @@ var check_numa = (ctx) => {
     }
   });
 };
-var check_smt = (ctx) => {
-  const id = "kunpeng.smt.threads_per_core";
-  const title = "SMT \xB7 CPU \u6BCF\u6838\u7EBF\u7A0B\u6570";
-  const gate = requireKunpeng(ctx, id, title, 1);
-  if ("severity" in gate) return gate;
-  const { scope } = gate;
-  const threadsPerCore = toInt(osVal(ctx, "smt_threads_per_core", 0), 0);
-  if (threadsPerCore === 0) {
-    return infoResult({
-      id,
-      title,
-      bucket: 1,
-      scope,
-      summary: "\u672A\u91C7\u96C6\u5230 Thread(s) per core",
-      reason: "lscpu \u672A\u8FD4\u56DE\u5B57\u6BB5"
-    });
-  }
-  return infoResult({
-    id,
-    title,
-    bucket: 1,
-    scope,
-    summary: `${threadsPerCore} thread(s)/core`,
-    reason: threadsPerCore === 1 ? "\u9CB2\u9E4F 920 \u65E0 SMT(logical=physical),\u7EBF\u7A0B\u6C60\u6309\u7269\u7406\u6838\u6570\u914D\u7F6E\u5373\u53EF" : "\u591A\u7EBF\u7A0B/\u6838 \xB7 \u7EBF\u7A0B\u6C60\u6309\u7269\u7406\u6838\u6570\u914D,\u907F\u514D\u8BEF\u4E58 threads/core"
-  });
-};
-var check_numa_topology = (ctx) => {
-  const id = "kunpeng.numa.topology";
-  const title = "NUMA \u8282\u70B9\u62D3\u6251";
-  const gate = requireKunpeng(ctx, id, title, 1);
-  if ("severity" in gate) return gate;
-  const { scope } = gate;
-  const nodes = toInt(osVal(ctx, "numa_nodes", 0), 0);
-  if (nodes === 0) {
-    return infoResult({
-      id,
-      title,
-      bucket: 1,
-      scope,
-      summary: "\u672A\u91C7\u96C6\u5230 NUMA \u8282\u70B9\u6570",
-      reason: "\u672A\u80FD\u8BFB\u53D6 /sys/devices/system/node"
-    });
-  }
-  const label = nodes >= 4 ? "2P \u9CB2\u9E4F\u7269\u7406\u673A\u5178\u578B(4 \u8282\u70B9)" : nodes === 2 ? "\u5355\u8DEF\u9CB2\u9E4F\u6216\u865A\u62DF\u673A(2 \u8282\u70B9)" : "\u5355\u8282\u70B9(VM \u6216\u5355\u8DEF\u88C1\u526A\u578B\u53F7)";
-  return infoResult({
-    id,
-    title,
-    bucket: 1,
-    scope,
-    summary: `${nodes} \u8282\u70B9(${label})`,
-    reason: "\u62D3\u6251\u4FE1\u606F \xB7 \u5F71\u54CD\u5206\u7247\u90E8\u7F72/\u7EBF\u7A0B\u7ED1\u6838\u67B6\u6784\u51B3\u7B56"
-  });
-};
-var check_irqbalance = (ctx) => {
-  const id = "kunpeng.irqbalance.active";
-  const title = "irqbalance IRQ \u5747\u8861";
-  const gate = requireKunpeng(ctx, id, title, 1);
-  if ("severity" in gate) return gate;
-  const { scope } = gate;
-  const active = osVal(ctx, "irqbalance_active", "");
-  if (!active || active === "unknown") {
-    return infoResult({
-      id,
-      title,
-      bucket: 1,
-      scope,
-      summary: "\u672A\u91C7\u96C6\u5230 irqbalance \u72B6\u6001",
-      reason: "systemctl \u4E0D\u53EF\u7528\u6216\u672A\u5B89\u88C5 irqbalance"
-    });
-  }
-  if (active === "active") {
-    return okResult({
-      id,
-      title,
-      bucket: 1,
-      scope,
-      summary: "irqbalance active",
-      reason: "IRQ \u81EA\u52A8\u5206\u6563\u5230\u5404 CPU \u6838"
-    });
-  }
-  return finding({
-    id,
-    title,
-    severity: "warning",
-    bucket: 1,
-    scope,
-    summary: `irqbalance ${active}`,
-    description: "irqbalance \u672A\u8FD0\u884C\u65F6 IRQ \u5BB9\u6613\u96C6\u4E2D\u5230 CPU0,\u9AD8\u5E76\u53D1 DB \u573A\u666F\u6253\u6EE1\u5355\u6838\u3002",
-    reason: `irqbalance=${active} \xB7 \u672A\u7ED1\u5B9A IRQ \u4EB2\u548C\u6027\u65F6 IRQ \u96C6\u4E2D CPU0,\u9AD8\u5E76\u53D1\u6253\u6EE1\u5355\u6838`,
-    threshold_display: "active",
-    evidence: [
-      { kind: "config", value: `irqbalance=${active}` }
-    ],
-    impact: { metric: "latency_p95_ms", value: 10, unit: "percent", confidence: "medium" },
-    citations: [
-      KUNPENG_REFS.redisNicTuning,
-      { title: "Red Hat Performance Tuning \xB7 IRQ balancing", url: "https://access.redhat.com/sites/default/files/attachments/rhel7_numa_perf_brief.pdf" }
-    ],
-    recommendations: [
-      {
-        action: "systemctl enable --now irqbalance",
-        rationale: "\u542F\u52A8 irqbalance \u8BA9\u5185\u6838\u81EA\u9002\u5E94\u5206\u6563\u4E2D\u65AD;\u6216\u624B\u52A8 /proc/irq/$irq/smp_affinity_list \u7ED1\u5B9A",
-        type: "repair",
-        fix_cost: "trivial",
-        verifiable: true
-      }
-    ],
-    rationale: {
-      summary: "irqbalance \u662F userspace daemon \xB7 \u628A\u7F51\u5361 / \u5B58\u50A8 / \u5176\u5B83 PCI \u8BBE\u5907\u7684\u786C\u4E2D\u65AD\u5747\u5300\u5206\u6563\u5230\u5404 CPU\u3002\u672A\u542F\u52A8\u65F6 IRQ \u9ED8\u8BA4\u96C6\u4E2D\u5728 CPU0 \xB7 \u9AD8\u5E76\u53D1 DB \u573A\u666F\u4E0B CPU0 \u88AB\u4E2D\u65AD\u6253\u6EE1 \xB7 DB \u8FDE\u63A5\u7EBF\u7A0B\u4E5F\u62A2 CPU0 \xB7 \u6574\u673A\u53D8\u74F6\u9888\u3002",
-      mechanism: "Linux \u542F\u52A8\u65F6\u9ED8\u8BA4\u628A\u6240\u6709 IRQ \u7684 smp_affinity \u8BBE\u6210 CPU0 \xB7 \u9664\u975E irqbalance \u542F\u52A8\u540E\u52A8\u6001\u8C03\u6574\u3002\u9CB2\u9E4F 920 \u5355\u673A\u5E38\u89C1 64/128 \u6838 \xB7 \u4E0D\u5206\u6563 IRQ \u5C31\u662F 1/64 \u7684 CPU \u5728\u670D\u52A1\u7F51\u7EDC \xB7 softirq \u6392\u961F \xB7 \u7F51\u7EDC\u6536\u5305\u5EF6\u8FDF\u653E\u5927\u3002DB \u5BA2\u6237\u7AEF\u611F\u77E5\u5230\u7684\u662F p95/p99 \u6296\u52A8\u3002",
-      trade_offs: "\u542F irqbalance \u5BF9 CPU \u5F00\u9500\u6781\u5C0F(< 1%)\xB7 \u517C\u5BB9\u6027\u597D\u3002\u5BF9\u8D85\u4F4E\u5EF6\u8FDF\u573A\u666F(HFT / in-memory KV)\u53EF\u9009\u62E9\u5173 irqbalance \u5E76\u624B\u52A8\u7ED1\u5B9A\u7279\u5B9A IRQ \u5230\u4E13\u95E8\u7684\u6838 \xB7 \u4F46\u9700\u8981\u7CBE\u7EC6\u8C03\u4F18\u3002\u901A\u7528 DB \u90E8\u7F72\u542F irqbalance \u5373\u53EF\u3002",
-      when_to_deviate: "\u5DF2\u624B\u52A8\u7ED1\u5B9A IRQ smp_affinity \u7684\u4E13\u4E1A\u8C03\u4F18\u573A\u666F \xB7 \u4FDD\u6301\u624B\u52A8\u7ED1\u5B9A\u5373\u53EF\u4E0D\u542F irqbalance\u3002\u5355\u6838 / VM \u573A\u666F irqbalance \u610F\u4E49\u4E0D\u5927\u4F46\u65E0\u5BB3\u3002"
-    }
-  });
-};
-var check_numa_distance_matrix = (ctx) => {
-  const id = "kunpeng.numa.distance_matrix";
-  const title = "NUMA \u8DDD\u79BB\u77E9\u9635";
-  const gate = requireKunpeng(ctx, id, title, 1);
-  if ("severity" in gate) return gate;
-  const { scope } = gate;
-  const raw = osVal(ctx, "numa_dist_raw", "");
-  const max = toInt(osVal(ctx, "numa_dist_max", 0), 0);
-  const min = toInt(osVal(ctx, "numa_dist_min", 0), 0);
-  if (!raw || max === 0) {
-    return infoResult({
-      id,
-      title,
-      bucket: 1,
-      scope,
-      summary: "\u672A\u91C7\u96C6 NUMA \u8DDD\u79BB\u77E9\u9635",
-      reason: "numactl -H \u4E0D\u53EF\u7528\u6216\u4E0D\u542B distances \u6BB5"
-    });
-  }
-  if (max === min) {
-    return infoResult({
-      id,
-      title,
-      bucket: 1,
-      scope,
-      summary: `\u8DDD\u79BB\u5747\u5300 \xB7 \u6240\u6709\u8282\u70B9\u8DDD\u79BB = ${max}`,
-      reason: "\u5355\u8DEF\u9CB2\u9E4F\u6216\u865A\u62DF\u673A \xB7 \u65E0\u8DE8 die/socket \u6210\u672C\u5DEE\u5F02,\u65E0\u9700\u5206\u7247\u7ED1\u6838\u4F18\u5316"
-    });
-  }
-  return okResult({
-    id,
-    title,
-    bucket: 1,
-    scope,
-    summary: `\u8DDD\u79BB\u975E\u5BF9\u79F0 min=${min} max=${max}`,
-    description: "\u68C0\u6D4B\u5230\u8DE8 die/socket \u8DDD\u79BB\u5DEE \xB7 \u5EFA\u8BAE\u7528 numactl --cpunodebind/--membind \u628A DB \u8FDB\u7A0B\u7ED1\u5230\u5355\u8282\u70B9,\u907F\u514D\u8FDC\u7AEF\u8BBF\u5B58",
-    reason: "\u591A NUMA \u8282\u70B9\u5E03\u5C40\u9700\u8981\u7ED1\u6838\u90E8\u7F72"
-  });
-};
 var check_kunpeng_somaxconn_strict = (ctx) => {
   const id = "kunpeng.net.somaxconn_strict";
   const title = "somaxconn";
@@ -928,9 +607,9 @@ var check_kunpeng_somaxconn_strict = (ctx) => {
       bucket: 1,
       scope,
       summary: `somaxconn=${val}`,
-      reason: "\u5DF2\u8FBE\u9CB2\u9E4F BoostKit Mongo \u63A8\u8350 \u2265 65535",
-      threshold_display: "\u2265 65535",
-      citations: [{ title: "\u9CB2\u9E4F BoostKit \xB7 MongoDB \u8C03\u4F18 \xB7 somaxconn", url: "https://www.hikunpeng.com/document/detail/zh/kunpengdbs/ecosystemEnable/MongoDB/kunpengdbstune_05_0029.html" }]
+      reason: "\u5DF2\u8FBE Ampere MongoDB \u8C03\u4F18\u6307\u5357\u63A8\u8350\u503C",
+      threshold_display: "sysctl -w net.core.somaxconn = 65535",
+      citations: [KUNPENG_REFS.ampereMongo]
     });
   }
   return finding({
@@ -940,21 +619,22 @@ var check_kunpeng_somaxconn_strict = (ctx) => {
     bucket: 1,
     scope,
     summary: `somaxconn=${val} < 65535`,
-    description: "\u9CB2\u9E4F BoostKit MongoDB \u8C03\u4F18\u6307\u5357\u8981\u6C42 net.core.somaxconn \u2265 65535,\u901A\u7528 Linux 1024 \u7684\u9608\u503C\u5728\u9CB2\u9E4F\u9AD8\u5E76\u53D1 DB \u4E0B\u504F\u5C0F",
-    reason: `net.core.somaxconn=${val} \xB7 \u9CB2\u9E4F\u5B98\u65B9\u5EFA\u8BAE \u2265 65535`,
-    threshold_display: "\u2265 65535",
+    description: "Ampere MongoDB Tuning Guide \u63A8\u8350 sysctl -w net.core.somaxconn = 65535,\u901A\u7528 Linux 1024 \u7684\u9608\u503C\u5728 ARM \u9AD8\u5E76\u53D1 DB \u4E0B\u504F\u5C0F",
+    reason: `net.core.somaxconn=${val} \xB7 Ampere \u63A8\u8350\u503C 65535`,
+    threshold_display: "sysctl -w net.core.somaxconn = 65535",
     evidence: [{ kind: "config", value: `net.core.somaxconn=${val}` }],
     impact: { metric: "connection_util_pct", value: 10, unit: "percent", confidence: "medium" },
     citations: [
-      KUNPENG_REFS.boostkitMongo
+      KUNPENG_REFS.ampereMongo
     ],
     recommendations: [
       {
-        action: "sysctl -w net.core.somaxconn=65535",
-        rationale: "\u5BF9\u9F50\u9CB2\u9E4F BoostKit DB \u8C03\u4F18\u5EFA\u8BAE \xB7 \u907F\u5F00\u9AD8\u5E76\u53D1 SYN \u4E22\u5305",
+        action: "sysctl -w net.core.somaxconn = 65535",
+        rationale: "\u5BF9\u9F50 Ampere MongoDB \u8C03\u4F18\u6307\u5357\u5B57\u9762\u5EFA\u8BAE \xB7 \u907F\u5F00\u9AD8\u5E76\u53D1 SYN \u4E22\u5305",
         type: "mitigate",
         fix_cost: "trivial",
-        verifiable: true
+        verifiable: true,
+        fix_url: KUNPENG_REFS.ampereMongo.url
       }
     ]
   });
@@ -1038,9 +718,9 @@ var check_kunpeng_swappiness_strict = (ctx) => {
       bucket: 1,
       scope,
       summary: `swappiness=${val}`,
-      reason: "\u5DF2\u5BF9\u9F50\u9CB2\u9E4F BoostKit \u63A8\u8350",
-      threshold_display: "== 1",
-      citations: [{ title: "\u9CB2\u9E4F BoostKit \xB7 MongoDB \u8C03\u4F18 \xB7 vm.swappiness", url: "https://www.hikunpeng.com/document/detail/zh/kunpengdbs/ecosystemEnable/MongoDB/kunpengdbstune_05_0029.html" }]
+      reason: "\u5DF2\u5BF9\u9F50 MongoDB Production Notes \u63A8\u8350",
+      threshold_display: "Set vm.swappiness to 1 or 0",
+      citations: [KUNPENG_REFS.mongoProdNotes]
     });
   }
   const severity = val > 10 ? "warning" : "info";
@@ -1051,9 +731,9 @@ var check_kunpeng_swappiness_strict = (ctx) => {
       bucket: 1,
       scope,
       summary: `swappiness=${val}`,
-      reason: "\u4F4E\u4E8E 10 \xB7 \u901A\u7528\u53EF\u63A5\u53D7;\u4F46\u9CB2\u9E4F BoostKit \u660E\u786E == 1(\u66F4\u4E25)",
-      threshold_display: "== 1",
-      citations: [{ title: "\u9CB2\u9E4F BoostKit \xB7 MongoDB \u8C03\u4F18", url: "https://www.hikunpeng.com/document/detail/zh/kunpengdbs/ecosystemEnable/MongoDB/kunpengdbstune_05_0029.html" }]
+      reason: "\u4F4E\u4E8E 10 \xB7 \u901A\u7528\u53EF\u63A5\u53D7;\u4F46 MongoDB Production Notes \u660E\u786E 1 \u6216 0",
+      threshold_display: "Set vm.swappiness to 1 or 0",
+      citations: [KUNPENG_REFS.mongoProdNotes]
     });
   }
   return finding({
@@ -1062,73 +742,23 @@ var check_kunpeng_swappiness_strict = (ctx) => {
     severity: "warning",
     bucket: 1,
     scope,
-    summary: `swappiness=${val} \u4E0D\u7B26\u9CB2\u9E4F\u4E25\u683C\u9608\u503C`,
-    description: '\u9CB2\u9E4F BoostKit \u8C03\u4F18\u6307\u5357\u539F\u6587:\u5C06 vm.swappiness \u8BBE\u7F6E\u4E3A\u8F83\u4F4E\u503C "1" \u4EE5\u51CF\u5C11\u4EA4\u6362\u5206\u533A\u4F7F\u7528',
-    reason: `vm.swappiness=${val} \xB7 \u9CB2\u9E4F\u5B98\u65B9\u63A8\u8350 1`,
-    threshold_display: "== 1",
+    summary: `swappiness=${val} \u504F\u79BB MongoDB \u63A8\u8350\u503C`,
+    description: "MongoDB Production Notes \u660E\u786E:Set vm.swappiness to 1 or 0",
+    reason: `vm.swappiness=${val} \xB7 MongoDB \u5B98\u65B9\u63A8\u8350 1 \u6216 0`,
+    threshold_display: "Set vm.swappiness to 1 or 0",
     evidence: [{ kind: "config", value: `vm.swappiness=${val}` }],
     impact: { metric: "latency_p95_ms", value: 15, unit: "percent", confidence: "medium" },
     citations: [
-      KUNPENG_REFS.boostkitMongo
+      KUNPENG_REFS.mongoProdNotes
     ],
     recommendations: [
       {
-        action: "sysctl -w vm.swappiness=1",
-        rationale: "\u5BF9\u9F50\u9CB2\u9E4F BoostKit MongoDB \u8C03\u4F18\u6307\u5357",
+        action: "Set vm.swappiness to 1 or 0",
+        rationale: "\u5BF9\u9F50 MongoDB Production Notes \u5B57\u9762\u63A8\u8350",
         type: "repair",
         fix_cost: "trivial",
-        verifiable: true
-      }
-    ]
-  });
-};
-var check_kunpeng_tcp_max_syn_backlog_mongo = (ctx) => {
-  const id = "kunpeng.net.tcp_max_syn_backlog_mongo";
-  const title = "tcp_max_syn_backlog \xB7 \u9CB2\u9E4F Mongo";
-  const gate = requireKunpeng(ctx, id, title, 1);
-  if ("severity" in gate) return gate;
-  const { scope } = gate;
-  if (scope.engine !== "mongo") {
-    return infoResult({ id, title, bucket: 1, scope, summary: "\u4EC5\u5BF9 MongoDB", reason: `db_type=${scope.engine}` });
-  }
-  const val = toInt(osVal(ctx, "tcp_max_syn_backlog", 0), 0);
-  if (val === 0) {
-    return infoResult({ id, title, bucket: 1, scope, summary: "\u672A\u91C7\u96C6", reason: "sysctl \u4E0D\u53EF\u8BFB" });
-  }
-  if (val >= 8192) {
-    return okResult({
-      id,
-      title,
-      bucket: 1,
-      scope,
-      summary: `tcp_max_syn_backlog=${val}`,
-      reason: "\u5DF2\u8FBE\u9CB2\u9E4F BoostKit Mongo \u63A8\u8350 \u2265 8192",
-      threshold_display: "\u2265 8192",
-      citations: [{ title: "\u9CB2\u9E4F BoostKit \xB7 MongoDB \u8C03\u4F18 \xB7 tcp_max_syn_backlog", url: "https://www.hikunpeng.com/document/detail/zh/kunpengdbs/ecosystemEnable/MongoDB/kunpengdbstune_05_0029.html" }]
-    });
-  }
-  return finding({
-    id,
-    title,
-    severity: "warning",
-    bucket: 1,
-    scope,
-    summary: `tcp_max_syn_backlog=${val} < 8192`,
-    description: "\u9CB2\u9E4F BoostKit MongoDB \u8C03\u4F18\u6307\u5357\u8981\u6C42 tcp_max_syn_backlog \u2265 8192 \u4EE5\u627F\u63A5\u9AD8\u5E76\u53D1 SYN \u8BF7\u6C42",
-    reason: `net.ipv4.tcp_max_syn_backlog=${val} \xB7 \u9CB2\u9E4F\u5B98\u65B9\u5EFA\u8BAE \u2265 8192`,
-    threshold_display: "\u2265 8192",
-    evidence: [{ kind: "config", value: `net.ipv4.tcp_max_syn_backlog=${val}` }],
-    impact: { metric: "connection_util_pct", value: 10, unit: "percent", confidence: "medium" },
-    citations: [
-      KUNPENG_REFS.boostkitMongo
-    ],
-    recommendations: [
-      {
-        action: "sysctl -w net.ipv4.tcp_max_syn_backlog=8192",
-        rationale: "\u6269\u5BB9 SYN \u961F\u5217 \xB7 \u5BF9\u9F50\u9CB2\u9E4F BoostKit \u63A8\u8350",
-        type: "mitigate",
-        fix_cost: "trivial",
-        verifiable: true
+        verifiable: true,
+        fix_url: KUNPENG_REFS.mongoProdNotes.url
       }
     ]
   });
@@ -1165,16 +795,16 @@ var check_kunpeng_numa_interleave = (ctx) => {
   });
 };
 var kunpengChecks = [
-  check_cpu_governor,
+  // check_cpu_governor · removed 2026-04-26 audit · TOPIC_MISMATCH (cnblogs page 无 governor 字面)
   check_numa,
-  check_smt,
-  check_numa_topology,
-  check_irqbalance,
-  check_numa_distance_matrix,
+  // check_smt · removed 2026-04-26 audit · NO_URL
+  // check_numa_topology · removed 2026-04-26 audit · NO_URL
+  // check_irqbalance · removed 2026-04-26 audit · NO_URL
+  // check_numa_distance_matrix · removed 2026-04-26 audit · NO_URL
   check_kunpeng_somaxconn_strict,
   check_kunpeng_tcp_keepalive_strict,
   check_kunpeng_swappiness_strict,
-  check_kunpeng_tcp_max_syn_backlog_mongo,
+  // check_kunpeng_tcp_max_syn_backlog_mongo · removed 2026-04-26 audit · TOPIC_MISMATCH (KB 无 tcp_max_syn_backlog 源)
   check_kunpeng_numa_interleave
 ];
 function requireOpenEuler(ctx, id, title, bucket) {
@@ -1367,27 +997,15 @@ var check_thp = (ctx) => {
   }
   let expected = "never";
   let rationaleWhyBad = "";
-  if (engine === "mongo") {
-    const major = mongoMajor(scope.engine_version);
-    if (major >= 8) {
-      expected = "always";
-      rationaleWhyBad = `MongoDB ${scope.engine_version ?? "8.0+"} \u9ED8\u8BA4\u8981\u6C42 THP=always`;
-    } else {
-      expected = "never";
-      rationaleWhyBad = "khugepaged \u5185\u5B58\u788E\u7247\u6574\u7406\u4F1A\u4EA7\u751F\u786C\u4E2D\u65AD,CPU sys% \u98D9\u5347";
-    }
-  } else if (engine === "redis") {
-    if (scope.vendor === "ampere") {
-      expected = "either";
-    } else {
-      expected = "never";
-      rationaleWhyBad = "THP=always \u65F6 fork+COW \u5BF9\u5927\u9875\u4F1A\u4EA7\u751F\u79D2\u7EA7 stall";
-    }
-  } else if (engine === "mysql") {
+  const major = mongoMajor(scope.engine_version);
+  if (major >= 8) {
+    expected = "always";
+    rationaleWhyBad = `MongoDB ${scope.engine_version ?? "8.0+"} \u9ED8\u8BA4\u8981\u6C42 THP=always`;
+  } else {
     expected = "never";
-    rationaleWhyBad = "THP=always \u589E\u52A0 InnoDB \u810F\u9875\u5237\u76D8\u548C redo \u5199\u7684\u6296\u52A8";
+    rationaleWhyBad = "khugepaged \u5185\u5B58\u788E\u7247\u6574\u7406\u4F1A\u4EA7\u751F\u786C\u4E2D\u65AD,CPU sys% \u98D9\u5347";
   }
-  const okModes = expected === "never" ? ["never", "madvise"] : expected === "always" ? ["always", "madvise"] : ["never", "madvise", "always"];
+  const okModes = expected === "never" ? ["never", "madvise"] : ["always", "madvise"];
   if (okModes.includes(mode)) {
     return okResult({
       id,
@@ -1395,7 +1013,7 @@ var check_thp = (ctx) => {
       bucket: 1,
       scope,
       summary: `THP=${mode}`,
-      reason: expected === "either" ? `vendor=${scope.vendor} \xB7 Ampere \u4E0B\u5141\u8BB8 always` : `\u7B26\u5408 ${engine}${scope.engine_version ? ` ${scope.engine_version}` : ""} \u7684\u5EFA\u8BAE\u503C`
+      reason: `\u7B26\u5408 mongo${scope.engine_version ? ` ${scope.engine_version}` : ""} \u7684\u5EFA\u8BAE\u503C`
     });
   }
   return finding({
@@ -1404,132 +1022,39 @@ var check_thp = (ctx) => {
     severity: expected === "always" ? "warning" : "critical",
     bucket: 1,
     scope,
-    summary: `THP=${mode} \u4E0D\u7B26\u5408 ${engine}${scope.engine_version ? ` ${scope.engine_version}` : ""} \u671F\u671B`,
-    description: `${engine} \u671F\u671B THP=${expected === "either" ? "never/madvise/always" : expected}\u3002` + (rationaleWhyBad ? ` ${rationaleWhyBad}\u3002` : ""),
+    summary: `THP=${mode} \u4E0D\u7B26\u5408 mongo${scope.engine_version ? ` ${scope.engine_version}` : ""} \u671F\u671B`,
+    description: `mongo \u671F\u671B THP=${expected}\u3002` + (rationaleWhyBad ? ` ${rationaleWhyBad}\u3002` : ""),
     reason: `\u5F53\u524D THP=${mode} \xB7 \u671F\u671B ${expected} \xB7 ${rationaleWhyBad}`,
     evidence: [
       { kind: "config", value: `/sys/kernel/mm/transparent_hugepage/enabled=${raw}` }
     ],
     threshold_display: okModes.join(" / "),
     impact: { metric: "latency_p95_ms", value: 25, unit: "percent", confidence: "high" },
-    citations: engine === "mongo" ? [
+    citations: [
       KUNPENG_REFS.boostkitMongo,
       { title: "MongoDB Production Notes \xB7 Disable THP", url: "https://www.mongodb.com/docs/manual/administration/production-notes/" },
-      ...mongoMajor(scope.engine_version) >= 8 ? [{ title: "MongoDB 8.0 THP Enable Note", url: "https://www.mongodb.com/docs/v8.0/tutorial/transparent-huge-pages/" }] : [{ title: "MongoDB 7.0 Disable THP", url: "https://www.mongodb.com/docs/v7.0/tutorial/transparent-huge-pages/" }]
-    ] : engine === "redis" ? [
-      { title: "Redis \xB7 Latency Diagnostics (THP)", url: "https://redis.io/docs/latest/operate/oss_and_stack/management/optimization/latency/" },
-      ...scope.vendor === "ampere" ? [{ title: "Ampere Altra Redis Tuning Guide", url: "https://amperecomputing.com/en/tuning-guides/Redis-setup-and-tuning-guide" }] : []
-    ] : [
-      { title: "Ampere MySQL Tuning Guide \xB7 THP", url: "https://amperecomputing.com/tuning-guides/mysql-tuning-guide" }
+      ...major >= 8 ? [{ title: "MongoDB 8.0 THP Enable Note", url: "https://www.mongodb.com/docs/v8.0/tutorial/transparent-huge-pages/" }] : [{ title: "MongoDB 7.0 Disable THP", url: "https://www.mongodb.com/docs/v7.0/tutorial/transparent-huge-pages/" }]
     ],
     recommendations: [
       {
-        action: `echo ${expected === "always" ? "always" : "never"} > /sys/kernel/mm/transparent_hugepage/enabled`,
-        rationale: `\u5C06 THP \u8C03\u6574\u5230 ${engine}${scope.engine_version ? ` ${scope.engine_version}` : ""} \u63A8\u8350\u6A21\u5F0F`,
+        action: `echo ${expected} > /sys/kernel/mm/transparent_hugepage/enabled`,
+        rationale: `\u5C06 THP \u8C03\u6574\u5230 mongo${scope.engine_version ? ` ${scope.engine_version}` : ""} \u63A8\u8350\u6A21\u5F0F`,
         type: "repair",
         fix_cost: "trivial",
         verifiable: true
       }
     ],
-    rationale: engine === "mongo" && mongoMajor(scope.engine_version) >= 8 ? {
+    rationale: major >= 8 ? {
       summary: "MongoDB 8.0+ \u66F4\u6362\u4E86 WiredTiger \u5185\u5B58\u5206\u914D\u5668 \xB7 \u4ECE 2M \u5927\u9875\u83B7\u76CA\u66F4\u660E\u663E \xB7 \u5B98\u65B9\u53CD\u5411\u8C03\u4F18\u5EFA\u8BAE THP=always \xB7 \u8FD9\u662F MongoDB 7\u21928 \u7684\u91CD\u8981\u884C\u4E3A\u53D8\u5316\u3002",
       mechanism: "8.0 \u4E4B\u524D WT \u9891\u7E41 munmap \u5C0F\u5757\u5185\u5B58 \xB7 2M \u5927\u9875\u4EA7\u751F\u5185\u90E8\u788E\u7247 \xB7 khugepaged \u626B\u63CF\u5408\u5E76\u662F\u4E3B\u8981\u5EF6\u8FDF\u6E90\u30028.0 \u540E WT \u6539\u4E3A arena-style \u5206\u914D \xB7 \u5927\u5757\u9A7B\u7559 \xB7 2M \u5927\u9875\u53CD\u800C\u51CF\u5C11 TLB miss 10-20% \xB7 khugepaged \u626B\u63CF\u4EE3\u4EF7\u644A\u8584\u3002",
       trade_offs: "\u82E5\u4ECD\u4ECE < 7 \u7684 Mongo \u5347\u7EA7\u4E14\u4FDD\u7559 THP=never \xB7 \u4F1A\u635F\u5931 8.0 \u7684\u5185\u5B58\u4F18\u5316\u6536\u76CA(\u5B9E\u6D4B p95 \u5EF6\u8FDF\u9AD8 10-15%)\u3002\u53CD\u4E4B\u5728 7.0 \u4E0A\u8BEF\u5F00 THP=always \u4F1A\u660E\u663E CPU sys% \u98D9\u3002",
       when_to_deviate: "\u77ED\u671F\u6DF7\u5408\u7248\u672C\u7684 replica set(\u540C\u4E00\u96C6\u7FA4\u4E0D\u540C\u8282\u70B9\u7248\u672C)\u53EF\u5148\u7528 madvise \u4F5C\u8FC7\u6E21 \xB7 \u5347\u7EA7\u6536\u5C3E\u540E always\u3002"
-    } : engine === "mongo" ? {
+    } : {
       summary: "MongoDB \u2264 7.0 \u5F3A\u5236\u8981\u6C42 THP=never\u3002khugepaged \u540E\u53F0\u5408\u5E76 2M \u5927\u9875\u4F1A\u4EA7\u751F\u6BEB\u79D2\u7EA7 stop-the-world \u505C\u987F \xB7 \u4E0E WT fsync \u8DEF\u5F84\u4E0A\u7684 page fault \u76F8\u4E92\u653E\u5927\u5EF6\u8FDF\u3002",
       mechanism: "khugepaged \u5468\u671F\u6027\u626B\u63CF 4K \u9875\u8BD5\u56FE\u5408\u5E76\u6210 2M \u5927\u9875 \xB7 \u626B\u63CF\u65F6\u9700\u8981\u77ED\u6682\u6301\u6709 mm->page_table_lock \xB7 mongod \u7684 WT page fault \u5FC5\u987B\u7B49\u5F85\u3002CPU sys% \u6301\u7EED 15-30% \xB7 p99 \u5EF6\u8FDF\u4ECE\u6BEB\u79D2\u8DF3\u5230\u767E\u6BEB\u79D2\u7EA7\u3002",
       trade_offs: "\u5173 THP \u4E0D\u5F71\u54CD MongoDB \u81EA\u8EAB\u5185\u5B58\u4F7F\u7528(WT cache \u4E0D\u4F9D\u8D56\u5927\u9875)\u3002\u7CFB\u7EDF\u4E0A\u6709\u5176\u4ED6 big-memory workload(\u5982 JVM)\u65F6 \xB7 \u5173 THP \u53EF\u80FD\u8BA9\u90A3\u4E9B workload TLB miss \u7565\u5347 \xB7 \u4F46\u5BF9 Mongo \u662F\u7EAF\u6536\u76CA\u3002",
       when_to_deviate: "madvise \u6A21\u5F0F\u5728 7.0 \u4E5F\u88AB\u5B98\u65B9\u63A5\u53D7(\u53EA\u5BF9\u663E\u5F0F madvise \u7684\u8FDB\u7A0B\u7528\u5927\u9875 \xB7 mongod \u4E0D madvise)\xB7 \u5B9E\u7528\u7B49\u4EF7 never\u3002"
-    } : engine === "redis" && scope.vendor === "ampere" ? {
-      summary: "Ampere Altra \u6587\u6863\u660E\u786E\u5141\u8BB8 Redis \u5F00 THP \xB7 \u53CD\u9A73 Redis \u5B98\u65B9 x86 \u5EFA\u8BAE\u3002Ampere \u786C\u4EF6\u5BF9 fork COW + 2M \u5927\u9875\u505A\u4E86\u4F18\u5316 \xB7 never \u53CD\u800C\u635F\u5931\u6027\u80FD\u3002",
-      mechanism: "\u6807\u51C6 Redis THP \u8B66\u544A\u662F\u56E0\u4E3A x86 \u4E0A fork() \u65F6\u82E5\u7236\u8FDB\u7A0B\u6709 THP \u9875 \xB7 \u5199\u65F6\u5206\u88C2 2M\u21924K \u4EA7\u751F stall\u3002Ampere Altra \u7684\u5185\u5B58\u63A7\u5236\u5668\u5BF9 COW fault \u7684 2M \u5206\u88C2\u6709\u786C\u4EF6\u52A0\u901F \xB7 stall \u4E0D\u518D\u663E\u8457 \xB7 \u53CD\u800C\u5927\u9875\u51CF\u5C11 TLB miss \u7684\u6536\u76CA\u51F8\u663E\u3002",
-      trade_offs: "non-Ampere \u4E3B\u677F\u4E0D\u8981\u7167\u642C Ampere \u6307\u5357 \xB7 \u9CB2\u9E4F / Graviton \u4E0B\u4ECD\u5E94 never\u3002Ampere \u4E0A always \u6216 madvise \u90FD\u53EF\u3002",
-      when_to_deviate: "\u5B9E\u4F8B\u957F\u671F\u7A33\u6001\u65E0 BGSAVE/fork \u64CD\u4F5C\u7684\u573A\u666F(AOF-only \xB7 \u4E0D\u4E3B\u5907\u5207\u6362)\xB7 Ampere \u4E0A always \u662F\u6700\u4F73\u3002\u542B BGSAVE \u7684\u4F20\u7EDF\u90E8\u7F72 \xB7 madvise \u7A33\u4E00\u70B9\u3002"
-    } : engine === "redis" ? {
-      summary: "Redis \u7684 fork() BGSAVE / AOF rewrite \u573A\u666F\u4E0B THP=always \u4F1A\u4EA7\u751F\u79D2\u7EA7 stall\u3002\u5B98\u65B9\u6587\u6863\u660E\u786E never\u3002",
-      mechanism: "Redis \u6301\u4E45\u5316\u8D70 fork() \u521B\u5EFA\u5B50\u8FDB\u7A0B \xB7 \u5B50\u8FDB\u7A0B\u5199\u5185\u5B58\u65F6 Linux COW \u5206\u88C2 2M \u5927\u9875\u4E3A 4K \xB7 \u8FD9\u662F\u4E00\u6B21\u6602\u8D35\u7684 break down\u3002\u82E5\u7236\u8FDB\u7A0B\u540C\u65F6\u8FD8\u5728\u63A5\u5BA2\u6237\u7AEF\u8BF7\u6C42 \xB7 \u8FD9\u4E9B\u8BF7\u6C42\u88AB stall \u51E0\u5341 ms \u5230\u79D2\u7EA7\u3002p99 \u5EF6\u8FDF\u4ECE\u4E9A\u6BEB\u79D2\u8DF3\u5230\u79D2\u7EA7 \xB7 \u76D1\u63A7\u4E0A\u770B\u662F\u89C4\u5F8B\u6027 latency spike\u3002",
-      trade_offs: "\u5173 THP \u5BF9 Redis \u7A33\u6001\u6027\u80FD\u65E0\u635F(Redis \u4E0D\u4F9D\u8D56\u5927\u9875)\u3002\u53EA\u5F71\u54CD\u6301\u4E45\u5316\u671F\u95F4\u7684\u5EF6\u8FDF\u7A33\u5B9A\u6027 \xB7 \u662F\u7EAF\u6536\u76CA\u3002",
-      when_to_deviate: "Ampere Altra \u786C\u4EF6\u4E0B\u5B98\u65B9\u53E6\u6709\u6307\u5357(\u89C1 ampere \u5206\u652F)\xB7 \u5176\u4ED6 ARM64(\u9CB2\u9E4F / Graviton)\u4ECD\u5E94 never\u3002"
-    } : {
-      summary: "MySQL InnoDB buffer pool \u5206\u914D\u5728\u542F\u52A8\u65F6\u5B8C\u6210 \xB7 \u4E0D\u53D7 THP \u5F71\u54CD buffer \u672C\u8EAB\u3002\u4F46 THP=always \u5F00\u542F\u540E \xB7 khugepaged \u626B\u63CF\u4E0E InnoDB \u810F\u9875\u5237\u76D8\u3001redo \u5199\u7ADE\u4E89 page table \u9501 \xB7 \u4EA7\u751F\u6296\u52A8\u3002",
-      mechanism: "InnoDB \u5185\u90E8\u7528 4K \u9875\u7C92\u5EA6\u7BA1\u7406 buffer pool \xB7 THP \u5408\u6210 2M \u5927\u9875\u540E \xB7 \u4E00\u6B21 page fault \u8981\u5904\u7406 512 \u4E2A InnoDB \u9875\u7684\u4E00\u81F4\u6027\u68C0\u67E5\u3002\u540C\u65F6 innodb_io_capacity \u540E\u53F0\u7EBF\u7A0B\u6309 4K \u5355\u4F4D\u505A dirty page flush \xB7 \u5237\u76D8\u65F6\u5927\u9875\u9700\u8981 split\u3002\u53CC\u65B9\u7ADE\u4E89\u5BFC\u81F4 p95 \u6296\u52A8\u3002",
-      trade_offs: "MySQL buffer pool \u4E0D\u4F9D\u8D56\u5927\u9875(innodb_large_pages \u9ED8\u8BA4 off)\xB7 \u5173 THP \u7EAF\u6536\u76CA\u3002percona \u7248\u672C\u6709 innodb_use_hugepages \u4F46\u9700\u663E\u5F0F SHM huge pages \xB7 \u4E0E THP \u65E0\u5173\u3002",
-      when_to_deviate: "madvise \u6A21\u5F0F\u5B9E\u7528\u7B49\u4EF7 never(mysqld \u4E0D madvise)\u3002"
     }
-  });
-};
-var check_hugepage = (ctx) => {
-  const id = "os.hugepages.static_reserved";
-  const title = "\u9759\u6001 HugePages";
-  const engine = ctx.db_type;
-  const scope = deriveScope(ctx, engine);
-  const nr = toInt(osVal(ctx, "nr_hugepages", 0), 0);
-  if (nr === 0) {
-    return okResult({
-      id,
-      title,
-      bucket: 1,
-      scope,
-      summary: "nr_hugepages=0",
-      reason: "WT/Redis/InnoDB \u81EA\u7BA1 cache \u4E0D\u8D70 hugetlb,\u4FDD\u6301 0 \u5373\u53EF"
-    });
-  }
-  return infoResult({
-    id,
-    title,
-    bucket: 1,
-    scope,
-    summary: `nr_hugepages=${nr}`,
-    reason: "\u5DF2\u9884\u7559\u9759\u6001\u5927\u9875(\u53EF\u80FD\u4F9B\u540C\u673A\u5176\u5B83\u670D\u52A1\u4F7F\u7528,DB \u672C\u8EAB\u65E0\u76F4\u63A5\u5F71\u54CD)"
-  });
-};
-var check_io_scheduler = (ctx) => {
-  const id = "os.iosched.device_scheduler";
-  const title = "IO \u8C03\u5EA6\u5668";
-  const engine = ctx.db_type;
-  const scope = deriveScope(ctx, engine);
-  const raw = osVal(ctx, "io_scheduler", "");
-  const m = /\[(\w[\w-]*)\]/.exec(raw);
-  const sched = m ? m[1] : raw;
-  if (!raw.toLowerCase().includes("[cfq]")) {
-    return okResult({
-      id,
-      title,
-      bucket: 1,
-      scope,
-      summary: `scheduler=${sched}`,
-      reason: "\u8C03\u5EA6\u5668\u914D\u7F6E\u5408\u7406(\u975E CFQ)",
-      threshold_display: "mq-deadline / none / kyber",
-      // Linux kernel doc 是 I/O scheduler 行为的权威定义 · Kunpeng 只转述
-      citations: [{ title: "Red Hat Performance Tuning \xB7 I/O scheduler", url: "https://access.redhat.com/sites/default/files/attachments/rhel7_numa_perf_brief.pdf" }]
-    });
-  }
-  return finding({
-    id,
-    title,
-    severity: "warning",
-    bucket: 1,
-    scope,
-    summary: `scheduler=[cfq] \u4E0D\u9002\u5408 DB`,
-    description: "CFQ \u8C03\u5EA6\u5668\u4F1A\u5F15\u5165\u961F\u5217\u5EF6\u8FDF,DB \u968F\u673A IO \u9700\u8981\u4F4E\u5EF6\u8FDF(none/mq-deadline)",
-    reason: "CFQ \u5BF9 SSD \u5F15\u5165\u4E0D\u5FC5\u8981\u961F\u5217\u5EF6\u8FDF",
-    threshold_display: "mq-deadline / none / kyber",
-    evidence: [{ kind: "config", value: `io_scheduler=${raw}` }],
-    impact: { metric: "latency_p95_ms", value: 10, unit: "percent", confidence: "medium" },
-    citations: [
-      KUNPENG_REFS.boostkitMongo,
-      { title: "Red Hat Performance Tuning \xB7 I/O scheduler", url: "https://access.redhat.com/sites/default/files/attachments/rhel7_numa_perf_brief.pdf" }
-    ],
-    recommendations: [
-      {
-        action: "echo none > /sys/block/sda/queue/scheduler",
-        rationale: "SSD \u7528 none \xB7 HDD \u7528 mq-deadline",
-        type: "repair",
-        fix_cost: "trivial",
-        verifiable: true
-      }
-    ]
   });
 };
 var check_swappiness = (ctx) => {
@@ -1602,8 +1127,8 @@ var check_net_somaxconn = (ctx) => {
   if (val === 0) {
     return infoResult({ id, title, bucket: 1, scope, summary: "\u672A\u91C7\u96C6\u5230", reason: "\u65E0\u6CD5\u8BFB\u53D6 net.core.somaxconn" });
   }
-  if (val >= 1024) {
-    return okResult({ id, title, bucket: 1, scope, summary: `somaxconn=${val}`, reason: "\u961F\u5217\u957F\u5EA6\u5145\u8DB3", threshold_display: "\u2265 4096", citations: [{ title: "MongoDB Production Notes \xB7 TCP", url: "https://www.mongodb.com/docs/manual/administration/production-notes/" }] });
+  if (val >= 65535) {
+    return okResult({ id, title, bucket: 1, scope, summary: `somaxconn=${val}`, reason: "\u5DF2\u8FBE Ampere MongoDB \u63A8\u8350\u503C", threshold_display: "sysctl -w net.core.somaxconn = 65535", citations: [KUNPENG_REFS.ampereMongo] });
   }
   return finding({
     id,
@@ -1611,23 +1136,23 @@ var check_net_somaxconn = (ctx) => {
     severity: "warning",
     bucket: 1,
     scope,
-    summary: `somaxconn=${val} < 1024`,
-    description: "\u76D1\u542C\u961F\u5217\u8FC7\u77ED,\u9AD8\u5E76\u53D1\u65F6 TCP \u8FDE\u63A5\u8BF7\u6C42\u4F1A\u88AB\u5185\u6838\u4E22\u5F03",
-    reason: `somaxconn=${val} \xB7 DB \u670D\u52A1\u5668\u5EFA\u8BAE \u2265 1024(Ampere/Mongo \u5EFA\u8BAE 65535)`,
-    threshold_display: "\u2265 4096",
+    summary: `somaxconn=${val} < 65535`,
+    description: "\u76D1\u542C\u961F\u5217\u504F\u77ED \xB7 \u9AD8\u5E76\u53D1 DB \u4E0B TCP \u8FDE\u63A5\u8BF7\u6C42\u6613\u88AB\u5185\u6838\u4E22\u5F03 \xB7 Ampere MongoDB Tuning Guide \u63A8\u8350 sysctl -w net.core.somaxconn = 65535",
+    reason: `somaxconn=${val} \xB7 Ampere \u63A8\u8350 65535`,
+    threshold_display: "sysctl -w net.core.somaxconn = 65535",
     evidence: [{ kind: "config", value: `net.core.somaxconn=${val}` }],
     impact: { metric: "connection_util_pct", value: 15, unit: "percent", confidence: "medium" },
     citations: [
-      KUNPENG_REFS.boostkitMongo,
-      { title: "Ampere MongoDB Tuning \xB7 somaxconn", url: "https://amperecomputing.com/tuning-guides/mongoDB-tuning-guide" }
+      KUNPENG_REFS.ampereMongo
     ],
     recommendations: [
       {
-        action: "sysctl -w net.core.somaxconn=4096",
-        rationale: "\u51CF\u5C11\u9AD8\u5E76\u53D1\u65F6 SYN \u4E22\u5305",
+        action: "sysctl -w net.core.somaxconn = 65535",
+        rationale: "\u5BF9\u9F50 Ampere MongoDB \u8C03\u4F18\u6307\u5357\u5B57\u9762\u5EFA\u8BAE",
         type: "mitigate",
         fix_cost: "trivial",
-        verifiable: true
+        verifiable: true,
+        fix_url: KUNPENG_REFS.ampereMongo.url
       }
     ]
   });
@@ -1676,53 +1201,6 @@ var check_tcp_keepalive = (ctx) => {
       mechanism: "TCP keepalive \u673A\u5236\u5728\u8FDE\u63A5\u7A7A\u95F2\u8D85\u8FC7 tcp_keepalive_time \u79D2\u540E \xB7 \u5185\u6838\u6BCF tcp_keepalive_intvl \u79D2\u53D1\u63A2\u6D4B\u5305 \xB7 \u7D2F\u8BA1 tcp_keepalive_probes \u6B21(\u9ED8\u8BA4 9)\u6CA1 ACK \u5C31\u6807\u8BB0\u8FDE\u63A5\u6B7B\u3002\u9ED8\u8BA4\u5168\u94FE\u8DEF\u9700 2h + 9\xD775s \u2248 2h11m\u3002MongoDB \u5B98\u65B9\u63A8\u8350 120s + 10s \u95F4\u9694 \xB7 \u8FDE\u63A5\u95EE\u9898 3 \u5206\u949F\u5185\u88AB\u53D1\u73B0\u3002",
       trade_offs: "\u8C03\u4F4E\u589E\u52A0\u5C11\u91CF keepalive \u63A2\u6D4B\u5305\u6D41\u91CF(\u53EF\u5FFD\u7565)\xB7 \u6362\u6765\u5FEB\u901F\u6545\u969C\u611F\u77E5\u3002\u8D1F\u8F7D\u5747\u8861\u5668 / NAT \u8D85\u65F6\u5E38\u8BBE\u5728 5-15 \u5206\u949F \xB7 keepalive \u5FC5\u987B\u77ED\u4E8E\u8FD9\u4E2A\u503C\u624D\u80FD\u9632\u6B62 NAT \u63D0\u524D\u6E05\u8868\u3002",
       when_to_deviate: "\u6781\u4F4E\u5EF6\u8FDF / HFT \u573A\u666F\u76F4\u63A5\u7981 keepalive \u9760\u5E94\u7528\u5C42\u5FC3\u8DF3\u3002\u666E\u901A OLTP / \u670D\u52A1\u7AEF mongod \u540E\u63A5 NAT \u6216\u4E91 LB \u7684\u5FC5\u987B \u2264 300s\u3002"
-    }
-  });
-};
-var check_vm_dirty_ratio = (ctx) => {
-  const id = "os.vm.dirty_ratio";
-  const title = "\u810F\u9875\u5199\u56DE\u7B56\u7565";
-  const engine = ctx.db_type;
-  const scope = deriveScope(ctx, engine);
-  const dr = toInt(osVal(ctx, "vm_dirty_ratio", 0), 0);
-  const dbg = toInt(osVal(ctx, "vm_dirty_background_ratio", 0), 0);
-  if (dr === 0 && dbg === 0) {
-    return infoResult({ id, title, bucket: 1, scope, summary: "\u672A\u91C7\u96C6\u5230", reason: "sysctl \u8BFB\u53D6\u5931\u8D25" });
-  }
-  const current = `dirty_ratio=${dr}% \xB7 dirty_background_ratio=${dbg}%`;
-  if (dr < 10 && dbg < 5) {
-    return okResult({ id, title, bucket: 1, scope, summary: current, reason: "\u810F\u9875\u53C2\u6570\u5408\u7406" });
-  }
-  return finding({
-    id,
-    title,
-    severity: "warning",
-    bucket: 1,
-    scope,
-    summary: `${current} \u504F\u9AD8`,
-    description: "\u5927\u91CF\u810F\u9875\u79EF\u538B\u540E\u96C6\u4E2D\u5237\u76D8\u4F1A\u5BFC\u81F4\u5199\u505C\u987F(write stall)",
-    reason: `dirty_ratio=${dr}% / dirty_background_ratio=${dbg}% \xB7 DB \u573A\u666F\u5E94 \u2264 5/2`,
-    threshold_display: "dirty_ratio \u2264 5% \xB7 dirty_bg \u2264 2%",
-    evidence: [{ kind: "config", value: current }],
-    impact: { metric: "latency_p95_ms", value: 15, unit: "percent", confidence: "medium" },
-    citations: [
-      KUNPENG_REFS.boostkitMongo,
-      { title: "Red Hat Performance Tuning \xB7 dirty ratio", url: "https://access.redhat.com/sites/default/files/attachments/rhel7_numa_perf_brief.pdf" }
-    ],
-    recommendations: [
-      {
-        action: "sysctl -w vm.dirty_ratio=5 && sysctl -w vm.dirty_background_ratio=2",
-        rationale: "\u8BA9\u810F\u9875\u6301\u7EED\u5C0F\u6279\u91CF\u5237\u76D8 \xB7 \u907F\u514D\u96C6\u4E2D IO \u98CE\u66B4",
-        type: "repair",
-        fix_cost: "trivial",
-        verifiable: true
-      }
-    ],
-    rationale: {
-      summary: "\u5185\u6838 page cache \u7684\u810F\u9875\u6BD4\u4F8B\u4E0A\u9650\u7531 vm.dirty_ratio \u63A7\u5236 \xB7 \u9ED8\u8BA4 20%\u3002256GB \u7269\u7406\u673A = \u6700\u591A 50GB \u810F\u9875 \xB7 \u89E6\u53D1\u9608\u503C\u65F6\u5E94\u7528\u7EBF\u7A0B\u88AB\u963B\u585E\u76F4\u5230 pdflush \u5237\u5B8C \xB7 DB \u5199\u8BF7\u6C42\u88AB\u6574\u4F53 freeze \u51E0\u79D2\u5230\u51E0\u5341\u79D2(write stall)\u3002",
-      mechanism: "Linux \u6709\u4E24\u7EA7\u9608\u503C:dirty_background_ratio(\u9ED8\u8BA4 10%)\u89E6\u53D1\u540E pdflush \u540E\u53F0\u5F02\u6B65\u5237 \xB7 dirty_ratio(\u9ED8\u8BA4 20%)\u89E6\u53D1\u540E**\u5E94\u7528\u7EBF\u7A0B\u540C\u6B65\u5237**\u4E0D\u518D\u8FD4\u56DE\u3002DB \u6279\u91CF\u5199(checkpoint / redo rotate / bulk insert)\u77AC\u65F6\u751F\u6210\u5927\u91CF\u810F\u9875 \xB7 \u8F7B\u677E\u89E6\u8FBE 20% \xB7 \u6574\u4E2A mongod \u8FDB\u7A0B\u88AB write() syscall \u5361\u4F4F\u3002",
-      trade_offs: "\u964D\u4F4E\u9608\u503C\u8BA9\u5237\u76D8\u66F4\u9891\u7E41\u4F46\u66F4\u5E73\u6ED1 \xB7 5%/2% \u5BF9 NVMe \u662F\u6BCF\u79D2 MB \u7EA7\u5C0F\u6279\u91CF \xB7 \u5F71\u54CD\u53EF\u5FFD\u7565\u3002\u63D0\u9AD8\u4F1A\u4EA7\u751F\u66F4\u5927 IO bursts \xB7 \u5BF9 DB \u662F\u81F4\u547D\u7684\u3002\u751F\u4EA7 DB \u573A\u666F\u4E0D\u5B58\u5728\u8BA9\u9608\u503C\u53D8\u9AD8\u7684\u5408\u7406\u7406\u7531\u3002",
-      when_to_deviate: "\u7EAF\u65E5\u5FD7 workload(append-only + fsync \u9891\u7E41)\u53EF\u4FDD\u9ED8\u8BA4 \xB7 \u53CD\u6B63\u810F\u9875\u5F88\u5FEB\u88AB fsync \u6E05\u6389\u3002\u4F46 MongoDB WT checkpoint \u8D70 OS fsync \xB7 \u8FD8\u662F\u53D7\u5F71\u54CD \xB7 \u4E0D\u7B97\u4F8B\u5916\u3002"
     }
   });
 };
@@ -1794,42 +1272,6 @@ var check_disk_usage = (ctx) => {
         rationale: "\u907F\u514D\u78C1\u76D8\u5199\u6EE1\u5BFC\u81F4 DB \u505C\u5199",
         type: "prevent",
         fix_cost: "schema_migration",
-        verifiable: false
-      }
-    ]
-  });
-};
-var check_tcp_retransmit = (ctx) => {
-  const id = "os.net.tcp_retrans_pct";
-  const title = "TCP \u91CD\u4F20\u7387";
-  const engine = ctx.db_type;
-  const scope = deriveScope(ctx, engine);
-  const pct = toFloat(osVal(ctx, "tcp_retrans_pct", 0), 0);
-  if (pct <= 1) {
-    return okResult({ id, title, bucket: 1, scope, summary: `retrans=${pct.toFixed(2)}%`, reason: "TCP \u91CD\u4F20\u7387\u6B63\u5E38" });
-  }
-  return finding({
-    id,
-    title,
-    severity: "warning",
-    bucket: 1,
-    scope,
-    summary: `retrans=${pct.toFixed(2)}% > 1%`,
-    description: "\u9AD8\u91CD\u4F20\u7387\u5BFC\u81F4 DB \u5BA2\u6237\u7AEF\u8FDE\u63A5\u8D85\u65F6 / \u6162\u67E5\u8BE2\u653E\u5927",
-    reason: `tcp_retrans=${pct.toFixed(2)}% \xB7 \u9608\u503C 1%`,
-    threshold_display: "\u2264 1%",
-    evidence: [{ kind: "metric", value: `tcp_retrans_pct=${pct.toFixed(2)}` }],
-    impact: { metric: "latency_p95_ms", value: 20, unit: "percent", confidence: "medium" },
-    citations: [
-      KUNPENG_REFS.boostkitMongo,
-      { title: "Red Hat Performance Tuning \xB7 TCP retransmission", url: "https://access.redhat.com/sites/default/files/attachments/rhel7_numa_perf_brief.pdf" }
-    ],
-    recommendations: [
-      {
-        action: "\u6392\u67E5\u4EA4\u6362\u673A\u62E5\u585E \xB7 \u68C0\u67E5 MTU / TCP congestion algorithm / \u7F51\u7EDC\u8D1F\u8F7D",
-        rationale: "\u94FE\u8DEF\u8D28\u91CF\u95EE\u9898,\u975E DB \u4FA7\u76F4\u63A5\u53EF\u4FEE",
-        type: "detect",
-        fix_cost: "restart_engine",
         verifiable: false
       }
     ]
@@ -1913,90 +1355,6 @@ var check_vm_max_map_count = (ctx) => {
         action: "sysctl -w vm.max_map_count=262144",
         rationale: "\u6309 Ampere/Mongo \u6700\u4F73\u5B9E\u8DF5\u8C03\u9AD8\u81F3 262144",
         type: "prevent",
-        fix_cost: "trivial",
-        verifiable: true
-      }
-    ]
-  });
-};
-var check_vm_overcommit = (ctx) => {
-  const id = "os.vm.overcommit_memory";
-  const title = "vm.overcommit_memory";
-  const engine = ctx.db_type;
-  const scope = deriveScope(ctx, engine);
-  if (engine !== "redis") {
-    return infoResult({ id, title, bucket: 1, scope, summary: "\u4EC5\u5BF9 Redis \u5F3A\u63A8", reason: `db_type=${engine}` });
-  }
-  const val = toInt(osVal(ctx, "vm_overcommit_memory", -1), -1);
-  if (val < 0) {
-    return infoResult({ id, title, bucket: 1, scope, summary: "\u672A\u91C7\u96C6", reason: "sysctl \u4E0D\u53EF\u8BFB" });
-  }
-  if (val === 1) {
-    return okResult({ id, title, bucket: 1, scope, summary: "overcommit_memory=1", reason: "Redis fork+BGSAVE/AOFREWRITE \u4E0D\u4F1A OOM \u5931\u8D25" });
-  }
-  return finding({
-    id,
-    title,
-    severity: "warning",
-    bucket: 1,
-    scope,
-    summary: `overcommit_memory=${val} \u2260 1`,
-    description: "Redis \u542F\u52A8\u65E5\u5FD7\u901A\u5E38\u4F1A\u8B66\u544A;\u5728 fork \u505A BGSAVE/AOFREWRITE \u65F6,\u5185\u6838\u4FDD\u5B88\u4F30\u7B97\u5BFC\u81F4 fork \u88AB\u62D2",
-    reason: `vm.overcommit_memory=${val} \xB7 Redis \u8981\u6C42 1`,
-    threshold_display: "== 1",
-    evidence: [{ kind: "config", value: `vm.overcommit_memory=${val}` }],
-    impact: { metric: "db_time_pct", value: 15, unit: "percent", confidence: "high" },
-    citations: [
-      KUNPENG_REFS.boostkitMongo,
-      { title: "Redis \xB7 Latency troubleshooting (overcommit)", url: "https://redis.io/docs/latest/operate/oss_and_stack/management/optimization/latency/" }
-    ],
-    recommendations: [
-      {
-        action: "sysctl -w vm.overcommit_memory=1",
-        rationale: "\u8BA9 fork \u8D70 copy-on-write \u8DEF\u5F84\u4E0D\u88AB\u5185\u6838\u62D2\u7EDD",
-        type: "prevent",
-        fix_cost: "trivial",
-        verifiable: true
-      }
-    ]
-  });
-};
-var check_tcp_max_syn_backlog = (ctx) => {
-  const id = "os.net.tcp_max_syn_backlog";
-  const title = "tcp_max_syn_backlog";
-  const engine = ctx.db_type;
-  const scope = deriveScope(ctx, engine);
-  if (engine !== "redis") {
-    return infoResult({ id, title, bucket: 1, scope, summary: "\u4EC5\u5BF9 Redis \u5F3A\u63A8", reason: `db_type=${engine}` });
-  }
-  const val = toInt(osVal(ctx, "tcp_max_syn_backlog", 0), 0);
-  if (val === 0) {
-    return infoResult({ id, title, bucket: 1, scope, summary: "\u672A\u91C7\u96C6", reason: "sysctl \u4E0D\u53EF\u8BFB" });
-  }
-  if (val >= 8192) {
-    return okResult({ id, title, bucket: 1, scope, summary: `tcp_max_syn_backlog=${val}`, reason: "SYN \u961F\u5217\u5145\u8DB3" });
-  }
-  return finding({
-    id,
-    title,
-    severity: "warning",
-    bucket: 1,
-    scope,
-    summary: `tcp_max_syn_backlog=${val} < 8192`,
-    description: "Redis \u9AD8\u5E76\u53D1\u4E0B SYN \u8BF7\u6C42\u88AB\u4E22\u5F03,\u65B0\u8FDE\u63A5\u51FA\u73B0\u5076\u53D1 timeout",
-    reason: `tcp_max_syn_backlog=${val} \xB7 Ampere Redis \u5EFA\u8BAE \u2265 8192`,
-    threshold_display: "\u2265 8192",
-    evidence: [{ kind: "config", value: `net.ipv4.tcp_max_syn_backlog=${val}` }],
-    impact: { metric: "connection_util_pct", value: 10, unit: "percent", confidence: "medium" },
-    citations: [
-      KUNPENG_REFS.boostkitMongo,
-      { title: "Ampere Redis Tuning \xB7 tcp_max_syn_backlog", url: "https://amperecomputing.com/en/tuning-guides/Redis-setup-and-tuning-guide" }
-    ],
-    recommendations: [
-      {
-        action: "sysctl -w net.ipv4.tcp_max_syn_backlog=8192",
-        rationale: "\u6269\u5BB9 SYN \u961F\u5217",
-        type: "mitigate",
         fix_cost: "trivial",
         verifiable: true
       }
@@ -2148,26 +1506,24 @@ var check_kernel_version_rseq = (ctx) => {
   });
 };
 var osChecks = [
-  check_hugepage,
+  // check_hugepage · removed 2026-04-26 audit · NO_URL
   check_thp,
-  check_io_scheduler,
+  // check_io_scheduler · removed 2026-04-26 audit · NO_URL
   check_swappiness,
   check_net_somaxconn,
   check_tcp_keepalive,
-  check_vm_dirty_ratio,
+  // check_vm_dirty_ratio · removed 2026-04-26 audit · NO_URL
   check_disk_latency,
   check_disk_usage,
-  check_tcp_retransmit,
+  // check_tcp_retransmit · removed 2026-04-26 audit · NO_URL
   check_vm_zone_reclaim,
   check_vm_max_map_count,
-  check_vm_overcommit,
-  check_tcp_max_syn_backlog,
   check_env_virt_type,
   check_cpu_cores_minimum,
   check_kernel_version_rseq
 ];
 
-// skills/perf-kp-sql/src/shared/index.ts
+// plugins/perf-kp-sql/src/shared/index.ts
 var sharedChecks = [
   ...kunpengChecks,
   ...arm64Checks,
@@ -2175,7 +1531,7 @@ var sharedChecks = [
   ...osChecks
 ];
 
-// skills/perf-kp-sql/src/engines/mongo/checks.ts
+// plugins/perf-kp-sql/src/engines/mongo/checks.ts
 function mongoScope(ctx) {
   return deriveScope(ctx, "mongo");
 }
@@ -2313,53 +1669,93 @@ var check_wt_cache_vs_memory = (ctx) => {
     }
   });
 };
-var check_wt_cache_hit = (ctx) => {
-  const id = "mongo.runtime.wt_cache_hit_rate";
-  const title = "WiredTiger \u7F13\u5B58\u547D\u4E2D\u7387";
-  const skip = notMongoSkip(ctx, id, title, 5);
+var check_wt_cache_size_advisory = (ctx) => {
+  const id = "mongo.config.wt_cache_size_advisory";
+  const title = "WT cache \u5927\u5C0F\u914D\u7F6E";
+  const skip = notMongoSkip(ctx, id, title, 2);
   if (skip) return skip;
   const scope = mongoScope(ctx);
-  const detail = dbVal(ctx, "_wt_cache_detail", {});
-  const pages_read = toInt(detail["pages read into cache"] ?? 0, 0);
-  const pages_req = toInt(detail["pages requested from the cache"] ?? 0, 0);
-  const hit = pages_req > 0 ? (1 - pages_read / pages_req) * 100 : 100;
-  if (hit >= 95) {
-    return okResult({ id, title, bucket: 5, scope, summary: `hit=${hit.toFixed(1)}%`, reason: "\u7F13\u5B58\u547D\u4E2D\u7387\u6B63\u5E38", threshold_display: "\u2265 95%", citations: [{ title: "MongoDB WiredTiger", url: "https://www.mongodb.com/docs/manual/core/wiredtiger/" }] });
+  const total_mem_mb = toInt(osVal(ctx, "total_mem_mb", 0), 0);
+  const wt_bytes = toInt(dbVal(ctx, "wt_cache_maximum_bytes", 0), 0);
+  if (total_mem_mb === 0 || wt_bytes === 0) {
+    return infoResult({
+      id,
+      title,
+      bucket: 2,
+      scope,
+      summary: "\u672A\u80FD\u8BFB\u53D6 WT cache size \u6216 OS \u603B\u5185\u5B58",
+      reason: "serverStatus.wiredTiger.cache \u6216 /proc/meminfo \u8BFB\u53D6\u5931\u8D25",
+      skip_reason: "runtime_data_missing"
+    });
   }
-  const severity = hit < 90 ? "critical" : "warning";
+  const total_bytes = total_mem_mb * 1024 * 1024;
+  const recommended_bytes = Math.max(
+    0.256 * 1024 * 1024 * 1024,
+    0.5 * Math.max(0, total_bytes - 1024 * 1024 * 1024)
+  );
+  const ratio = wt_bytes / recommended_bytes;
+  const wt_gb = (wt_bytes / 1024 / 1024 / 1024).toFixed(2);
+  const rec_gb = (recommended_bytes / 1024 / 1024 / 1024).toFixed(2);
+  const pct_ram = wt_bytes / total_bytes * 100;
+  const baseCitations = [
+    KUNPENG_REFS.boostkitMongo,
+    { title: "MongoDB WiredTiger \xB7 cache sizing", url: "https://www.mongodb.com/docs/manual/core/wiredtiger/" }
+  ];
+  const baseEvidence = [
+    { kind: "metric", value: `wt_cache_maximum_bytes=${wt_bytes}` },
+    { kind: "metric", value: `os_total_mem_mb=${total_mem_mb}` },
+    { kind: "metric", value: `recommended_default_bytes=${Math.round(recommended_bytes)}` }
+  ];
+  const thresholdDisplay = "\u9ED8\u8BA4 = max(0.256GB, 50% \xD7 (RAM - 1GB))";
+  if (ratio >= 0.5 && ratio <= 1.2) {
+    return okResult({
+      id,
+      title,
+      bucket: 2,
+      scope,
+      summary: `WT=${wt_gb}GB \u2248 \u63A8\u8350 ${rec_gb}GB (ratio=${ratio.toFixed(2)})`,
+      reason: "WT cache \u5728\u5B98\u65B9\u63A8\u8350\u9ED8\u8BA4\u8303\u56F4\u5185",
+      threshold_display: thresholdDisplay,
+      citations: baseCitations
+    });
+  }
+  if (ratio > 1.2 && pct_ram <= 80) {
+    return infoResult({
+      id,
+      title,
+      bucket: 2,
+      scope,
+      summary: `WT=${wt_gb}GB > \u63A8\u8350 ${rec_gb}GB (ratio=${ratio.toFixed(2)}, ${pct_ram.toFixed(1)}% RAM)`,
+      reason: "\u9AD8\u4E8E\u5B98\u65B9\u9ED8\u8BA4 \xB7 \u5B89\u5168\u8FB9\u754C\u53E6\u7531 wt_cache_vs_memory \u628A\u5B88"
+    });
+  }
   return finding({
     id,
     title,
-    severity,
-    bucket: 5,
+    severity: "warning",
+    bucket: 2,
     scope,
-    summary: `hit=${hit.toFixed(1)}% < ${severity === "critical" ? 90 : 95}%`,
-    description: "\u4F4E\u7F13\u5B58\u547D\u4E2D\u7387\u5BFC\u81F4\u9891\u7E41\u78C1\u76D8\u8BFB\u53D6,\u653E\u5927 IOPS \u548C\u5EF6\u8FDF\u3002",
-    reason: `pages_read=${pages_read} / pages_requested=${pages_req}`,
-    threshold_display: "\u2265 95%",
-    evidence: [
-      { kind: "metric", value: `wt_pages_read=${pages_read}` },
-      { kind: "metric", value: `wt_pages_requested=${pages_req}` }
-    ],
-    impact: { metric: "cache_miss_rate", value: +(100 - hit).toFixed(1), unit: "percent", confidence: "high" },
-    citations: [
-      KUNPENG_REFS.boostkitMongo,
-      { title: "MongoDB WiredTiger \xB7 Cache and Eviction", url: "https://www.mongodb.com/docs/manual/core/wiredtiger/" }
-    ],
+    summary: `WT=${wt_gb}GB << \u63A8\u8350 ${rec_gb}GB (ratio=${ratio.toFixed(2)})`,
+    description: "WT cache \u8FDC\u4F4E\u4E8E\u5B98\u65B9\u9ED8\u8BA4 \xB7 \u5DE5\u4F5C\u96C6\u6613\u6EA2\u51FA \xB7 \u53CD\u590D\u4ECE\u78C1\u76D8\u8865\u9875\u653E\u5927 IOPS\u3002",
+    reason: `\u5F53\u524D cache (${wt_gb}GB) \u4E0D\u8DB3\u5B98\u65B9\u9ED8\u8BA4\u503C (${rec_gb}GB) \u7684 50%`,
+    threshold_display: thresholdDisplay,
+    evidence: baseEvidence,
+    impact: { metric: "cache_under_default_ratio", value: +ratio.toFixed(2), unit: "ratio", confidence: "high" },
+    citations: baseCitations,
     recommendations: [
       {
-        action: "\u589E\u5927 wiredTigerCacheSizeGB(\u4E0D\u8D85\u8FC7\u7269\u7406\u5185\u5B58 50%)\xB7 \u6216\u6392\u67E5 working set \u662F\u5426\u66B4\u589E",
-        rationale: "\u7F13\u5B58\u4E0D\u8DB3\u4EE5\u5BB9\u7EB3\u5DE5\u4F5C\u96C6,\u63D0\u5347 cache \u6216\u7F29\u51CF\u5DE5\u4F5C\u96C6",
+        action: `db.adminCommand({setParameter:1, wiredTigerEngineRuntimeConfig:'cache_size=${rec_gb}G'})`,
+        rationale: "\u5B98\u65B9\u9ED8\u8BA4\u5373 50%(RAM-1GB) \xB7 \u4E3B\u52A8\u8C03\u5C0F\u901A\u5E38\u662F\u8BEF\u914D,\u9664\u975E\u5BBF\u4E3B\u6709\u591A\u5B9E\u4F8B\u5171\u4EAB\u5185\u5B58",
         type: "repair",
         fix_cost: "restart_engine",
         verifiable: true
       }
     ],
     rationale: {
-      summary: "WT cache \u547D\u4E2D\u7387 < 95% \u8BF4\u660E\u5DE5\u4F5C\u96C6\u8D85\u51FA cache \u5BB9\u91CF \xB7 \u6BCF\u6B21 miss \u8D70 read() syscall \u62C9\u78C1\u76D8 \xB7 \u5EF6\u8FDF\u4ECE\u4E9A\u6BEB\u79D2\u8DC3\u5347\u5230\u6BEB\u79D2\u7EA7 \xB7 \u8BFB IOPS \u6309 miss \u7387\u653E\u5927\u5230\u5B58\u50A8\u5C42\u3002",
-      mechanism: "mongod \u6BCF\u6B21\u8BFB\u8BF7\u6C42\u5148\u67E5 WT cache \xB7 miss \u5C31\u8C03 pread() \u4ECE\u78C1\u76D8\u62C9 page \xB7 \u5373\u4F7F SSD \u4E5F\u6709 100-500\u03BCs \u5EF6\u8FDF \xB7 \u662F cache hit (< 10\u03BCs) \u7684 10-50 \u500D\u3002cache \u5BB9\u91CF\u4E0D\u8DB3\u65F6 evict \u7EBF\u7A0B\u9891\u7E41\u6E05\u7406 dirty page \xB7 \u8FDB\u4E00\u6B65\u6D88\u8017 CPU \xB7 \u5F62\u6210\u6076\u6027\u5FAA\u73AF\u3002",
-      trade_offs: "\u589E\u5927 cacheSizeGB \u51CF\u5C11 miss \u4F46\u53D7\u7269\u7406\u5185\u5B58\u4E0A\u9650\u7EA6\u675F(\u89C1 wt_cache_vs_memory \u89C4\u5219)\u3002\u538B\u7F29\u96C6\u5408\u6216\u52A0\u7D22\u5F15\u7F29\u5C0F\u5DE5\u4F5C\u96C6\u662F\u53E6\u4E00\u8DEF\u5F84 \xB7 \u4F46\u538B\u7F29\u63D0\u9AD8 CPU \u4F7F\u7528\u7387 \xB7 \u7D22\u5F15\u591A\u5360\u78C1\u76D8\u548C\u5199\u5165\u5F00\u9500\u3002",
-      when_to_deviate: "\u6279\u5904\u7406 / OLAP workload \u672C\u8EAB\u6D41\u5F0F\u626B\u63CF \xB7 cache \u547D\u4E2D\u7387\u4F4E\u6B63\u5E38 \xB7 \u5173\u6CE8 pages evicted rate \u5373\u53EF\u3002OLTP \u573A\u666F < 95% \u5FC5\u987B\u6392\u67E5\u3002"
+      summary: "WT cache \u663E\u8457\u5C0F\u4E8E\u5B98\u65B9\u9ED8\u8BA4\u65F6 \xB7 \u5DE5\u4F5C\u96C6\u957F\u671F\u8D85\u51FA cache \u5BB9\u91CF \xB7 \u6BCF\u6B21\u8BFB miss \u8D70 pread() \u62C9\u78C1\u76D8 \xB7 \u5EF6\u8FDF\u8DC3\u5347 10-50 \u500D\u3002",
+      mechanism: "MongoDB \u6587\u6863\u660E\u786E `default cache = max(0.256GB, 50% \xD7 (RAM-1GB))` \xB7 \u8BE5\u503C\u662F\u9762\u5411\u5355\u5B9E\u4F8B OLTP \u7ECF\u9A8C\u6700\u4F18\u3002 cache << \u9ED8\u8BA4\u65F6 evict \u7EBF\u7A0B\u9891\u7E41\u6E05\u7406 \xB7 CPU \u4E0A\u5347 + IO \u653E\u5927 \xB7 OLTP \u573A\u666F p99 \u901A\u5E38\u7FFB\u500D\u3002",
+      trade_offs: "\u8C03\u9AD8 cache \u51CF\u5C11 miss \u4F46\u53D7 OS \u5B89\u5168\u8FB9\u754C (\u2264 80% RAM) \u7EA6\u675F \xB7 \u7531 wt_cache_vs_memory \u72EC\u7ACB\u628A\u5B88\u3002\u591A\u5B9E\u4F8B\u5BBF\u4E3B\u4F8B\u5916\u89C1 when_to_deviate\u3002",
+      when_to_deviate: "\u5355\u5BBF\u4E3B\u8DD1\u591A\u4E2A mongod \xB7 \u5FC5\u987B\u6309\u5B9E\u4F8B\u6570\u7B49\u5206\u5185\u5B58 \xB7 \u6B64\u65F6 cache \u8FDC\u4F4E\u4E8E\u9ED8\u8BA4\u662F\u9884\u671F\u3002\u5BB9\u5668/cgroup \u573A\u666F\u987B\u4EE5 limit \u800C\u975E\u5BBF\u4E3B RAM \u8BA1\u7B97\u9ED8\u8BA4\u503C\u3002"
     }
   });
 };
@@ -2421,55 +1817,6 @@ var check_oplog_window = (ctx) => {
       mechanism: "secondary \u901A\u8FC7 tailing primary \u7684 local.oplog.rs \u96C6\u5408\u590D\u5236\u6570\u636E\u3002oplog \u662F\u56FA\u5B9A\u5927\u5C0F capped collection \xB7 \u5199\u5165\u901F\u7387\u51B3\u5B9A\u7A97\u53E3\u65F6\u957F\u3002\u5F53 secondary \u79BB\u7EBF\u8D85\u8FC7\u7A97\u53E3 \xB7 \u5B83\u8981\u8BFB\u7684 oplog entries \u5DF2\u88AB\u8986\u76D6 \xB7 \u65E0\u6CD5\u589E\u91CF\u8FFD\u8D76 \xB7 \u89E6\u53D1\u5168\u91CF initial sync\u3002initial sync \u8D70\u5168\u91CF collection \u590D\u5236 + \u6240\u6709 index \u91CD\u5EFA \xB7 TB \u7EA7\u6570\u636E\u96C6\u901A\u5E38 6-12 \u5C0F\u65F6\u3002",
       trade_offs: "\u589E\u5927 oplog \u5360\u7528\u78C1\u76D8 \xB7 \u6BCF GB oplog \u2248 \u652F\u6301 1-2 \u5C0F\u65F6\u9AD8\u5CF0\u5199\u5165(\u53D6\u51B3\u5199\u5165\u901F\u7387)\u3002\u78C1\u76D8\u7A7A\u95F4\u6362\u8FD0\u7EF4\u5B89\u5168 \xB7 \u4E0D\u5F71\u54CD\u8BFB\u5199\u6027\u80FD\u3002",
       when_to_deviate: "\u5F00\u53D1\u73AF\u5883 / \u5141\u8BB8\u624B\u52A8 resync \u7684\u5C0F\u5E93 \xB7 oplog \u53EF\u77ED\u3002\u751F\u4EA7 OLTP \u5FC5\u987B \u2265 24h \xB7 \u9AD8\u5199\u5165\u6216\u8DE8\u673A\u623F\u573A\u666F\u5EFA\u8BAE 48-72h \u7ED9 DBA \u8DB3\u591F\u6392\u969C\u65F6\u95F4\u3002"
-    }
-  });
-};
-var check_compression_algorithm = (ctx) => {
-  const id = "mongo.config.wt_block_compressor";
-  const title = "WiredTiger \u5757\u538B\u7F29\u7B97\u6CD5";
-  const skip = notMongoSkip(ctx, id, title, 2);
-  if (skip) return skip;
-  const scope = mongoScope(ctx);
-  const compressor = dbVal(ctx, "_wt_block_compressor", "");
-  if (!compressor) {
-    return infoResult({ id, title, bucket: 2, scope, summary: "\u672A\u91C7\u96C6 compressor", reason: "\u53EF\u80FD\u4F7F\u7528\u5F15\u64CE\u9ED8\u8BA4 snappy" });
-  }
-  if (compressor !== "zlib") {
-    return okResult({ id, title, bucket: 2, scope, summary: `compressor=${compressor}`, reason: "\u538B\u7F29\u7B97\u6CD5\u5408\u7406" });
-  }
-  const severityOnKunpeng = scope.vendor === "kunpeng" ? "warning" : "info";
-  if (severityOnKunpeng === "info") {
-    return infoResult({ id, title, bucket: 2, scope, summary: `compressor=zlib`, reason: "zlib \u538B\u7F29\u6BD4\u9AD8\u4F46 CPU \u5F00\u9500\u5927,\u975E\u9CB2\u9E4F\u73AF\u5883\u4EC5\u63D0\u793A" });
-  }
-  return finding({
-    id,
-    title,
-    severity: "warning",
-    bucket: 2,
-    scope,
-    summary: `compressor=zlib on ${scope.vendor}`,
-    description: "zlib \u538B\u7F29\u5728 Kunpeng / ARM64 \u4E0A CPU \u6D88\u8017\u663E\u8457\u9AD8\u4E8E x86,FTDC \u4E2D deflate_slow \u70ED\u70B9\u660E\u663E\u3002",
-    reason: "Kunpeng \u4E0A zlib \u538B\u7F29\u6210\u672C\u8FC7\u9AD8 \xB7 \u5EFA\u8BAE snappy \u6216 zstd",
-    threshold_display: "snappy / zstd",
-    evidence: [{ kind: "config", value: `wiredTigerCollectionBlockCompressor=zlib` }],
-    impact: { metric: "db_time_pct", value: 20, unit: "percent", confidence: "medium" },
-    citations: [
-      KUNPENG_REFS.boostkitMongo
-    ],
-    recommendations: [
-      {
-        action: "\u5728 mongod.conf \u8BBE\u7F6E storage.wiredTiger.collectionConfig.blockCompressor: snappy (\u6216 zstd)",
-        rationale: "Kunpeng \u4E0A\u66F4\u6362 compressor \u663E\u8457\u964D\u4F4E CPU \u538B\u529B",
-        type: "repair",
-        fix_cost: "restart_engine",
-        verifiable: true
-      }
-    ],
-    rationale: {
-      summary: "\u9CB2\u9E4F 920 \u4E0A zlib \u538B\u7F29/\u89E3\u538B\u5B8C\u5168\u8D70\u901A\u7528 ALU \u8DEF\u5F84 \xB7 \u6CA1\u6709 Intel ISA-L \u6216\u7B49\u4EF7\u7684\u786C\u4EF6\u538B\u7F29\u52A0\u901F \xB7 \u76F8\u540C\u541E\u5410\u4E0B CPU \u5360\u7528\u663E\u8457\u9AD8\u4E8E x86\u3002FTDC \u706B\u7130\u56FE\u4E2D deflate_slow \u5E38\u5E74\u5360 15-30% CPU \xB7 \u538B\u7F29\u5F00\u9500\u5403\u6389\u67E5\u8BE2 CPU \u9884\u7B97\u3002",
-      mechanism: "zlib \u7684 deflate_slow \u5927\u91CF\u4F7F\u7528 sliding window \u67E5\u627E\u548C Huffman \u7F16\u7801 \xB7 \u7EAF CPU \u8BA1\u7B97 \xB7 ARM64 \u65E0\u5BF9\u5E94\u52A0\u901F ISA(\u9CB2\u9E4F\u6709 SMMU \u52A0\u5BC6\u52A0\u901F\u4F46\u4E0D\u8986\u76D6 compression)\u3002snappy \u662F byte-level LZ77 \xB7 zstd \u6709\u8F7B\u91CF dictionary \xB7 \u4E24\u8005\u90FD\u5BF9 ARM64 \u6307\u4EE4\u96C6\u53CB\u597D \xB7 \u5176\u4E2D snappy \u89E3\u538B\u53EF SIMD \u5316\u8FDB\u4E00\u6B65\u51CF\u5F00\u9500\u3002",
-      trade_offs: "snappy \u538B\u7F29\u6BD4 ~2x \xB7 zlib ~3x \xB7 zstd ~3.2x \xB7 zstd \u538B\u7F29\u6BD4\u63A5\u8FD1 zlib \u4F46 CPU \u53EA\u7528 zlib \u7684 50-70%\u3002\u78C1\u76D8\u5360\u7528\u5207\u6362\u540E\u53EF\u80FD\u4E0A\u5347 40-50% \xB7 \u4F46\u6362\u6765 CPU \u9884\u7B97\u53EF\u4EE5\u6D88\u5316\u66F4\u591A QPS\u3002NVMe \u573A\u666F\u78C1\u76D8\u6210\u672C\u8FDC\u4F4E\u4E8E CPU\u3002",
-      when_to_deviate: "\u5F52\u6863\u96C6\u5408\u8BFB\u5199\u6781\u5C11 \xB7 \u53EF\u4FDD\u7559 zlib \u7701\u78C1\u76D8\u3002\u70ED\u6570\u636E\u96C6\u5408\u5F3A\u70C8\u63A8\u8350 snappy \u6216 zstd\u3002MongoDB 4.2+ \u539F\u751F\u652F\u6301 zstd \xB7 3.x \u53EA zlib/snappy \u53EF\u9009\u3002"
     }
   });
 };
@@ -3198,9 +2545,9 @@ var check_wt_pages_read_volume = (ctx) => {
 var mongoChecks = [
   check_mongo_connections,
   check_wt_cache_vs_memory,
-  check_wt_cache_hit,
+  check_wt_cache_size_advisory,
   check_oplog_window,
-  check_compression_algorithm,
+  // check_compression_algorithm · removed 2026-04-26 audit · NO_URL (mongo.config.wt_block_compressor)
   check_db_cache_vs_memory,
   check_storage_journaling_enabled,
   check_wt_ticket_read,
@@ -3217,7 +2564,7 @@ var mongoChecks = [
   check_wt_pages_read_volume
 ];
 
-// skills/perf-kp-sql/src/engines/mongo/collector.ts
+// plugins/perf-kp-sql/src/engines/mongo/collector.ts
 var OS_BATCH_CMD = [
   "echo '###THP###'",
   "cat /sys/kernel/mm/transparent_hugepage/enabled 2>/dev/null || echo unknown",
@@ -3350,6 +2697,14 @@ function parseDbBatch(res, out) {
   for (const [k, v] of Object.entries(ss)) {
     out[k] = v;
   }
+  out["serverStatus"] = ss;
+  if (raw["hostInfo"]) out["hostInfo"] = raw["hostInfo"];
+  if (raw["getCmdLineOpts"]) out["getCmdLineOpts"] = raw["getCmdLineOpts"];
+  if (raw["t0_serverStatus"]) out["t0_serverStatus"] = raw["t0_serverStatus"];
+  if (raw["t1_serverStatus"]) out["t1_serverStatus"] = raw["t1_serverStatus"];
+  if (typeof raw["sample_interval_sec"] === "number") {
+    out["sample_interval_sec"] = raw["sample_interval_sec"];
+  }
   out["_db_collection_failed"] = false;
   const wt = (ss["wiredTiger"] ?? {})["cache"] ?? {};
   if (Object.keys(wt).length > 0) {
@@ -3426,820 +2781,7 @@ function extractJsonObject(stdout) {
   return lastObject;
 }
 
-// skills/perf-kp-sql/src/engines/mysql/checks.ts
-function msScope(ctx) {
-  return deriveScope(ctx, "mysql");
-}
-function skipIfFailed(ctx, id, title, bucket) {
-  const m = ctx.db_metrics;
-  if (m._db_collection_failed) {
-    return infoResult({
-      id,
-      title,
-      bucket,
-      scope: msScope(ctx),
-      summary: "MySQL \u91C7\u96C6\u5931\u8D25",
-      reason: m._db_collection_error || "collection failed"
-    });
-  }
-  return null;
-}
-var check_mysql_innodb_buffer_pool_size = (ctx) => {
-  const id = "mysql.config.innodb_buffer_pool_size";
-  const title = "InnoDB Buffer Pool \u5927\u5C0F";
-  const skip = skipIfFailed(ctx, id, title, 2);
-  if (skip) return skip;
-  const scope = msScope(ctx);
-  const m = ctx.db_metrics;
-  const bp = toFloat(m.variables?.innodb_buffer_pool_size);
-  const mem_mb = toFloat(ctx.os_metrics.total_mem_mb);
-  const mem = mem_mb * 1024 * 1024;
-  const pctOfMem = mem > 0 ? bp / mem * 100 : 0;
-  if (bp === 0) {
-    return infoResult({ id, title, bucket: 2, scope, summary: "\u672A\u91C7\u96C6\u5230", reason: "innodb_buffer_pool_size \u8BFB\u53D6\u5931\u8D25" });
-  }
-  if (pctOfMem >= 25 && pctOfMem <= 80) {
-    return okResult({
-      id,
-      title,
-      bucket: 2,
-      scope,
-      summary: `BP=${(bp / 1024 / 1024).toFixed(0)}MB (~${pctOfMem.toFixed(1)}% of RAM)`,
-      reason: "BP \u5360\u6BD4\u5408\u7406(25% ~ 80%)"
-    });
-  }
-  const sev = pctOfMem < 25 ? "warning" : "warning";
-  const reason = pctOfMem < 25 ? `BP ${(bp / 1024 / 1024).toFixed(0)}MB \u4EC5\u5360\u7269\u7406\u5185\u5B58 ${pctOfMem.toFixed(1)}% \xB7 \u751F\u4EA7\u5EFA\u8BAE 50-75%` : `BP ${pctOfMem.toFixed(1)}% \u8FC7\u5927 \xB7 \u53EF\u80FD\u6324\u538B OS cache / \u5176\u4ED6\u8FDB\u7A0B`;
-  return finding({
-    id,
-    title,
-    severity: sev,
-    bucket: 2,
-    scope,
-    summary: `${(bp / 1024 / 1024).toFixed(0)} MB (~${pctOfMem.toFixed(1)}%) \xB7 \u504F\u79BB 50-75%`,
-    description: "InnoDB Buffer Pool \u5927\u5C0F\u76F4\u63A5\u51B3\u5B9A\u547D\u4E2D\u7387;\u8FC7\u5C0F\u589E\u52A0\u78C1\u76D8 IO,\u8FC7\u5927\u6324\u538B OS cache\u3002",
-    reason,
-    evidence: [
-      { kind: "config", value: `innodb_buffer_pool_size=${bp}` },
-      { kind: "metric", value: `total_mem_mb=${mem_mb}` }
-    ],
-    impact: { metric: "cache_miss_rate", value: pctOfMem < 25 ? 30 : 10, unit: "percent", confidence: "medium" },
-    citations: [
-      { title: "MySQL \xB7 InnoDB Buffer Pool Size", url: "https://dev.mysql.com/doc/refman/8.0/en/innodb-buffer-pool.html" }
-    ],
-    recommendations: [
-      {
-        action: "SET GLOBAL innodb_buffer_pool_size = <bytes>;  # \u6216\u6539 my.cnf \u91CD\u542F",
-        rationale: "OLTP \u751F\u4EA7 50-75% \u7269\u7406\u5185\u5B58",
-        type: "repair",
-        fix_cost: "restart_engine",
-        verifiable: true
-      }
-    ]
-  });
-};
-var check_mysql_innodb_flush_log = (ctx) => {
-  const id = "mysql.config.innodb_flush_log_at_trx_commit";
-  const title = "InnoDB flush_log_at_trx_commit";
-  const skip = skipIfFailed(ctx, id, title, 2);
-  if (skip) return skip;
-  const scope = msScope(ctx);
-  const m = ctx.db_metrics;
-  const v = m.variables?.innodb_flush_log_at_trx_commit;
-  if (!v) {
-    return infoResult({ id, title, bucket: 2, scope, summary: "\u672A\u91C7\u96C6\u5230\u53D8\u91CF", reason: "show variables \u672A\u8FD4\u56DE" });
-  }
-  if (v === "1") {
-    return okResult({ id, title, bucket: 2, scope, summary: "=1(ACID \u4E25\u683C)", reason: "\u91D1\u878D/\u8BA2\u5355\u573A\u666F\u6B63\u786E\u8BBE\u7F6E" });
-  }
-  if (v === "2") {
-    return infoResult({ id, title, bucket: 2, scope, summary: "=2(\u6BCF\u4E8B\u52A1\u5199 log,\u6BCF\u79D2 flush)", reason: "\u5F31\u8010\u4E45\u4F46\u9AD8\u541E\u5410" });
-  }
-  return finding({
-    id,
-    title,
-    severity: "warning",
-    bucket: 2,
-    scope,
-    summary: "=0 \u4EC5\u9002\u5408\u6279\u91CF\u5BFC\u5165",
-    description: "\u8FDB\u7A0B\u5D29\u6E83\u53EF\u80FD\u4E22\u5931\u6700\u8FD1 1 \u79D2\u4E8B\u52A1",
-    reason: "innodb_flush_log_at_trx_commit=0 \xB7 \u6279\u5904\u7406 / TPC-H \u53EF\u7528,OLTP \u5371\u9669",
-    evidence: [{ kind: "config", value: `innodb_flush_log_at_trx_commit=${v}` }],
-    impact: { metric: "db_time_pct", value: 20, unit: "percent", confidence: "medium" },
-    citations: [
-      { title: "MySQL \xB7 InnoDB Performance Tuning", url: "https://dev.mysql.com/doc/refman/8.0/en/innodb-performance.html" }
-    ],
-    recommendations: [
-      {
-        action: "SET GLOBAL innodb_flush_log_at_trx_commit = 1;",
-        rationale: "OLTP \u6062\u590D ACID \u4E25\u683C",
-        type: "repair",
-        fix_cost: "trivial",
-        verifiable: true
-      }
-    ]
-  });
-};
-var check_mysql_sync_binlog = (ctx) => {
-  const id = "mysql.config.sync_binlog";
-  const title = "sync_binlog";
-  const skip = skipIfFailed(ctx, id, title, 2);
-  if (skip) return skip;
-  const scope = msScope(ctx);
-  const m = ctx.db_metrics;
-  const v = m.variables?.sync_binlog;
-  if (!v) {
-    return infoResult({ id, title, bucket: 2, scope, summary: "\u672A\u91C7\u96C6", reason: "show variables \u672A\u8FD4\u56DE" });
-  }
-  if (v === "1") {
-    return okResult({ id, title, bucket: 2, scope, summary: "sync_binlog=1", reason: "\u4E25\u683C\u8010\u4E45 \xB7 \u4E3B\u4ECE\u4E00\u81F4\u6027\u6700\u7A33" });
-  }
-  if (v === "0") {
-    return finding({
-      id,
-      title,
-      severity: "warning",
-      bucket: 2,
-      scope,
-      summary: "sync_binlog=0",
-      description: "crash \u53EF\u80FD\u4E22\u5931 binlog,\u4E3B\u4ECE\u4E0D\u4E00\u81F4\u98CE\u9669",
-      reason: "sync_binlog=0 \xB7 \u4E0D\u843D\u76D8",
-      evidence: [{ kind: "config", value: `sync_binlog=0` }],
-      impact: { metric: "db_time_pct", value: 15, unit: "percent", confidence: "medium" },
-      citations: [
-        { title: "MySQL \xB7 Replication Configuration (sync_binlog)", url: "https://dev.mysql.com/doc/refman/8.0/en/replication-configuration.html" }
-      ],
-      recommendations: [
-        {
-          action: "SET GLOBAL sync_binlog = 1;",
-          rationale: "\u6062\u590D\u4E3B\u4ECE\u4E00\u81F4\u6027\u4FDD\u969C",
-          type: "repair",
-          fix_cost: "trivial",
-          verifiable: true
-        }
-      ]
-    });
-  }
-  return infoResult({ id, title, bucket: 2, scope, summary: `sync_binlog=${v}`, reason: "\u6BCF N \u6B21\u4E8B\u52A1\u843D\u76D8 \xB7 \u6279\u5904\u7406\u5E38\u89C1" });
-};
-var check_mysql_slow_query_log = (ctx) => {
-  const id = "mysql.config.slow_query_log";
-  const title = "Slow Query Log";
-  const skip = skipIfFailed(ctx, id, title, 2);
-  if (skip) return skip;
-  const scope = msScope(ctx);
-  const m = ctx.db_metrics;
-  const on = m.variables?.slow_query_log;
-  const lqt = toFloat(m.variables?.long_query_time);
-  if (on === void 0) {
-    return infoResult({ id, title, bucket: 2, scope, summary: "\u672A\u91C7\u96C6", reason: "show variables \u672A\u8FD4\u56DE" });
-  }
-  if (on === "OFF" || on === "0") {
-    return finding({
-      id,
-      title,
-      severity: "warning",
-      bucket: 2,
-      scope,
-      summary: "slow_query_log OFF",
-      description: "\u672A\u542F\u7528\u6162\u67E5\u8BE2\u65E5\u5FD7,\u6162 SQL \u65E0\u6CD5\u6355\u83B7",
-      reason: "slow_query_log OFF \xB7 \u751F\u4EA7\u5FC5\u5F00",
-      evidence: [{ kind: "config", value: `slow_query_log=${on}` }],
-      impact: { metric: "db_time_pct", value: 5, unit: "percent", confidence: "high" },
-      citations: [
-        { title: "MySQL \xB7 Slow Query Log", url: "https://dev.mysql.com/doc/refman/8.0/en/slow-query-log.html" }
-      ],
-      recommendations: [
-        {
-          action: "SET GLOBAL slow_query_log = 'ON'; SET GLOBAL long_query_time = 1;",
-          rationale: "\u5F00\u542F\u6162\u67E5\u8BE2\u65E5\u5FD7\u5E76\u628A\u9608\u503C\u964D\u5230 1s",
-          type: "detect",
-          fix_cost: "trivial",
-          verifiable: true
-        }
-      ]
-    });
-  }
-  if (lqt > 2) {
-    return finding({
-      id,
-      title,
-      severity: "warning",
-      bucket: 2,
-      scope,
-      summary: `long_query_time=${lqt}s \u504F\u9AD8`,
-      description: "\u9608\u503C\u8FC7\u9AD8,< 2s \u7684\u6162\u8BF7\u6C42\u6355\u83B7\u4E0D\u5230",
-      reason: `long_query_time=${lqt}s \xB7 \u63A8\u8350 \u2264 1`,
-      evidence: [{ kind: "config", value: `long_query_time=${lqt}` }],
-      impact: { metric: "db_time_pct", value: 3, unit: "percent", confidence: "medium" },
-      citations: [
-        { title: "MySQL \xB7 Slow Query Log", url: "https://dev.mysql.com/doc/refman/8.0/en/slow-query-log.html" }
-      ],
-      recommendations: [
-        {
-          action: "SET GLOBAL long_query_time = 1;",
-          rationale: "\u628A\u9608\u503C\u964D\u5230 1s \u4EE5\u5145\u5206\u8986\u76D6\u6162 SQL",
-          type: "detect",
-          fix_cost: "trivial",
-          verifiable: true
-        }
-      ]
-    });
-  }
-  return okResult({ id, title, bucket: 2, scope, summary: `enabled \xB7 long_query_time=${lqt}`, reason: "\u6162\u67E5\u8BE2\u65E5\u5FD7\u914D\u7F6E\u5408\u7406" });
-};
-var check_mysql_buffer_pool_hit_rate = (ctx) => {
-  const id = "mysql.runtime.buffer_pool_hit_rate";
-  const title = "InnoDB Buffer Pool \u547D\u4E2D\u7387";
-  const skip = skipIfFailed(ctx, id, title, 5);
-  if (skip) return skip;
-  const scope = msScope(ctx);
-  const m = ctx.db_metrics;
-  const reads = toFloat(m.status?.Innodb_buffer_pool_reads);
-  const req = toFloat(m.status?.Innodb_buffer_pool_read_requests);
-  if (req === 0) {
-    return infoResult({ id, title, bucket: 5, scope, summary: "\u65E0\u8BF7\u6C42", reason: "\u5B9E\u4F8B\u672A\u63A5\u5165\u6D41\u91CF" });
-  }
-  const hit = (1 - reads / req) * 100;
-  if (hit >= 99) {
-    return okResult({ id, title, bucket: 5, scope, summary: `hit=${hit.toFixed(2)}%`, reason: "\u547D\u4E2D\u7387\u6B63\u5E38" });
-  }
-  const severity = hit < 95 ? "warning" : "info";
-  if (severity === "info") {
-    return infoResult({ id, title, bucket: 5, scope, summary: `hit=${hit.toFixed(2)}%`, reason: "OLTP \u751F\u4EA7\u671F\u671B > 99.5%" });
-  }
-  return finding({
-    id,
-    title,
-    severity: "warning",
-    bucket: 5,
-    scope,
-    summary: `hit=${hit.toFixed(2)}% < 95%`,
-    description: "Buffer Pool \u547D\u4E2D\u7387\u504F\u4F4E,\u53EF\u80FD\u662F BP \u592A\u5C0F\u6216\u51B7\u542F\u52A8",
-    reason: `Innodb_buffer_pool_reads=${reads} / read_requests=${req}`,
-    evidence: [
-      { kind: "metric", value: `innodb_bp_reads=${reads}` },
-      { kind: "metric", value: `innodb_bp_read_requests=${req}` }
-    ],
-    impact: { metric: "cache_miss_rate", value: +(100 - hit).toFixed(1), unit: "percent", confidence: "high" },
-    citations: [
-      { title: "MySQL \xB7 InnoDB Buffer Pool", url: "https://dev.mysql.com/doc/refman/8.0/en/innodb-buffer-pool.html" }
-    ],
-    recommendations: [
-      {
-        action: "\u589E\u5927 innodb_buffer_pool_size \u81F3\u7269\u7406\u5185\u5B58 50-75% \xB7 \u6216\u5BF9\u51B7\u542F\u52A8\u505A warmup",
-        rationale: "\u63D0\u5347\u547D\u4E2D\u7387\u76F4\u63A5\u964D\u4F4E\u78C1\u76D8 IO",
-        type: "repair",
-        fix_cost: "restart_engine",
-        verifiable: true
-      }
-    ]
-  });
-};
-var check_mysql_connections = (ctx) => {
-  const id = "mysql.runtime.connection_util";
-  const title = "MySQL \u8FDE\u63A5\u4F7F\u7528\u7387";
-  const skip = skipIfFailed(ctx, id, title, 5);
-  if (skip) return skip;
-  const scope = msScope(ctx);
-  const m = ctx.db_metrics;
-  const conn = toFloat(m.status?.Threads_connected);
-  const max = toFloat(m.variables?.max_connections);
-  const pct = max > 0 ? conn / max * 100 : 0;
-  if (pct <= 80) {
-    return okResult({ id, title, bucket: 5, scope, summary: `${conn}/${max} (${pct.toFixed(1)}%)`, reason: "\u8FDE\u63A5\u4F7F\u7528\u7387\u6B63\u5E38" });
-  }
-  return finding({
-    id,
-    title,
-    severity: "warning",
-    bucket: 5,
-    scope,
-    summary: `${conn}/${max} (${pct.toFixed(1)}%) \u504F\u9AD8`,
-    description: "\u8FDE\u63A5\u4F7F\u7528\u7387 > 80% \u63A5\u8FD1 max_connections \u4E0A\u9650,\u65B0\u8FDE\u63A5\u53EF\u80FD\u88AB\u62D2",
-    reason: `Threads_connected=${conn} / max_connections=${max}`,
-    evidence: [
-      { kind: "metric", value: `Threads_connected=${conn}` },
-      { kind: "config", value: `max_connections=${max}` }
-    ],
-    impact: { metric: "connection_util_pct", value: +pct.toFixed(1), unit: "percent", confidence: "high" },
-    citations: [
-      { title: "MySQL \xB7 Server System Variables (max_connections)", url: "https://dev.mysql.com/doc/refman/8.0/en/server-system-variables.html" }
-    ],
-    recommendations: [
-      {
-        action: "SET GLOBAL max_connections = <N>;  # \u6216\u8BC4\u4F30\u5E94\u7528\u4FA7\u8FDE\u63A5\u6C60",
-        rationale: "\u515C\u5E95\u6269\u5BB9 \xB7 \u6839\u56E0\u5E38\u5728\u5E94\u7528\u8FDE\u63A5\u6C60\u914D\u7F6E",
-        type: "mitigate",
-        fix_cost: "trivial",
-        verifiable: true
-      }
-    ]
-  });
-};
-var check_mysql_schema_growth = (ctx) => {
-  const id = "mysql.design.schema_sizes";
-  const title = "Schema \u89C4\u6A21\u753B\u50CF";
-  const skip = skipIfFailed(ctx, id, title, 3);
-  if (skip) return skip;
-  const scope = msScope(ctx);
-  const m = ctx.db_metrics;
-  const stats = m.schema_stats || [];
-  if (stats.length === 0) {
-    return infoResult({ id, title, bucket: 3, scope, summary: "\u65E0\u7528\u6237 schema", reason: "\u5B9E\u4F8B\u6682\u65E0\u4E1A\u52A1\u5E93" });
-  }
-  const total = stats.reduce((s, x) => s + x.total_mb, 0);
-  const top = [...stats].sort((a, b) => b.total_mb - a.total_mb).slice(0, 3);
-  return infoResult({
-    id,
-    title,
-    bucket: 3,
-    scope,
-    summary: `${stats.length} schema \xB7 total=${total.toFixed(0)}MB`,
-    reason: `top3: ${top.map((t) => `${t.schema}=${t.total_mb.toFixed(0)}MB`).join(" \xB7 ")}`
-  });
-};
-var mysqlChecks = [
-  check_mysql_innodb_buffer_pool_size,
-  check_mysql_innodb_flush_log,
-  check_mysql_sync_binlog,
-  check_mysql_slow_query_log,
-  check_mysql_buffer_pool_hit_rate,
-  check_mysql_connections,
-  check_mysql_schema_growth
-];
-
-// skills/perf-kp-sql/src/engines/mysql/collector.ts
-function parseMysqlStdout(stdout) {
-  const out = {};
-  if (!stdout || stdout.trim().length === 0) {
-    out._db_collection_failed = true;
-    out._db_collection_error = "mysql \u8FD4\u56DE\u7A7A\u8F93\u51FA";
-    return out;
-  }
-  const sections = splitSections(stdout);
-  out.version = (sections.VERSION || [])[0]?.trim();
-  out.variables = parseKV(sections.VARIABLES || []);
-  out.status = parseKV(sections.STATUS || []);
-  out.processlist = parseProcesslist(sections.PROCESSLIST || []);
-  out.schema_stats = parseSchemaStats(sections.SCHEMA_STATS || []);
-  return out;
-}
-function splitSections(stdout) {
-  const lines = stdout.split("\n");
-  const sections = {};
-  let current = null;
-  for (const line of lines) {
-    const m = /^###([A-Z_]+)###\s*$/.exec(line.trim());
-    if (m) {
-      current = m[1];
-      sections[current] = [];
-      continue;
-    }
-    if (current && line.trim()) sections[current].push(line);
-  }
-  return sections;
-}
-function parseKV(lines) {
-  const out = {};
-  for (const line of lines) {
-    const parts = line.split("	");
-    if (parts.length >= 2) {
-      out[parts[0].trim()] = parts.slice(1).join("	").trim();
-    }
-  }
-  return out;
-}
-function parseProcesslist(lines) {
-  return lines.map((line) => {
-    const parts = line.split("	");
-    return {
-      id: parts[0] || "",
-      user: parts[1] || "",
-      host: parts[2] || "",
-      db: parts[3] || "",
-      command: parts[4] || "",
-      time: Number.parseInt(parts[5] || "0", 10) || 0,
-      state: parts[6] || "",
-      info: parts[7] || ""
-    };
-  });
-}
-function parseSchemaStats(lines) {
-  return lines.map((line) => {
-    const parts = line.split("	");
-    return {
-      schema: parts[0] || "",
-      tables: Number.parseInt(parts[1] || "0", 10) || 0,
-      total_mb: Number.parseFloat(parts[2] || "0") || 0
-    };
-  });
-}
-
-// skills/perf-kp-sql/src/engines/redis/checks.ts
-function rdScope(ctx) {
-  return deriveScope(ctx, "redis");
-}
-function skipIfFailed2(ctx, id, title, bucket) {
-  const m = ctx.db_metrics;
-  if (m._db_collection_failed) {
-    return infoResult({
-      id,
-      title,
-      bucket,
-      scope: rdScope(ctx),
-      summary: "Redis \u91C7\u96C6\u5931\u8D25",
-      reason: m._db_collection_error || "collection failed"
-    });
-  }
-  return null;
-}
-var check_redis_maxmemory = (ctx) => {
-  const id = "redis.config.maxmemory";
-  const title = "maxmemory";
-  const skip = skipIfFailed2(ctx, id, title, 2);
-  if (skip) return skip;
-  const scope = rdScope(ctx);
-  const m = ctx.db_metrics;
-  const mm = toFloat(m.config?.maxmemory);
-  const used = toFloat(m.info?.used_memory);
-  if (mm === 0) {
-    return finding({
-      id,
-      title,
-      severity: "critical",
-      bucket: 2,
-      scope,
-      summary: "maxmemory=0 unlimited",
-      description: "maxmemory=0 \u610F\u5473\u7740\u65E0\u9650\u5236,OOM \u65F6 Redis \u88AB\u5185\u6838\u6740\u6389,\u751F\u4EA7\u5FC5\u987B\u8BBE\u7F6E",
-      reason: "maxmemory=0 \xB7 \u65E0\u9650\u5236 \xB7 \u751F\u4EA7\u98CE\u9669\u9AD8",
-      evidence: [{ kind: "config", value: "maxmemory=0" }],
-      impact: { metric: "db_time_pct", value: 40, unit: "percent", confidence: "high" },
-      citations: [
-        { title: "Redis \xB7 Memory Optimization", url: "https://redis.io/docs/latest/operate/oss_and_stack/management/optimization/memory-optimization/" }
-      ],
-      recommendations: [
-        {
-          action: "redis-cli CONFIG SET maxmemory 4gb && redis-cli CONFIG REWRITE",
-          rationale: "\u751F\u4EA7\u8BBE\u4E3A\u7269\u7406\u5185\u5B58 50-70%",
-          type: "repair",
-          fix_cost: "trivial",
-          verifiable: true
-        }
-      ]
-    });
-  }
-  const ratio = used > 0 ? used / mm : 0;
-  if (ratio > 0.9) {
-    return finding({
-      id,
-      title,
-      severity: "warning",
-      bucket: 2,
-      scope,
-      summary: `used/max=${(ratio * 100).toFixed(1)}% > 90%`,
-      description: "\u5DF2\u7528\u5185\u5B58\u63A5\u8FD1 maxmemory,\u5373\u5C06\u89E6\u53D1\u6DD8\u6C70",
-      reason: `used=${(used / 1024 / 1024).toFixed(0)}MB / max=${(mm / 1024 / 1024).toFixed(0)}MB`,
-      evidence: [
-        { kind: "metric", value: `used_memory=${used}` },
-        { kind: "config", value: `maxmemory=${mm}` }
-      ],
-      impact: { metric: "cache_miss_rate", value: +(ratio * 100).toFixed(1), unit: "percent", confidence: "high" },
-      citations: [
-        { title: "Redis \xB7 Eviction policies", url: "https://redis.io/docs/latest/develop/reference/eviction/" }
-      ],
-      recommendations: [
-        {
-          action: "\u6269\u5BB9 maxmemory \u6216\u6392\u67E5\u5927 key",
-          rationale: "\u907F\u514D\u8FC7\u9AD8\u7684\u6DD8\u6C70\u7387\u548C\u6F5C\u5728\u7684 OOM",
-          type: "mitigate",
-          fix_cost: "trivial",
-          verifiable: true
-        }
-      ]
-    });
-  }
-  return okResult({
-    id,
-    title,
-    bucket: 2,
-    scope,
-    summary: `max=${(mm / 1024 / 1024).toFixed(0)}MB \xB7 used=${(used / 1024 / 1024).toFixed(0)}MB`,
-    reason: "maxmemory \u5408\u7406\u4E14\u672A\u63A5\u8FD1\u4E0A\u9650"
-  });
-};
-var check_redis_maxmemory_policy = (ctx) => {
-  const id = "redis.config.maxmemory_policy";
-  const title = "eviction policy";
-  const skip = skipIfFailed2(ctx, id, title, 2);
-  if (skip) return skip;
-  const scope = rdScope(ctx);
-  const m = ctx.db_metrics;
-  const p = m.config?.["maxmemory-policy"] || "";
-  if (!p) {
-    return infoResult({ id, title, bucket: 2, scope, summary: "\u672A\u91C7\u96C6 policy", reason: "CONFIG GET maxmemory-policy \u8FD4\u56DE\u7A7A" });
-  }
-  if (p === "noeviction") {
-    return finding({
-      id,
-      title,
-      severity: "warning",
-      bucket: 2,
-      scope,
-      summary: "policy=noeviction",
-      description: "noeviction \u4E0B maxmemory \u6EE1\u540E\u6240\u6709\u5199\u8BF7\u6C42\u5931\u8D25;\u7F13\u5B58\u573A\u666F\u5E94\u7528 allkeys-*",
-      reason: "maxmemory-policy=noeviction \xB7 \u7F13\u5B58\u573A\u666F\u4E0D\u9002\u7528",
-      evidence: [{ kind: "config", value: `maxmemory-policy=${p}` }],
-      impact: { metric: "cache_miss_rate", value: 15, unit: "percent", confidence: "medium" },
-      citations: [
-        { title: "Redis \xB7 Eviction policies", url: "https://redis.io/docs/latest/develop/reference/eviction/" }
-      ],
-      recommendations: [
-        {
-          action: "redis-cli CONFIG SET maxmemory-policy allkeys-lfu && redis-cli CONFIG REWRITE",
-          rationale: "\u7F13\u5B58\u573A\u666F\u7528 allkeys-lfu;\u6DF7\u7528\u6570\u636E\u7528 volatile-lru",
-          type: "repair",
-          fix_cost: "trivial",
-          verifiable: true
-        }
-      ]
-    });
-  }
-  return okResult({ id, title, bucket: 2, scope, summary: `policy=${p}`, reason: "\u6DD8\u6C70\u7B56\u7565\u8BBE\u7F6E\u5408\u7406" });
-};
-var check_redis_persistence = (ctx) => {
-  const id = "redis.config.persistence";
-  const title = "Persistence";
-  const skip = skipIfFailed2(ctx, id, title, 2);
-  if (skip) return skip;
-  const scope = rdScope(ctx);
-  const m = ctx.db_metrics;
-  const aof = m.config?.appendonly || "no";
-  const save = m.config?.save || "";
-  if (aof === "no" && !save.trim()) {
-    return finding({
-      id,
-      title,
-      severity: "warning",
-      bucket: 2,
-      scope,
-      summary: "AOF=off \u4E14 save=\u7A7A",
-      description: "\u65E0\u4EFB\u4F55\u6301\u4E45\u5316,Redis \u5185\u5B58\u6570\u636E\u4E22\u5931\u4E0D\u53EF\u6062\u590D",
-      reason: `appendonly=${aof} \xB7 save='${save}'`,
-      evidence: [
-        { kind: "config", value: `appendonly=${aof}` },
-        { kind: "config", value: `save='${save}'` }
-      ],
-      impact: { metric: "db_time_pct", value: 30, unit: "percent", confidence: "medium" },
-      citations: [
-        { title: "Redis \xB7 Persistence", url: "https://redis.io/docs/latest/operate/oss_and_stack/management/persistence/" }
-      ],
-      recommendations: [
-        {
-          action: "redis-cli CONFIG SET appendonly yes && redis-cli CONFIG REWRITE",
-          rationale: "\u751F\u4EA7\u5F00 AOF everysec \u6216 RDB+AOF \u53CC\u4FDD\u9669",
-          type: "prevent",
-          fix_cost: "trivial",
-          verifiable: true
-        }
-      ]
-    });
-  }
-  return okResult({
-    id,
-    title,
-    bucket: 2,
-    scope,
-    summary: `AOF=${aof} \xB7 save='${save || "none"}'`,
-    reason: "\u81F3\u5C11\u4E00\u79CD\u6301\u4E45\u5316\u5DF2\u542F\u7528"
-  });
-};
-var check_redis_memory_frag = (ctx) => {
-  const id = "redis.runtime.mem_fragmentation_ratio";
-  const title = "\u5185\u5B58\u788E\u7247\u7387";
-  const skip = skipIfFailed2(ctx, id, title, 5);
-  if (skip) return skip;
-  const scope = rdScope(ctx);
-  const m = ctx.db_metrics;
-  const frag = toFloat(m.info?.mem_fragmentation_ratio);
-  if (frag === 0) {
-    return infoResult({ id, title, bucket: 5, scope, summary: "\u65E0 mem_fragmentation_ratio", reason: "INFO memory \u672A\u8FD4\u56DE" });
-  }
-  if (frag >= 1 && frag <= 1.5) {
-    return okResult({ id, title, bucket: 5, scope, summary: `frag=${frag.toFixed(2)}`, reason: "\u788E\u7247\u7387\u5728 1.0-1.5 \u5065\u5EB7\u533A" });
-  }
-  const severity = "warning";
-  const description = frag > 1.5 ? "\u788E\u7247\u7387\u8FC7\u9AD8,\u5927\u91CF\u5185\u5B58\u6D6A\u8D39,\u8003\u8651 activedefrag \u6216 restart" : "\u788E\u7247\u7387 < 1,\u5185\u5B58\u4E0D\u8DB3\u88AB swap";
-  return finding({
-    id,
-    title,
-    severity,
-    bucket: 5,
-    scope,
-    summary: `frag=${frag.toFixed(2)} \u504F\u79BB\u5065\u5EB7\u533A`,
-    description,
-    reason: `mem_fragmentation_ratio=${frag.toFixed(2)} \xB7 \u5065\u5EB7\u533A 1.0-1.5`,
-    evidence: [{ kind: "metric", value: `mem_fragmentation_ratio=${frag.toFixed(2)}` }],
-    impact: { metric: "wasted_bytes", value: frag > 1.5 ? +((frag - 1) * 100).toFixed(1) : 10, unit: "percent", confidence: "medium" },
-    citations: [
-      { title: "Redis \xB7 Memory Optimization", url: "https://redis.io/docs/latest/operate/oss_and_stack/management/optimization/memory-optimization/" }
-    ],
-    recommendations: [
-      {
-        action: "redis-cli CONFIG SET activedefrag yes",
-        rationale: "\u542F\u7528\u4E3B\u52A8\u788E\u7247\u6574\u7406;\u4E25\u91CD\u65F6\u8003\u8651 restart",
-        type: "repair",
-        fix_cost: "trivial",
-        verifiable: true
-      }
-    ]
-  });
-};
-var check_redis_slowlog = (ctx) => {
-  const id = "redis.runtime.slowlog";
-  const title = "slowlog";
-  const skip = skipIfFailed2(ctx, id, title, 5);
-  if (skip) return skip;
-  const scope = rdScope(ctx);
-  const m = ctx.db_metrics;
-  const entries = m.slowlog || [];
-  if (entries.length === 0) {
-    return okResult({ id, title, bucket: 5, scope, summary: "0 \u6761", reason: "slowlog \u65E0\u8BB0\u5F55" });
-  }
-  const maxUs = Math.max(...entries.map((e) => e.duration_us));
-  if (maxUs <= 1e5) {
-    return infoResult({
-      id,
-      title,
-      bucket: 5,
-      scope,
-      summary: `${entries.length} entries \xB7 max=${(maxUs / 1e3).toFixed(1)}ms`,
-      reason: "\u5B58\u5728\u6162\u8BF7\u6C42\u4F46\u672A\u8D85 100ms"
-    });
-  }
-  return finding({
-    id,
-    title,
-    severity: "warning",
-    bucket: 5,
-    scope,
-    summary: `max=${(maxUs / 1e3).toFixed(1)}ms > 100ms`,
-    description: "\u5355\u7EBF\u7A0B Redis \u6162\u547D\u4EE4\u4F1A\u963B\u585E\u6240\u6709\u8FDE\u63A5",
-    reason: `\u6700\u6162\u8BF7\u6C42 ${(maxUs / 1e3).toFixed(1)}ms \u8D85 100ms \u9608\u503C`,
-    evidence: [{ kind: "metric", value: `slowlog_max_us=${maxUs}` }],
-    impact: { metric: "latency_p95_ms", value: +(maxUs / 1e3).toFixed(1), unit: "ms", confidence: "high" },
-    citations: [
-      { title: "Redis \xB7 Latency Optimization", url: "https://redis.io/docs/latest/operate/oss_and_stack/management/optimization/latency/" }
-    ],
-    recommendations: [
-      {
-        action: "\u68C0\u67E5 SLOWLOG GET \xB7 \u907F\u514D KEYS/SORT \u5927\u96C6\u5408 \xB7 \u62C6 HGET/HSET \u5C0F\u6279\u91CF",
-        rationale: "\u5355\u547D\u4EE4\u963B\u585E\u5F71\u54CD\u6240\u6709\u5BA2\u6237\u7AEF,\u5FC5\u987B\u4F18\u5316\u6216\u62C6\u5206",
-        type: "repair",
-        fix_cost: "trivial",
-        verifiable: false
-      }
-    ]
-  });
-};
-var check_redis_clients = (ctx) => {
-  const id = "redis.runtime.connected_clients";
-  const title = "clients \u8FDE\u63A5\u6570";
-  const skip = skipIfFailed2(ctx, id, title, 5);
-  if (skip) return skip;
-  const scope = rdScope(ctx);
-  const m = ctx.db_metrics;
-  const c = toFloat(m.info?.connected_clients);
-  const max = toFloat(m.config?.maxclients);
-  const pct = max > 0 ? c / max * 100 : 0;
-  if (pct <= 80 || max === 0) {
-    return okResult({
-      id,
-      title,
-      bucket: 5,
-      scope,
-      summary: `clients=${c}${max > 0 ? `/${max} (${pct.toFixed(1)}%)` : ""}`,
-      reason: "\u8FDE\u63A5\u4F7F\u7528\u7387\u6B63\u5E38"
-    });
-  }
-  return finding({
-    id,
-    title,
-    severity: "warning",
-    bucket: 5,
-    scope,
-    summary: `${pct.toFixed(1)}% of maxclients`,
-    description: "\u8FDE\u63A5\u4F7F\u7528\u7387 > 80%,\u63A5\u8FD1 maxclients \u4E0A\u9650",
-    reason: `connected_clients=${c} / maxclients=${max}`,
-    evidence: [
-      { kind: "metric", value: `connected_clients=${c}` },
-      { kind: "config", value: `maxclients=${max}` }
-    ],
-    impact: { metric: "connection_util_pct", value: +pct.toFixed(1), unit: "percent", confidence: "high" },
-    citations: [
-      { title: "Redis \xB7 Admin Guide (maxclients)", url: "https://redis.io/docs/latest/operate/oss_and_stack/management/admin/" }
-    ],
-    recommendations: [
-      {
-        action: "redis-cli CONFIG SET maxclients 10000",
-        rationale: "\u6269\u5BB9 maxclients \u4EE5\u652F\u6301\u5F53\u524D\u5E76\u53D1",
-        type: "mitigate",
-        fix_cost: "trivial",
-        verifiable: true
-      }
-    ]
-  });
-};
-var redisChecks = [
-  check_redis_maxmemory,
-  check_redis_maxmemory_policy,
-  check_redis_persistence,
-  check_redis_memory_frag,
-  check_redis_slowlog,
-  check_redis_clients
-];
-
-// skills/perf-kp-sql/src/engines/redis/collector.ts
-function parseRedisStdout(stdout) {
-  const out = {};
-  if (!stdout || stdout.trim().length === 0) {
-    out._db_collection_failed = true;
-    out._db_collection_error = "redis-cli \u8FD4\u56DE\u7A7A\u8F93\u51FA";
-    return out;
-  }
-  const sections = splitSections2(stdout);
-  out.info = parseInfo(sections.INFO || []);
-  out.config = parseConfigGet(sections.CONFIG || []);
-  out.slowlog = parseSlowlog(sections.SLOWLOG || []);
-  out.client_count = (sections.CLIENT || []).length;
-  out.memory = parseInfo(sections.MEMORY || []);
-  out.bigkeys_summary = (sections.BIGKEYS_SAMPLE || []).join("\n");
-  return out;
-}
-function splitSections2(stdout) {
-  const lines = stdout.split("\n");
-  const sections = {};
-  let current = null;
-  for (const line of lines) {
-    const m = /^###([A-Z_]+)###\s*$/.exec(line.trim());
-    if (m) {
-      current = m[1];
-      sections[current] = [];
-      continue;
-    }
-    if (current) sections[current].push(line);
-  }
-  return sections;
-}
-function parseInfo(lines) {
-  const out = {};
-  for (const raw of lines) {
-    const line = raw.trim();
-    if (!line || line.startsWith("#")) continue;
-    const idx = line.indexOf(":");
-    if (idx > 0) out[line.slice(0, idx).trim()] = line.slice(idx + 1).trim();
-  }
-  return out;
-}
-function parseConfigGet(lines) {
-  const cleaned = lines.map((l) => l.trim()).filter((l) => l.length > 0);
-  const out = {};
-  for (let i = 0; i < cleaned.length - 1; i += 2) {
-    out[cleaned[i]] = cleaned[i + 1];
-  }
-  return out;
-}
-function parseSlowlog(lines) {
-  const entries = [];
-  let cur = null;
-  let intCounter = 0;
-  for (const raw of lines) {
-    const line = raw.trim();
-    if (/^\d+\)/.test(line) && !/\(integer\)/.test(line)) {
-      if (cur) entries.push(cur);
-      cur = { id: "", ts: 0, duration_us: 0, cmd: "" };
-      intCounter = 0;
-      continue;
-    }
-    const intMatch = /\(integer\)\s+(\d+)/.exec(line);
-    if (intMatch && cur) {
-      const n = Number.parseInt(intMatch[1], 10);
-      if (intCounter === 0) cur.id = String(n);
-      if (intCounter === 1) cur.ts = n;
-      if (intCounter === 2) cur.duration_us = n;
-      intCounter++;
-      continue;
-    }
-    const strMatch = /^\d+\)\s+"(.+)"\s*$/.exec(line);
-    if (strMatch && cur) {
-      cur.cmd = cur.cmd ? `${cur.cmd} ${strMatch[1]}` : strMatch[1];
-    }
-  }
-  if (cur) entries.push(cur);
-  return entries;
-}
-
-// skills/perf-kp-sql/src/report.ts
+// plugins/perf-kp-sql/src/report.ts
 var SEVERITY_WEIGHT = {
   critical: 10,
   warning: 5,
@@ -4269,8 +2811,6 @@ function inferAuthority(url) {
   if (u.includes("aws.amazon.com") && u.includes("graviton")) return { tier: "vendor-primary", label: "[AWS Graviton]" };
   if (u.includes("amperecomputing.com")) return { tier: "vendor-primary", label: "[Ampere]" };
   if (u.includes("mongodb.com/docs")) return { tier: "official", label: "[MongoDB \u5B98\u65B9]" };
-  if (u.includes("dev.mysql.com/doc")) return { tier: "official", label: "[MySQL \u5B98\u65B9]" };
-  if (u.includes("redis.io/docs")) return { tier: "official", label: "[Redis \u5B98\u65B9]" };
   if (u.includes("percona.com/blog") || u.includes("mongodb.com/blog") || u.includes("huaweicloud.com"))
     return { tier: "vendor-blog", label: "[\u5382\u5546\u535A\u5BA2]" };
   return { tier: "community", label: "[\u793E\u533A]" };
@@ -4413,8 +2953,327 @@ function collectEvidenceTrail(ranked) {
   return sorted;
 }
 
-// skills/perf-kp-sql/src/rule-engine.ts
-function evaluateRule(rule, collected) {
+// plugins/perf-kp-sql/src/rule-engine-v2.ts
+var FIELD_BRACKET_RE = /^\['([^']+)'\]|^\["([^"]+)"\]|^\[(\d+)\]/;
+function resolveField(metrics, path) {
+  let cur = metrics;
+  let i = 0;
+  let token = "";
+  while (i < path.length) {
+    const ch = path[i];
+    if (ch === ".") {
+      if (token) {
+        cur = cur?.[token];
+        token = "";
+      }
+      i++;
+    } else if (ch === "[") {
+      if (token) {
+        cur = cur?.[token];
+        token = "";
+      }
+      const sub = path.slice(i);
+      const m = sub.match(FIELD_BRACKET_RE);
+      if (!m) return void 0;
+      const key = m[1] ?? m[2] ?? m[3];
+      cur = cur?.[key];
+      i += m[0].length;
+    } else {
+      token += ch;
+      i++;
+    }
+  }
+  if (token) cur = cur?.[token];
+  return cur;
+}
+function tokenize(input) {
+  const tokens = [];
+  let i = 0;
+  while (i < input.length) {
+    const ch = input[i];
+    if (ch === " " || ch === "	" || ch === "\n") {
+      i++;
+      continue;
+    }
+    if (ch === "(") {
+      tokens.push({ kind: "lparen" });
+      i++;
+      continue;
+    }
+    if (ch === ")") {
+      tokens.push({ kind: "rparen" });
+      i++;
+      continue;
+    }
+    if (ch === ",") {
+      tokens.push({ kind: "comma" });
+      i++;
+      continue;
+    }
+    if (ch === "+" || ch === "-" || ch === "*" || ch === "/") {
+      tokens.push({ kind: "op", v: ch });
+      i++;
+      continue;
+    }
+    if (ch === "'" || ch === '"') {
+      const quote = ch;
+      let j = i + 1;
+      while (j < input.length && input[j] !== quote) j++;
+      if (j >= input.length) throw new Error(`unterminated string literal at ${i}`);
+      tokens.push({ kind: "str", v: input.slice(i + 1, j) });
+      i = j + 1;
+      continue;
+    }
+    if (/[0-9]/.test(ch)) {
+      let j = i;
+      while (j < input.length && /[0-9.]/.test(input[j])) j++;
+      tokens.push({ kind: "num", v: parseFloat(input.slice(i, j)) });
+      i = j;
+      continue;
+    }
+    if (/[a-zA-Z_]/.test(ch)) {
+      let j = i;
+      while (j < input.length) {
+        const c = input[j];
+        if (c === void 0) break;
+        if (/[a-zA-Z0-9_]/.test(c)) {
+          j++;
+          continue;
+        }
+        if (c === ".") {
+          j++;
+          continue;
+        }
+        if (c === "[") {
+          const sub = input.slice(j);
+          const m = sub.match(FIELD_BRACKET_RE);
+          if (m) {
+            j += m[0].length;
+            continue;
+          }
+          break;
+        }
+        break;
+      }
+      tokens.push({ kind: "ident", v: input.slice(i, j) });
+      i = j;
+      continue;
+    }
+    throw new Error(`unexpected char '${ch}' at ${i}`);
+  }
+  return tokens;
+}
+function peek(p) {
+  return p.tokens[p.i];
+}
+function eat(p) {
+  return p.tokens[p.i++];
+}
+function parseExpr(p) {
+  let l = parseTerm(p);
+  while (true) {
+    const t = peek(p);
+    if (t?.kind === "op" && (t.v === "+" || t.v === "-")) {
+      eat(p);
+      const r = parseTerm(p);
+      l = { kind: "binop", op: t.v, l, r };
+    } else break;
+  }
+  return l;
+}
+function parseTerm(p) {
+  let l = parseFactor(p);
+  while (true) {
+    const t = peek(p);
+    if (t?.kind === "op" && (t.v === "*" || t.v === "/")) {
+      eat(p);
+      const r = parseFactor(p);
+      l = { kind: "binop", op: t.v, l, r };
+    } else break;
+  }
+  return l;
+}
+function parseFactor(p) {
+  const t = eat(p);
+  if (t.kind === "num") return { kind: "num", v: t.v };
+  if (t.kind === "str") return { kind: "str", v: t.v };
+  if (t.kind === "lparen") {
+    const e = parseExpr(p);
+    const rp = eat(p);
+    if (rp.kind !== "rparen") throw new Error("expected )");
+    return e;
+  }
+  if (t.kind === "ident") {
+    const next = peek(p);
+    if (next?.kind === "lparen") {
+      eat(p);
+      const args = [];
+      if (peek(p)?.kind !== "rparen") {
+        args.push(parseExpr(p));
+        while (peek(p)?.kind === "comma") {
+          eat(p);
+          args.push(parseExpr(p));
+        }
+      }
+      const rp = eat(p);
+      if (rp.kind !== "rparen") throw new Error("expected ) in fn");
+      return { kind: "fn", name: t.v, args };
+    }
+    return { kind: "field", path: t.v };
+  }
+  throw new Error(`unexpected token ${JSON.stringify(t)}`);
+}
+function evalAst(ast, metrics) {
+  if (ast.kind === "num") return ast.v;
+  if (ast.kind === "str") {
+    throw new Error(`unexpected string literal '${ast.v}' outside fn arg`);
+  }
+  if (ast.kind === "field") {
+    const v = resolveField(metrics, ast.path);
+    if (typeof v === "number") return v;
+    if (typeof v === "string") {
+      const n = parseFloat(v);
+      if (Number.isFinite(n)) return n;
+    }
+    if (typeof v === "boolean") return v ? 1 : 0;
+    throw new Error(`field ${ast.path} not numeric (got ${JSON.stringify(v)})`);
+  }
+  if (ast.kind === "fn") {
+    if (ast.name === "rate") return evalRate(ast, metrics);
+    if (ast.name === "baseline") return evalBaseline(ast, metrics);
+    const args = ast.args.map((a) => evalAst(a, metrics));
+    if (ast.name === "max") return Math.max(...args);
+    if (ast.name === "min") return Math.min(...args);
+    if (ast.name === "safe_divide") {
+      if (args.length !== 2) throw new Error("safe_divide needs 2 args");
+      return args[1] === 0 ? 0 : args[0] / args[1];
+    }
+    if (ast.name === "abs") return Math.abs(args[0]);
+    throw new Error(`unknown fn ${ast.name}`);
+  }
+  if (ast.kind === "binop") {
+    const l = evalAst(ast.l, metrics);
+    const r = evalAst(ast.r, metrics);
+    if (ast.op === "+") return l + r;
+    if (ast.op === "-") return l - r;
+    if (ast.op === "*") return l * r;
+    if (ast.op === "/") {
+      if (r === 0) throw new Error("division by zero (use safe_divide)");
+      return l / r;
+    }
+  }
+  throw new Error("unreachable");
+}
+function evalRate(ast, metrics) {
+  if (ast.args.length !== 2) throw new Error("rate needs 2 args: rate(path, '5s')");
+  const pathAst = ast.args[0];
+  const intvAst = ast.args[1];
+  if (pathAst.kind !== "field") throw new Error("rate arg 1 must be a field path");
+  if (intvAst.kind !== "str") throw new Error("rate arg 2 must be string literal like '5s'");
+  const m = intvAst.v.match(/^(\d+)\s*s$/i);
+  if (!m) throw new Error(`rate interval must be '<number>s', got '${intvAst.v}'`);
+  const actualSec = metrics.sample_interval_sec;
+  if (typeof actualSec !== "number" || actualSec <= 0) {
+    throw new Error("sample_interval_sec missing or invalid (collector v2 \u53CC\u91C7\u6837\u672A\u751F\u6548?)");
+  }
+  const path = pathAst.path;
+  if (!path.startsWith("serverStatus")) {
+    throw new Error(`rate only supports serverStatus.* paths, got '${path}'`);
+  }
+  const t0Path = "t0_" + path;
+  const t1Path = "t1_" + path;
+  const t0 = numericOrNull(resolveField(metrics, t0Path));
+  const t1 = numericOrNull(resolveField(metrics, t1Path));
+  if (t0 === null) throw new Error(`rate: t0 field ${t0Path} not collected`);
+  if (t1 === null) throw new Error(`rate: t1 field ${t1Path} not collected`);
+  return (t1 - t0) / actualSec;
+}
+function evalBaseline(ast, metrics) {
+  if (ast.args.length !== 1) throw new Error("baseline needs 1 arg: baseline(path)");
+  const pathAst = ast.args[0];
+  if (pathAst.kind !== "field") throw new Error("baseline arg 1 must be a field path");
+  const baselines = metrics.baseline;
+  if (!baselines || typeof baselines !== "object") {
+    throw new Error("baseline data missing (~/.ohsql/perf-kp-sql/baselines/<host>.json \u672A\u52A0\u8F7D?)");
+  }
+  const v = baselines[pathAst.path];
+  if (typeof v !== "number" || !Number.isFinite(v)) {
+    throw new Error(`baseline: no value for '${pathAst.path}'`);
+  }
+  return v;
+}
+function numericOrNull(v) {
+  if (typeof v === "number" && Number.isFinite(v)) return v;
+  if (typeof v === "string") {
+    const n = parseFloat(v);
+    if (Number.isFinite(n)) return n;
+  }
+  if (typeof v === "boolean") return v ? 1 : 0;
+  return null;
+}
+function evalCompute(expr, metrics) {
+  const tokens = tokenize(expr);
+  const p = { i: 0, tokens };
+  const ast = parseExpr(p);
+  if (p.i !== tokens.length) throw new Error("trailing tokens");
+  return evalAst(ast, metrics);
+}
+function applyOp(op, actual, expected) {
+  switch (op) {
+    case "eq":
+      return actual === expected;
+    case "ne":
+      return actual !== expected;
+    case "gt":
+      return Number(actual) > Number(expected);
+    case "lt":
+      return Number(actual) < Number(expected);
+    case "ge":
+      return Number(actual) >= Number(expected);
+    case "le":
+      return Number(actual) <= Number(expected);
+    case "contains":
+      return String(actual).includes(String(expected));
+    case "not_contains":
+      return !String(actual).includes(String(expected));
+  }
+}
+function evaluateCheck(check, metrics) {
+  let actual;
+  try {
+    if (check.compute) {
+      actual = evalCompute(check.compute, metrics);
+    } else if (check.metric) {
+      actual = resolveField(metrics, check.metric);
+      if (actual === void 0) return { triggered: false, actual: "(undefined)", error: "metric not collected" };
+    } else {
+      return { triggered: false, actual: "(none)", error: "no compute / metric" };
+    }
+  } catch (e) {
+    return { triggered: false, actual: "(error)", error: e?.message ?? String(e) };
+  }
+  return { triggered: applyOp(check.op, actual, check.value), actual };
+}
+function evaluateRule(rule, metrics) {
+  if (rule.when && rule.when.length > 0) {
+    for (const w of rule.when) {
+      const r = evaluateCheck(w, metrics);
+      if (r.error) return { rule_id: rule.rule_id, status: "skipped", skipped_reason: `when: ${r.error}` };
+      if (!r.triggered) return { rule_id: rule.rule_id, status: "skipped", skipped_reason: `when not satisfied: ${w.compute ?? w.metric} ${w.op} ${w.value} \xB7 actual=${r.actual}` };
+    }
+  }
+  for (const c of rule.checks) {
+    const r = evaluateCheck(c, metrics);
+    if (r.error) return { rule_id: rule.rule_id, status: "error", error: r.error };
+    if (r.triggered) {
+      return { rule_id: rule.rule_id, status: "finding", triggered_check: { ...c, actual: r.actual } };
+    }
+  }
+  return { rule_id: rule.rule_id, status: "ok" };
+}
+
+// plugins/perf-kp-sql/src/rule-engine.ts
+function evaluateRule2(rule, collected) {
   const base = {
     rule_id: rule.rule_id,
     engine: rule.engine,
@@ -4454,7 +3313,7 @@ function evaluateRule(rule, collected) {
   return { ...base, status: "ok", summary: `${rule.title}\uFF08\u6B63\u5E38\uFF09` };
 }
 function evaluateAll(rules, collected) {
-  return rules.map((r) => evaluateRule(r, collected));
+  return rules.map((r) => evaluateRule2(r, collected));
 }
 function parseRuleRow(row) {
   return {
@@ -4590,8 +3449,278 @@ function toCheckResult(r, scope) {
 function evaluateRulesAsCheckResults(rules, collected, scope) {
   return evaluateAll(rules, collected).map((r) => toCheckResult(r, scope));
 }
+function parseV2RuleRow(row) {
+  return {
+    ...parseRuleRow(row),
+    v2_when: row.v2_when || null,
+    v2_checks: row.v2_checks || null,
+    fix: row.fix || null,
+    fix_cost: row.fix_cost || null,
+    source_quote: row.source_quote || null
+  };
+}
+function evaluateV2RulesAsCheckResults(rows, metrics, scope) {
+  const out = [];
+  for (const row of rows) {
+    let when = [];
+    let checks = [];
+    try {
+      when = row.v2_when ? JSON.parse(row.v2_when) : [];
+      checks = row.v2_checks ? JSON.parse(row.v2_checks) : [];
+    } catch {
+      out.push(infoResult({
+        id: row.rule_id,
+        title: row.title,
+        bucket: toBucket(row.bucket),
+        scope,
+        summary: `${row.title}\uFF08v2 \u89C4\u5219\u89E3\u6790\u5931\u8D25\uFF09`,
+        reason: "v2_when/v2_checks \u4E0D\u662F\u5408\u6CD5 JSON"
+      }));
+      continue;
+    }
+    if (checks.length === 0) continue;
+    const rule = { rule_id: row.rule_id, when, checks };
+    const r = evaluateRule(rule, metrics);
+    if (r.status === "finding") {
+      const t = r.triggered_check;
+      const expr = t.compute ?? t.metric ?? "";
+      const recs = row.fix ? [{
+        action: row.fix,
+        rationale: row.description || row.title,
+        type: "mitigate",
+        fix_cost: toFixCost(row.fix_cost || ""),
+        verifiable: row.fix_cost === "trivial"
+      }] : [];
+      const citations = row.source_url ? [{ title: row.source_title || row.title, url: row.source_url }] : [];
+      const sev = (row.severity || "warning").toLowerCase();
+      const severity = sev === "critical" ? "critical" : sev === "info" ? "info" : "warning";
+      const impactValue = severity === "critical" ? 30 : severity === "warning" ? 10 : 3;
+      out.push(finding({
+        id: row.rule_id,
+        title: row.title,
+        severity,
+        bucket: toBucket(row.bucket),
+        scope,
+        summary: `${expr}=${formatActual(t.actual)} \xB7 \u671F\u671B ${t.op} ${t.value}`,
+        description: row.description || row.title,
+        reason: `${expr} \u2192 ${formatActual(t.actual)}\uFF08\u671F\u671B ${t.op} ${t.value}${t.unit ? " " + t.unit : ""}\uFF09`,
+        evidence: [{
+          kind: "metric",
+          value: `${expr}=${formatActual(t.actual)}`,
+          measured_at: (/* @__PURE__ */ new Date()).toISOString(),
+          source_url: row.source_url || void 0
+        }],
+        impact: {
+          metric: "db_time_pct",
+          value: impactValue,
+          unit: "percent",
+          confidence: "medium"
+        },
+        citations,
+        recommendations: recs,
+        needs_human_review: recs.length === 0
+      }));
+    } else if (r.status === "ok") {
+      out.push(okResult({
+        id: row.rule_id,
+        title: row.title,
+        bucket: toBucket(row.bucket),
+        scope,
+        summary: `${row.title}\uFF08\u6B63\u5E38\uFF09`,
+        reason: row.description || "v2 \u68C0\u67E5\u901A\u8FC7",
+        citations: row.source_url ? [{ title: row.source_title || row.title, url: row.source_url }] : []
+      }));
+    } else if (r.status === "skipped") {
+      out.push(infoResult({
+        id: row.rule_id,
+        title: row.title,
+        bucket: toBucket(row.bucket),
+        scope,
+        summary: `${row.title}\uFF08\u6761\u4EF6\u4E0D\u6EE1\u8DB3 \xB7 \u5DF2\u8DF3\u8FC7\uFF09`,
+        reason: r.skipped_reason || "when \u4E0D\u6EE1\u8DB3",
+        skip_reason: "runtime_data_missing"
+      }));
+    } else {
+      out.push(infoResult({
+        id: row.rule_id,
+        title: row.title,
+        bucket: toBucket(row.bucket),
+        scope,
+        summary: `${row.title}\uFF08\u8BC4\u4F30\u9519\u8BEF\uFF09`,
+        reason: r.error || "unknown error",
+        skip_reason: "runtime_data_missing"
+      }));
+    }
+  }
+  return out;
+}
+function formatActual(v) {
+  if (typeof v === "number") {
+    if (Number.isInteger(v)) return String(v);
+    return v.toFixed(4);
+  }
+  return String(v);
+}
 
-// skills/perf-kp-sql/src/cli-diagnose.ts
+// plugins/perf-kp-sql/src/kb-enrich.ts
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+function loadSqlite() {
+  let Database;
+  try {
+    Database = __require("better-sqlite3");
+  } catch {
+    return null;
+  }
+  return Database;
+}
+function defaultKbPath() {
+  const __dirname_local = typeof __dirname !== "undefined" ? __dirname : dirname(fileURLToPath(import.meta.url));
+  return join(__dirname_local, "..", "data", "knowledge.sqlite");
+}
+function enrichResultsFromKb(results, dbPath) {
+  const Database = loadSqlite();
+  if (!Database) return results;
+  let db;
+  try {
+    db = new Database(dbPath ?? defaultKbPath(), { readonly: true });
+  } catch {
+    return results;
+  }
+  try {
+    const has = db.prepare(
+      "SELECT count(*) as cnt FROM sqlite_master WHERE type='table' AND name='knowledge'"
+    ).get();
+    if (!has || has.cnt === 0) return results;
+    const stmt = db.prepare(
+      "SELECT fact_type, quote, source_url, provenance FROM knowledge WHERE rule_id = ? AND quote IS NOT NULL AND quote != ''"
+    );
+    return results.map((r) => {
+      try {
+        const rows = stmt.all(r.id);
+        return mergeFactsIntoResult(r, rows);
+      } catch {
+        return r;
+      }
+    });
+  } finally {
+    db.close();
+  }
+}
+var FORBID_MODEL_GEN_FOR = /* @__PURE__ */ new Set(["threshold", "remediation"]);
+function mergeFactsIntoResult(r, rows) {
+  const factsByType = /* @__PURE__ */ new Map();
+  for (const row of rows) {
+    if (!row.quote) continue;
+    const prov = row.provenance ?? "verified";
+    if (FORBID_MODEL_GEN_FOR.has(row.fact_type) && prov === "model-generated") continue;
+    if (!factsByType.has(row.fact_type)) factsByType.set(row.fact_type, []);
+    factsByType.get(row.fact_type).push({ quote: row.quote, source_url: row.source_url, provenance: prov });
+  }
+  const pick = (type) => factsByType.get(type)?.[0];
+  const all = (type) => factsByType.get(type) ?? [];
+  const out = { ...r };
+  out.rationale = {
+    summary: pick("summary")?.quote ?? "n/a",
+    mechanism: pick("mechanism")?.quote ?? "n/a",
+    trade_offs: pick("trade_off")?.quote ?? "n/a",
+    when_to_deviate: pick("when_deviate")?.quote ?? "n/a"
+  };
+  out.summary = pick("summary")?.quote ?? pick("citation")?.quote ?? "";
+  const summaryPart = pick("summary")?.quote;
+  const mechanismPart = pick("mechanism")?.quote;
+  out.description = [summaryPart, mechanismPart].filter(Boolean).join("\n\n") || "";
+  out.reason = pick("mechanism")?.quote ?? pick("summary")?.quote ?? "";
+  const thr = pick("threshold");
+  out.threshold_display = thr?.quote;
+  const remediations = all("remediation");
+  if (remediations.length > 0) {
+    out.recommendations = remediations.map((f) => ({
+      action: f.quote,
+      rationale: pick("summary")?.quote ?? "",
+      type: "mitigate",
+      fix_cost: "restart_engine",
+      // 保守默认(KB 不评 fix_cost)
+      verifiable: false,
+      fix_url: f.source_url ?? void 0
+      // 角注绑该 quote 的 source_url(footer 渲染用)
+    }));
+  } else {
+    out.recommendations = [];
+  }
+  const citationMap = /* @__PURE__ */ new Map();
+  for (const row of rows) {
+    if (!row.source_url) continue;
+    if (citationMap.has(row.source_url)) continue;
+    citationMap.set(row.source_url, {
+      url: row.source_url,
+      title: r.title || r.id,
+      anchor: row.quote.slice(0, 80)
+    });
+  }
+  out.citations = [...citationMap.values()];
+  if (rows.length === 0) {
+    out.needs_human_review = true;
+  }
+  return out;
+}
+
+// plugins/perf-kp-sql/src/baseline-store.ts
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
+import { join as join2 } from "node:path";
+import { homedir } from "node:os";
+var BASELINE_DIR = join2(homedir(), ".ohsql", "perf-kp-sql", "baselines");
+function baselinePath(hostname) {
+  const safe = hostname.replace(/[^\w.-]/g, "_");
+  return join2(BASELINE_DIR, `${safe}.json`);
+}
+function snapshotFromServerStatus(serverStatus) {
+  const out = {};
+  if (!serverStatus || typeof serverStatus !== "object") return out;
+  flattenNumericLeaves(serverStatus, "serverStatus", out);
+  return out;
+}
+function flattenNumericLeaves(obj, prefix, out) {
+  for (const [k, v] of Object.entries(obj)) {
+    const safeK = /^[A-Za-z_][\w]*$/.test(k) ? `.${k}` : `['${k.replace(/'/g, "\\'")}']`;
+    const path = `${prefix}${safeK}`;
+    if (typeof v === "number" && Number.isFinite(v)) {
+      out[path] = v;
+    } else if (typeof v === "boolean") {
+      out[path] = v ? 1 : 0;
+    } else if (v && typeof v === "object" && !Array.isArray(v)) {
+      flattenNumericLeaves(v, path, out);
+    }
+  }
+}
+function saveBaseline(hostname, snapshot) {
+  if (!existsSync(BASELINE_DIR)) mkdirSync(BASELINE_DIR, { recursive: true });
+  const payload = {
+    saved_at: (/* @__PURE__ */ new Date()).toISOString(),
+    hostname,
+    ...snapshot
+  };
+  const path = baselinePath(hostname);
+  writeFileSync(path, JSON.stringify(payload, null, 2));
+  return path;
+}
+function tryLoadBaseline(hostname) {
+  const path = baselinePath(hostname);
+  if (!existsSync(path)) return null;
+  try {
+    const obj = JSON.parse(readFileSync(path, "utf8"));
+    const out = {};
+    for (const [k, v] of Object.entries(obj)) {
+      if (k === "saved_at" || k === "hostname") continue;
+      if (typeof v === "number" && Number.isFinite(v)) out[k] = v;
+    }
+    return out;
+  } catch {
+    return null;
+  }
+}
+
+// plugins/perf-kp-sql/src/cli-diagnose.ts
 async function main() {
   const inputs = await readInputs();
   let ctx;
@@ -4607,20 +3736,15 @@ async function main() {
     ctx = built.context;
     discovered = built.discovered;
     results = [...runAll(sharedChecks, ctx), ...runAll(mongoChecks, ctx)];
-  } else if (inputs.engine === "mysql") {
-    const osMetrics = parseOsIntoMetrics(inputs.osStdout);
-    const dbMetrics = parseMysqlStdout(inputs.dbStdout);
-    ctx = { os_metrics: osMetrics, db_metrics: dbMetrics, db_type: "mysql" };
-    discovered = extractDiscovery(inputs.osStdout, "mysqld");
-    results = [...runAll(sharedChecks, ctx), ...runAll(mysqlChecks, ctx)];
-  } else if (inputs.engine === "redis") {
-    const osMetrics = parseOsIntoMetrics(inputs.osStdout);
-    const dbMetrics = parseRedisStdout(inputs.dbStdout);
-    ctx = { os_metrics: osMetrics, db_metrics: dbMetrics, db_type: "redis" };
-    discovered = extractDiscovery(inputs.osStdout, "redis-server");
-    results = [...runAll(sharedChecks, ctx), ...runAll(redisChecks, ctx)];
   } else {
-    writeError(`unknown --engine ${inputs.engine} (must be mongo|mysql|redis)`);
+    writeError(`unknown --engine ${inputs.engine} (must be mongo)`);
+  }
+  const hostname = pickHostname(ctx);
+  if (hostname) {
+    const bl = tryLoadBaseline(hostname);
+    if (bl) {
+      ctx.db_metrics.baseline = bl;
+    }
   }
   try {
     const scope = deriveScope(ctx, inputs.engine);
@@ -4643,6 +3767,20 @@ async function main() {
         scope: deriveScope(ctx, inputs.engine),
         summary: `rule-engine: ${e instanceof Error ? e.message : String(e)}`,
         reason: "rule-engine \u52A0\u8F7D\u5931\u8D25\uFF0C\u5DF2\u4F7F\u7528\u65E7 CheckFn \u8DEF\u5F84"
+      })
+    );
+  }
+  try {
+    results = enrichResultsFromKb(results);
+  } catch (e) {
+    results.push(
+      infoResult({
+        id: "internal.kb_enrich.error",
+        title: "kb-enrich fallback",
+        bucket: 5,
+        scope: deriveScope(ctx, inputs.engine),
+        summary: `kb-enrich: ${e instanceof Error ? e.message : String(e)}`,
+        reason: "KB enrich \u5931\u8D25\uFF0C\u7ED3\u679C\u672A\u6CE8\u5165 rationale/recommendations"
       })
     );
   }
@@ -4683,6 +3821,18 @@ async function main() {
     summary,
     check_catalog: checkCatalog
   });
+  if (inputs.saveBaseline && hostname) {
+    const ss = ctx.db_metrics.serverStatus ?? ctx.db_metrics.t1_serverStatus;
+    if (ss) {
+      const snap = snapshotFromServerStatus(ss);
+      const path = saveBaseline(hostname, snap);
+      process.stderr.write(`[baseline] saved ${Object.keys(snap).length} numeric leaves to ${path}
+`);
+    } else {
+      process.stderr.write(`[baseline] serverStatus \u7F3A\u5931 \xB7 \u8DF3\u8FC7\u4FDD\u5B58
+`);
+    }
+  }
   if (inputs.outJson) {
     const { writeFileSync: wfs } = await import("node:fs");
     wfs(inputs.outJson, payload);
@@ -4766,8 +3916,8 @@ function runRuleEngine(ctx, engineName, scope) {
   } catch {
     return [];
   }
-  const __dirname_local = typeof __dirname !== "undefined" ? __dirname : dirname(fileURLToPath(import.meta.url));
-  const dbPath = join(__dirname_local, "..", "data", "knowledge.sqlite");
+  const __dirname_local = typeof __dirname !== "undefined" ? __dirname : dirname2(fileURLToPath2(import.meta.url));
+  const dbPath = join3(__dirname_local, "..", "data", "knowledge.sqlite");
   let db;
   try {
     db = new Database(dbPath, { readonly: true });
@@ -4779,24 +3929,53 @@ function runRuleEngine(ctx, engineName, scope) {
       `SELECT count(*) as cnt FROM sqlite_master WHERE type='table' AND name='rules'`
     ).get();
     if (!hasRules || hasRules.cnt === 0) return [];
+    const cols = db.prepare(`PRAGMA table_info(rules)`).all();
+    const hasV2 = cols.some((c) => c.name === "v2_checks");
     const rows = db.prepare(
-      `SELECT * FROM rules WHERE enabled = 1 AND (engine = ? OR engine = 'any')`
+      `SELECT * FROM rules WHERE engine = ? OR engine = 'any'`
     ).all(engineName);
-    const rules = rows.map(parseRuleRow);
-    if (rules.length === 0) return [];
-    const collected = /* @__PURE__ */ new Map();
-    const osm = ctx.os_metrics;
-    const dbm = ctx.db_metrics;
-    for (const [k, v] of Object.entries(osm)) {
-      if (v !== void 0 && v !== null) collected.set(k, String(v));
+    const allResults = [];
+    if (hasV2) {
+      const v2Rows = [];
+      const v1Rows = [];
+      for (const r of rows) {
+        if (r.v2_checks && String(r.v2_checks).trim() && r.v2_checks !== "[]") {
+          v2Rows.push(r);
+        } else {
+          v1Rows.push(r);
+        }
+      }
+      if (v1Rows.length > 0) {
+        const rules = v1Rows.map(parseRuleRow);
+        const collected = buildCollectedMap(ctx);
+        allResults.push(...evaluateRulesAsCheckResults(rules, collected, scope));
+      }
+      if (v2Rows.length > 0) {
+        const v2Rules = v2Rows.map(parseV2RuleRow);
+        const dbm = ctx.db_metrics;
+        allResults.push(...evaluateV2RulesAsCheckResults(v2Rules, dbm, scope));
+      }
+    } else {
+      const rules = rows.map(parseRuleRow);
+      const collected = buildCollectedMap(ctx);
+      allResults.push(...evaluateRulesAsCheckResults(rules, collected, scope));
     }
-    for (const [k, v] of Object.entries(dbm)) {
-      if (v !== void 0 && v !== null) collected.set(k, String(v));
-    }
-    return evaluateRulesAsCheckResults(rules, collected, scope);
+    return allResults;
   } finally {
     db.close();
   }
+}
+function buildCollectedMap(ctx) {
+  const collected = /* @__PURE__ */ new Map();
+  const osm = ctx.os_metrics;
+  const dbm = ctx.db_metrics;
+  for (const [k, v] of Object.entries(osm)) {
+    if (v !== void 0 && v !== null) collected.set(k, String(v));
+  }
+  for (const [k, v] of Object.entries(dbm)) {
+    if (v !== void 0 && v !== null) collected.set(k, String(v));
+  }
+  return collected;
 }
 function summarize(results, catalogTotal) {
   const total = results.length;
@@ -4807,41 +3986,17 @@ function summarize(results, catalogTotal) {
   const skipped = Math.max(0, catalogTotal - total);
   return { total, critical, warning, info, ok, skipped };
 }
-function extractDiscovery(osStdout, processName) {
-  const lines = osStdout.split("\n");
-  let inDiscovery = false;
-  for (const line of lines) {
-    if (line.trim() === "###DISCOVERY###") {
-      inDiscovery = true;
-      continue;
-    }
-    if (!inDiscovery) continue;
-    if (line.startsWith("###")) break;
-    if (line.includes(`engine=${processName}`)) {
-      const m = {};
-      for (const tok of line.split(/\s+/)) {
-        const eq = tok.indexOf("=");
-        if (eq > 0) m[tok.slice(0, eq)] = tok.slice(eq + 1);
-      }
-      return {
-        engine: m.engine,
-        pid: m.PID,
-        port: m.PORT,
-        bind: m.BIND
-      };
-    }
-  }
-  return {};
-}
 function pickDbVersion(ctx, engine) {
   const m = ctx.db_metrics;
   if (engine === "mongo") return m.version || void 0;
-  if (engine === "mysql") return m.version || void 0;
-  if (engine === "redis") {
-    const info = m.info;
-    return info?.redis_version;
-  }
   return void 0;
+}
+function pickHostname(ctx) {
+  const m = ctx.db_metrics;
+  const hi = m.hostInfo;
+  const sys = hi?.system;
+  const h = sys?.hostname;
+  return typeof h === "string" && h.length > 0 ? h : void 0;
 }
 function numOrUndef(v) {
   if (v === void 0 || v === null) return void 0;
@@ -4867,7 +4022,8 @@ async function readInputs() {
       ascii: !!argv.ascii,
       withVerify: !!argv["with-verify"],
       outJson: argv["out-json"],
-      summaryOnly: !!argv["summary-only"]
+      summaryOnly: !!argv["summary-only"],
+      saveBaseline: !!argv["save-baseline"]
     };
   }
   const raw = await readStdin();
@@ -4891,7 +4047,8 @@ async function readInputs() {
     ascii: !!argv.ascii,
     withVerify: !!argv["with-verify"],
     outJson: argv["out-json"],
-    summaryOnly: !!argv["summary-only"]
+    summaryOnly: !!argv["summary-only"],
+    saveBaseline: !!argv["save-baseline"]
   };
 }
 function parseArgs(args) {

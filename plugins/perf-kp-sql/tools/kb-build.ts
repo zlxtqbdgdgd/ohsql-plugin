@@ -97,7 +97,7 @@ interface OriginalRule {
   fix: string;
   fix_cost: "trivial" | "restart_engine" | "schema_migration";
   source: OriginalSource;
-  engine: "mongo" | "mysql" | "redis" | "any";
+  engine: "mongo" | "any";
   confidence: "high" | "medium" | "low";
   refs: string[];
   needs_human_review?: boolean;
@@ -119,7 +119,11 @@ const WAIT_CLASS_PATTERNS: Array<{ cls: WaitClass; re: RegExp }> = [
 ];
 
 function inferWaitClass(rule: OriginalRule): WaitClass | null {
-  const hay = `${rule.id} ${rule.metric_expr} ${rule.reason}`;
+  return inferWaitClassFromHay(`${rule.id} ${rule.metric_expr} ${rule.reason}`);
+}
+
+/** v5 extractive 路径用 · 红线收紧后 metric_expr/reason 不再存在 · 用 rule_id + quote 推断 */
+function inferWaitClassFromHay(hay: string): WaitClass | null {
   for (const { cls, re } of WAIT_CLASS_PATTERNS) {
     if (re.test(hay)) return cls;
   }
@@ -282,7 +286,7 @@ function upsertFtsAndVec(db: Database.Database, id: number, fact: Fact, vector: 
 }
 
 const DEFAULT_ENGINES = ["mongo"] as const;
-const SUPPORTED_ENGINES = ["mongo", "mysql", "redis"] as const;
+const SUPPORTED_ENGINES = ["mongo"] as const;
 
 function loadRules(engine: string): OriginalRule[] {
   const path = join(skillDir(), "data", engine, "rules.json");
@@ -527,6 +531,189 @@ async function cmdBuild(dbPath: string, engines: string[], modelDir: string, for
   db.close();
 }
 
+// audit-citations 同款 normalize · 给 seed_quote 字面验用(避免污染 KB)
+function stripHtmlForAudit(html: string): string {
+  return html
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<nav[\s\S]*?<\/nav>/gi, " ")
+    .replace(/<aside[\s\S]*?<\/aside>/gi, " ")
+    .replace(/<footer[\s\S]*?<\/footer>/gi, " ")
+    .replace(/<!--[\s\S]*?-->/g, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ").replace(/&amp;/gi, "&").replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">").replace(/&quot;/gi, '"').replace(/&#39;/gi, "'")
+    .replace(/&[a-z]+;/gi, " ");
+}
+function canonicalForAudit(s: string): string {
+  return s
+    .replace(/[\u2018\u2019\u201A\u201B]/g, "'")
+    .replace(/[\u201C\u201D\u201E\u201F]/g, '"')
+    .replace(/[\u2013\u2014]/g, "-")
+    .replace(/\u00A0/g, " ")
+    .replace(/\s+/g, " ").trim().toLowerCase();
+}
+
+// ----------------------------------------------------------------------------
+// cmdRebuildFromVerified · 用 cleaner v5 extractive + 字面验过的 facts 重建 KB
+//
+// 输入: cleaner v5 verified.json + cleaner v5 input.json (拿原始 rule metadata)
+// 流程:
+//   1. 收集 verified facts (verified=true 的 fact)
+//   2. 兜底注入 source.quote (seed):
+//      a. citation 缺失 → seed 当 citation 入库
+//      b. 整规则 0 verified → seed 当 summary 入库 (保证每条规则至少 1 fact)
+//   3. cmdInit(force=true) 清空 sqlite
+//   4. 复用 cmdBuild 的 batch embed + upsertFact + upsertFtsAndVec
+// ----------------------------------------------------------------------------
+
+interface ExtractedFactV5 { type: string; quote: string | null; verified?: boolean; reject_reason?: string }
+interface ExtractedRuleV5 { rule_id: string; source_url: string; source_quote_seed: string | null; facts: ExtractedFactV5[] }
+interface InputRuleV5 {
+  rule_id?: string; id?: string; engine?: string;
+  source?: { url?: string; quote?: string; title?: string; tier?: string; accessed?: string };
+  arch?: string; vendor?: string; os?: string;
+  engine_version_min?: string; engine_version_max?: string;
+}
+
+async function cmdRebuildFromVerified(
+  dbPath: string,
+  modelDir: string,
+  verifiedPath: string,
+  rulesPath: string,
+  htmlCacheDir?: string,
+): Promise<void> {
+  const verified = JSON.parse(readFileSync(verifiedPath, "utf8")) as ExtractedRuleV5[];
+  const inputRules = JSON.parse(readFileSync(rulesPath, "utf8")) as InputRuleV5[];
+
+  const ruleMeta = new Map<string, InputRuleV5>();
+  for (const r of inputRules) {
+    const id = r.rule_id ?? r.id;
+    if (id) ruleMeta.set(id, r);
+  }
+
+  // seed 字面验 · htmlCacheDir 提供时启用 · seed 必须在源 HTML substring 命中才入库
+  // 不命中 → 跳过(规则可能 0 fact · 报告 fallback 不污染 KB)
+  const seedAuditCache = new Map<string, string | null>();
+  function seedFitsHtml(seed: string, sourceUrl: string): boolean {
+    if (!htmlCacheDir) return true; // 无 cache · 退回不验(老行为 · 默认)
+    if (!sourceUrl) return false;
+    let canonHtml = seedAuditCache.get(sourceUrl);
+    if (canonHtml === undefined) {
+      const hash = createHash("sha1").update(sourceUrl).digest("hex").slice(0, 16);
+      const p = join(htmlCacheDir, `${hash}.html`);
+      if (!existsSync(p)) { seedAuditCache.set(sourceUrl, null); canonHtml = null; }
+      else {
+        const html = readFileSync(p, "utf8");
+        canonHtml = canonicalForAudit(stripHtmlForAudit(html));
+        seedAuditCache.set(sourceUrl, canonHtml);
+      }
+    }
+    if (!canonHtml) return false;
+    return canonHtml.indexOf(canonicalForAudit(seed)) >= 0;
+  }
+
+  // 1. 收集 + 兜底
+  const facts: Fact[] = [];
+  let seedFallbackCitation = 0, seedFallbackSummary = 0, seedFallbackRejected = 0;
+  const today = new Date().toISOString().slice(0, 10);
+
+  function makeFact(ruleId: string, factType: FactType, quote: string, meta: InputRuleV5 | undefined): Fact {
+    const engine = (meta?.engine === "any" ? "mongo" : meta?.engine) ?? "mongo";
+    return {
+      rule_id: ruleId,
+      fact_type: factType,
+      wait_class: inferWaitClassFromHay(`${ruleId} ${quote}`),
+      engine,
+      engine_version_min_packed: versionPacked(meta?.engine_version_min),
+      engine_version_max_packed: versionPacked(meta?.engine_version_max),
+      engine_version_min_display: meta?.engine_version_min ?? null,
+      engine_version_max_display: meta?.engine_version_max ?? null,
+      arch: meta?.arch ?? null,
+      vendor: meta?.vendor ?? null,
+      os: meta?.os ?? null,
+      content_zh: quote,
+      content_en: quote,
+      language: "zh",
+      source_url: meta?.source?.url ?? "",
+      source_authority: meta?.source?.tier ?? "official",
+      quote,
+      confidence: 1.0,
+      scraped_at: meta?.source?.accessed ?? today,
+      content_hash: hashContent([ruleId, factType, quote]),
+      semantic_group: null,
+      flame_pattern_regex: null,
+      grade: null,
+    };
+  }
+
+  for (const r of verified) {
+    const meta = ruleMeta.get(r.rule_id);
+    const seed = (r.source_quote_seed ?? meta?.source?.quote ?? "").trim();
+    const verifiedFacts = r.facts.filter((f) => f.verified && f.quote);
+    let hasCitation = false;
+    for (const f of verifiedFacts) {
+      if (f.type === "citation") hasCitation = true;
+      facts.push(makeFact(r.rule_id, f.type as FactType, f.quote!, meta));
+    }
+    if (!hasCitation && seed) {
+      if (seedFitsHtml(seed, r.source_url)) {
+        facts.push(makeFact(r.rule_id, "citation", seed, meta));
+        seedFallbackCitation++;
+      } else {
+        seedFallbackRejected++;
+      }
+    }
+    if (verifiedFacts.length === 0 && seed) {
+      if (seedFitsHtml(seed, r.source_url)) {
+        facts.push(makeFact(r.rule_id, "summary", seed, meta));
+        seedFallbackSummary++;
+      } else {
+        seedFallbackRejected++;
+      }
+    }
+  }
+
+  console.log(`[rebuild] facts collected: ${facts.length}`);
+  console.log(`[rebuild]   verified extracted: ${facts.length - seedFallbackCitation - seedFallbackSummary}`);
+  console.log(`[rebuild]   citation seed fallback: ${seedFallbackCitation}`);
+  console.log(`[rebuild]   summary seed fallback (0-verified rules): ${seedFallbackSummary}`);
+  if (htmlCacheDir) {
+    console.log(`[rebuild]   seed rejected (字面 miss · 守红线): ${seedFallbackRejected}`);
+  }
+
+  // 2. init + force
+  await cmdInit(dbPath, true);
+  const db = openKb(dbPath);
+
+  // 3. embed + upsert (复用 cmdBuild 同款 batch 模式)
+  console.log(`[rebuild] embedding with MiniLM (model dir: ${modelDir})...`);
+  let inserted = 0, dup = 0;
+  const tx = db.transaction((batch: Array<{ fact: Fact; vector: number[] }>) => {
+    for (const { fact, vector } of batch) {
+      const r = upsertFact(db, fact);
+      if (!r.inserted) { dup++; continue; }
+      upsertFtsAndVec(db, r.id, fact, vector);
+      inserted++;
+    }
+  });
+
+  const BATCH = 50;
+  for (let i = 0; i < facts.length; i += BATCH) {
+    const slice = facts.slice(i, i + BATCH);
+    const vectors = await Promise.all(
+      slice.map((f) => embed((f.content_zh ?? "").slice(0, 512), modelDir)),
+    );
+    tx(slice.map((fact, idx) => ({ fact, vector: vectors[idx] })));
+    process.stdout.write(`  embedded ${Math.min(i + BATCH, facts.length)}/${facts.length}\r`);
+  }
+  process.stdout.write(`\n`);
+
+  console.log(`[rebuild] done: ${inserted} inserted, ${dup} duplicates (by content_hash)`);
+  console.log(`[rebuild] db: ${dbPath}`);
+  db.close();
+}
+
 function cmdStats(dbPath: string): void {
   if (!existsSync(dbPath)) {
     console.log(`no database at ${dbPath}`);
@@ -654,7 +841,7 @@ const MINE_SYSTEM = `你是数据库性能调优领域专家 · 从官方文档�
     "quote": "<支撑原句 · 1-3 句 · 200-300 字内>",
     "accessed": "2026-04-22"
   },
-  "engine": "mongo" | "mysql" | "redis" | "any",
+  "engine": "mongo" | "any",
   "confidence": "high" | "medium" | "low",
   "refs": ["<source-basename>"],
   "engine_version_min": "<可选>",
@@ -1368,7 +1555,6 @@ function badCtx(): any {
       memory_total_mb: 16 * 1024,
       connections_current: 500,
       connections_available: 100,
-      wt_cache_hit_rate: 80,
       oplog_window_hours: 1,
       wt_block_compressor: "none",
     },
@@ -1415,7 +1601,6 @@ async function runExportChecks(): Promise<void> {
         source: {
           tier: firstCite.url.includes("hikunpeng") ? "vendor-primary"
               : firstCite.url.includes("mongodb.com") ? "official"
-              : firstCite.url.includes("redis.io") ? "official"
               : firstCite.url.includes("openeuler") ? "official"
               : "community",
           url: firstCite.url,
@@ -1454,6 +1639,7 @@ Subcommands:
   --op extract        rules.json → 4 种 auto fact
   --op augment        OpenAI 扩展 mechanism/trade_off/when_deviate (需 OPENAI_API_KEY)
   --op build          init + extract + 合并 extended + embed → sqlite
+  --op rebuild-from-verified  cleaner v5 字面验过的 facts → 重建 sqlite (红线收紧主路径)
   --op stats          sqlite 统计
   --op mine           OpenAI 蒸馏 markdown → rule 候选 (需 OPENAI_API_KEY · --source)
   --op merge          候选 → 主 rules.json (--engine · --apply)
@@ -1464,7 +1650,7 @@ Options (按 subcommand 各自适用):
   --db <path>           sqlite 路径 (默认 data/knowledge.sqlite)
   --model <dir>         MiniLM 模型缓存目录
   --seeds-dir <dir>     seeds 目录 (augment/build)
-  --engine <name>       mongo | mysql | redis (默认 mongo)
+  --engine <name>       mongo (默认 mongo)
   --rule-id <id>        augment 限定单 rule (支持 partial)
   --llm-model <name>    augment OpenAI model (默认 gpt-4o-mini)
   --source <path>       mine 源 .md 路径
@@ -1475,6 +1661,8 @@ Options (按 subcommand 各自适用):
   --apply               merge 实际写盘 (不加只预览)
   --dry-run             augment/mine 不写盘
   --force               build/init 清空旧 sqlite
+  --verified-input <p>  rebuild-from-verified · cleaner v5 *-verified.json
+  --rules-input <p>     rebuild-from-verified · cleaner v5 输入 rules JSON (拿 metadata)
   --verbose             mine 打印 raw OpenAI 响应
   --help, -h            打印本帮助
 
@@ -1507,6 +1695,9 @@ async function main(): Promise<void> {
       "force":         { type: "boolean", default: false },
       "verbose":       { type: "boolean", default: false },
       "help":          { type: "boolean", short: "h", default: false },
+      "verified-input":{ type: "string" },
+      "rules-input":   { type: "string" },
+      "html-cache":    { type: "string" },
     },
     allowPositionals: true,
   });
@@ -1546,6 +1737,13 @@ async function main(): Promise<void> {
 
     case "build":
       return cmdBuild(dbPath, engines, modelDir, values.force ?? false, seedsDir);
+
+    case "rebuild-from-verified":
+      if (!values["verified-input"] || !values["rules-input"]) {
+        process.stderr.write("--op rebuild-from-verified 需要 --verified-input <path> + --rules-input <path>\n");
+        process.exit(1);
+      }
+      return cmdRebuildFromVerified(dbPath, modelDir, values["verified-input"]!, values["rules-input"]!, values["html-cache"]);
 
     case "stats":
       cmdStats(dbPath);

@@ -120,8 +120,6 @@ export function inferAuthority(url: string): { tier: AuthorityTier; label: strin
   if (u.includes("amperecomputing.com"))                      return { tier: "vendor-primary", label: "[Ampere]" };
   // 上游 DB 官方
   if (u.includes("mongodb.com/docs"))        return { tier: "official", label: "[MongoDB 官方]" };
-  if (u.includes("dev.mysql.com/doc"))       return { tier: "official", label: "[MySQL 官方]" };
-  if (u.includes("redis.io/docs"))           return { tier: "official", label: "[Redis 官方]" };
   // 厂商博客
   if (u.includes("percona.com/blog") || u.includes("mongodb.com/blog") || u.includes("huaweicloud.com"))
                                              return { tier: "vendor-blog", label: "[厂商博客]" };
@@ -144,7 +142,7 @@ export interface ReportInput {
   /**
    * v0.5 · 模块 × wait_class × severity 三维聚合 · phase3 矩阵渲染源。
    *
-   * - 第一维 module · 来自 moduleOf(rule_id):os / 硬件 / mongo / mysql / redis / 其他
+   * - 第一维 module · 来自 moduleOf(rule_id):os / 硬件 / mongo / 其他
    * - 第二维 wait_class · 来自 waitClassOf(rule_id):CPU / I/O / 内存 / 并发 / 网络 / 其他
    * - 第三维 severity · 仅 critical / warning / ok 三档(info 不入矩阵)
    *
@@ -204,7 +202,7 @@ export function priorityFor(r: CheckResult): RankedResult["priority"] {
  *
  * 用户反馈(2026-04-25 二轮):
  *   - "如果识别不到的项或者不支持的项就算到通过里面"
- *   - 总计要等于 check_catalog.total(本机实装的全部规则数 · mongo=54 · mysql=34 · redis=33)
+ *   - 总计要等于 check_catalog.total(本机实装的全部规则数 · mongo=54)
  *
  * 过滤规则:**不再过滤** · 所有 result 都计:
  *   - critical / warning 各自计数

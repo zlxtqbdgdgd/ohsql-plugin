@@ -109,8 +109,6 @@ function parseOsBatch(stdout, out) {
   if (lseDmesg) {
     out["lse_dmesg_has_lse"] = /LSE/i.test(lseDmesg);
   }
-  const lseMysqldFirst = getSection(sections, "LSE_MYSQLD").trim().split("\n")[0]?.trim() ?? "";
-  out["lse_mysqld_count"] = lseMysqldFirst === "na" ? null : parseIntOr(lseMysqldFirst, 0);
   const lseMongodFirst = getSection(sections, "LSE_MONGOD").trim().split("\n")[0]?.trim() ?? "";
   out["lse_mongod_count"] = lseMongodFirst === "na" ? null : parseIntOr(lseMongodFirst, 0);
   out["pagesize_bytes"] = parseIntOr(getSection(sections, "PAGESIZE").trim(), 0);
@@ -457,16 +455,12 @@ async function readCommandFileWithDiag(commandFile) {
     const entries = fs.readdirSync(dir);
     diag.dirEntries = entries;
     diag.exactMatch = entries.includes(targetBase);
-    diag.candidateNeighbours = entries
-      .filter(
-        (n) => n.includes(targetBase.slice(0, 25)) || targetBase.includes(n.slice(0, 25))
-      )
-      .map((n) => ({
-        name: n,
-        nameByteLen: Buffer.byteLength(n, "utf8"),
-        sameAsTarget: n === targetBase,
-        codepoints: Array.from(n).map((c) => c.codePointAt(0))
-      }));
+    diag.candidateNeighbours = entries.filter((n) => n.includes(targetBase.slice(0, 25)) || targetBase.includes(n.slice(0, 25))).map((n) => ({
+      name: n,
+      nameByteLen: Buffer.byteLength(n, "utf8"),
+      sameAsTarget: n === targetBase,
+      codepoints: Array.from(n).map((c) => c.codePointAt(0))
+    }));
   } catch (dirErr) {
     diag.dirReadError = dirErr instanceof Error ? dirErr.message : String(dirErr);
   }

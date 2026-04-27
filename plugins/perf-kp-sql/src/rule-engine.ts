@@ -13,6 +13,7 @@ import type {
   FixCost, ImpactMetric,
 } from "./models.js";
 import { okResult, infoResult, finding } from "./models.js";
+import { evaluateRule as evalRuleV2, type RuleV2, type CheckV2 } from "./rule-engine-v2.js";
 
 // ---------------------------------------------------------------------------
 // 类型定义
@@ -358,5 +359,147 @@ export function evaluateRulesAsCheckResults(
   scope: Scope,
 ): CheckResult[] {
   return evaluateAll(rules, collected).map((r) => toCheckResult(r, scope));
+}
+
+// ---------------------------------------------------------------------------
+// v2 桥接: 从 sqlite 行 + nested raw metrics → CheckResult
+// ---------------------------------------------------------------------------
+
+export interface V2RuleRow extends RuleRow {
+  v2_when: string | null;
+  v2_checks: string | null;
+  fix: string | null;
+  fix_cost: string | null;
+  source_quote: string | null;
+}
+
+/** SQLite row → V2RuleRow · 在 parseRuleRow 基础上补 v2 字段 */
+export function parseV2RuleRow(row: Record<string, unknown>): V2RuleRow {
+  return {
+    ...parseRuleRow(row),
+    v2_when: (row.v2_when as string) || null,
+    v2_checks: (row.v2_checks as string) || null,
+    fix: (row.fix as string) || null,
+    fix_cost: (row.fix_cost as string) || null,
+    source_quote: (row.source_quote as string) || null,
+  };
+}
+
+/**
+ * 评估 v2 规则 · metrics 走 nested 形态(serverStatus.x.y / hostInfo.x.y).
+ * 返回 CheckResult[] · skipped 状态返 info(skip_reason=runtime_data_missing).
+ */
+export function evaluateV2RulesAsCheckResults(
+  rows: V2RuleRow[],
+  metrics: Record<string, unknown>,
+  scope: Scope,
+): CheckResult[] {
+  const out: CheckResult[] = [];
+  for (const row of rows) {
+    let when: CheckV2[] = [];
+    let checks: CheckV2[] = [];
+    try {
+      when = row.v2_when ? JSON.parse(row.v2_when) : [];
+      checks = row.v2_checks ? JSON.parse(row.v2_checks) : [];
+    } catch {
+      out.push(infoResult({
+        id: row.rule_id,
+        title: row.title,
+        bucket: toBucket(row.bucket),
+        scope,
+        summary: `${row.title}（v2 规则解析失败）`,
+        reason: "v2_when/v2_checks 不是合法 JSON",
+      }));
+      continue;
+    }
+    if (checks.length === 0) continue;
+
+    const rule: RuleV2 = { rule_id: row.rule_id, when, checks };
+    const r = evalRuleV2(rule, metrics);
+
+    if (r.status === "finding") {
+      const t = r.triggered_check!;
+      const expr = t.compute ?? t.metric ?? "";
+      const recs: Recommendation[] = row.fix ? [{
+        action: row.fix,
+        rationale: row.description || row.title,
+        type: "mitigate",
+        fix_cost: toFixCost(row.fix_cost || ""),
+        verifiable: row.fix_cost === "trivial",
+      }] : [];
+      const citations: Citation[] = row.source_url
+        ? [{ title: row.source_title || row.title, url: row.source_url }]
+        : [];
+      // 保留规则源 severity(info/warning/critical) · finding() 已扩展支持 info
+      const sev = (row.severity || "warning").toLowerCase();
+      const severity: "info" | "warning" | "critical" =
+        sev === "critical" ? "critical" : sev === "info" ? "info" : "warning";
+      const impactValue = severity === "critical" ? 30 : severity === "warning" ? 10 : 3;
+      out.push(finding({
+        id: row.rule_id,
+        title: row.title,
+        severity,
+        bucket: toBucket(row.bucket),
+        scope,
+        summary: `${expr}=${formatActual(t.actual)} · 期望 ${t.op} ${t.value}`,
+        description: row.description || row.title,
+        reason: `${expr} → ${formatActual(t.actual)}（期望 ${t.op} ${t.value}${t.unit ? " " + t.unit : ""}）`,
+        evidence: [{
+          kind: "metric",
+          value: `${expr}=${formatActual(t.actual)}`,
+          measured_at: new Date().toISOString(),
+          source_url: row.source_url || undefined,
+        }],
+        impact: {
+          metric: "db_time_pct",
+          value: impactValue,
+          unit: "percent",
+          confidence: "medium",
+        },
+        citations,
+        recommendations: recs,
+        needs_human_review: recs.length === 0,
+      }));
+    } else if (r.status === "ok") {
+      out.push(okResult({
+        id: row.rule_id,
+        title: row.title,
+        bucket: toBucket(row.bucket),
+        scope,
+        summary: `${row.title}（正常）`,
+        reason: row.description || "v2 检查通过",
+        citations: row.source_url ? [{ title: row.source_title || row.title, url: row.source_url }] : [],
+      }));
+    } else if (r.status === "skipped") {
+      out.push(infoResult({
+        id: row.rule_id,
+        title: row.title,
+        bucket: toBucket(row.bucket),
+        scope,
+        summary: `${row.title}（条件不满足 · 已跳过）`,
+        reason: r.skipped_reason || "when 不满足",
+        skip_reason: "runtime_data_missing",
+      }));
+    } else {
+      out.push(infoResult({
+        id: row.rule_id,
+        title: row.title,
+        bucket: toBucket(row.bucket),
+        scope,
+        summary: `${row.title}（评估错误）`,
+        reason: r.error || "unknown error",
+        skip_reason: "runtime_data_missing",
+      }));
+    }
+  }
+  return out;
+}
+
+function formatActual(v: unknown): string {
+  if (typeof v === "number") {
+    if (Number.isInteger(v)) return String(v);
+    return v.toFixed(4);
+  }
+  return String(v);
 }
 

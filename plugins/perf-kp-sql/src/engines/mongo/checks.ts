@@ -181,58 +181,103 @@ export const check_wt_cache_vs_memory: CheckFn = (ctx) => {
 };
 
 // ---------------------------------------------------------------------------
-// D-MONGO-WT-HIT
+// D-MONGO-WT-CACHE-SIZE-ADVISORY · 与官方默认 50%(RAM-1GB) 比对
+// 仅警告"远偏"; 安全闸 (>80% RAM) 由 wt_cache_vs_memory 单独负责, 避免双开
 // ---------------------------------------------------------------------------
 
-export const check_wt_cache_hit: CheckFn = (ctx) => {
-  const id = "mongo.runtime.wt_cache_hit_rate";
-  const title = "WiredTiger 缓存命中率";
-  const skip = notMongoSkip(ctx, id, title, 5);
+export const check_wt_cache_size_advisory: CheckFn = (ctx) => {
+  const id = "mongo.config.wt_cache_size_advisory";
+  const title = "WT cache 大小配置";
+  const skip = notMongoSkip(ctx, id, title, 2);
   if (skip) return skip;
   const scope = mongoScope(ctx);
 
-  const detail = dbVal<Record<string, unknown>>(ctx, "_wt_cache_detail", {});
-  const pages_read = toInt(detail["pages read into cache"] ?? 0, 0);
-  const pages_req = toInt(detail["pages requested from the cache"] ?? 0, 0);
-  const hit = pages_req > 0 ? (1 - pages_read / pages_req) * 100 : 100;
-
-  if (hit >= 95) {
-    return okResult({ id, title, bucket: 5, scope, summary: `hit=${hit.toFixed(1)}%`, reason: "缓存命中率正常", threshold_display: "≥ 95%", citations: [{ title: "MongoDB WiredTiger", url: "https://www.mongodb.com/docs/manual/core/wiredtiger/" }] });
+  const total_mem_mb = toInt(osVal(ctx, "total_mem_mb", 0), 0);
+  const wt_bytes = toInt(dbVal(ctx, "wt_cache_maximum_bytes", 0), 0);
+  if (total_mem_mb === 0 || wt_bytes === 0) {
+    return infoResult({
+      id,
+      title,
+      bucket: 2,
+      scope,
+      summary: "未能读取 WT cache size 或 OS 总内存",
+      reason: "serverStatus.wiredTiger.cache 或 /proc/meminfo 读取失败",
+      skip_reason: "runtime_data_missing",
+    });
   }
-  const severity = hit < 90 ? "critical" : "warning";
+
+  const total_bytes = total_mem_mb * 1024 * 1024;
+  const recommended_bytes = Math.max(
+    0.256 * 1024 * 1024 * 1024,
+    0.5 * Math.max(0, total_bytes - 1024 * 1024 * 1024),
+  );
+  const ratio = wt_bytes / recommended_bytes;
+  const wt_gb = (wt_bytes / 1024 / 1024 / 1024).toFixed(2);
+  const rec_gb = (recommended_bytes / 1024 / 1024 / 1024).toFixed(2);
+  const pct_ram = (wt_bytes / total_bytes) * 100;
+
+  const baseCitations = [
+    KUNPENG_REFS.boostkitMongo,
+    { title: "MongoDB WiredTiger · cache sizing", url: "https://www.mongodb.com/docs/manual/core/wiredtiger/" },
+  ];
+  const baseEvidence = [
+    { kind: "metric" as const, value: `wt_cache_maximum_bytes=${wt_bytes}` },
+    { kind: "metric" as const, value: `os_total_mem_mb=${total_mem_mb}` },
+    { kind: "metric" as const, value: `recommended_default_bytes=${Math.round(recommended_bytes)}` },
+  ];
+  const thresholdDisplay = "默认 = max(0.256GB, 50% × (RAM - 1GB))";
+
+  if (ratio >= 0.5 && ratio <= 1.2) {
+    return okResult({
+      id,
+      title,
+      bucket: 2,
+      scope,
+      summary: `WT=${wt_gb}GB ≈ 推荐 ${rec_gb}GB (ratio=${ratio.toFixed(2)})`,
+      reason: "WT cache 在官方推荐默认范围内",
+      threshold_display: thresholdDisplay,
+      citations: baseCitations,
+    });
+  }
+  if (ratio > 1.2 && pct_ram <= 80) {
+    return infoResult({
+      id,
+      title,
+      bucket: 2,
+      scope,
+      summary: `WT=${wt_gb}GB > 推荐 ${rec_gb}GB (ratio=${ratio.toFixed(2)}, ${pct_ram.toFixed(1)}% RAM)`,
+      reason: "高于官方默认 · 安全边界另由 wt_cache_vs_memory 把守",
+    });
+  }
+
+  // ratio < 0.5: 远低于默认; 不再判 ratio>1.2 + RAM>80% (留给 wt_cache_vs_memory)
   return finding({
     id,
     title,
-    severity,
-    bucket: 5,
+    severity: "warning",
+    bucket: 2,
     scope,
-    summary: `hit=${hit.toFixed(1)}% < ${severity === "critical" ? 90 : 95}%`,
-    description: "低缓存命中率导致频繁磁盘读取,放大 IOPS 和延迟。",
-    reason: `pages_read=${pages_read} / pages_requested=${pages_req}`,
-    threshold_display: "≥ 95%",
-    evidence: [
-      { kind: "metric", value: `wt_pages_read=${pages_read}` },
-      { kind: "metric", value: `wt_pages_requested=${pages_req}` },
-    ],
-    impact: { metric: "cache_miss_rate", value: +(100 - hit).toFixed(1), unit: "percent", confidence: "high" },
-    citations: [
-      KUNPENG_REFS.boostkitMongo,
-      { title: "MongoDB WiredTiger · Cache and Eviction", url: "https://www.mongodb.com/docs/manual/core/wiredtiger/" },
-    ],
+    summary: `WT=${wt_gb}GB << 推荐 ${rec_gb}GB (ratio=${ratio.toFixed(2)})`,
+    description: "WT cache 远低于官方默认 · 工作集易溢出 · 反复从磁盘补页放大 IOPS。",
+    reason: `当前 cache (${wt_gb}GB) 不足官方默认值 (${rec_gb}GB) 的 50%`,
+    threshold_display: thresholdDisplay,
+    evidence: baseEvidence,
+    impact: { metric: "cache_under_default_ratio", value: +(ratio).toFixed(2), unit: "ratio", confidence: "high" },
+    citations: baseCitations,
     recommendations: [
       {
-        action: "增大 wiredTigerCacheSizeGB(不超过物理内存 50%)· 或排查 working set 是否暴增",
-        rationale: "缓存不足以容纳工作集,提升 cache 或缩减工作集",
+        action: `db.adminCommand({setParameter:1, wiredTigerEngineRuntimeConfig:'cache_size=${rec_gb}G'})`,
+        rationale: "官方默认即 50%(RAM-1GB) · 主动调小通常是误配,除非宿主有多实例共享内存",
         type: "repair",
         fix_cost: "restart_engine",
         verifiable: true,
       },
     ],
     rationale: {
-      summary: "WT cache 命中率 < 95% 说明工作集超出 cache 容量 · 每次 miss 走 read() syscall 拉磁盘 · 延迟从亚毫秒跃升到毫秒级 · 读 IOPS 按 miss 率放大到存储层。",
-      mechanism: "mongod 每次读请求先查 WT cache · miss 就调 pread() 从磁盘拉 page · 即使 SSD 也有 100-500μs 延迟 · 是 cache hit (< 10μs) 的 10-50 倍。cache 容量不足时 evict 线程频繁清理 dirty page · 进一步消耗 CPU · 形成恶性循环。",
-      trade_offs: "增大 cacheSizeGB 减少 miss 但受物理内存上限约束(见 wt_cache_vs_memory 规则)。压缩集合或加索引缩小工作集是另一路径 · 但压缩提高 CPU 使用率 · 索引多占磁盘和写入开销。",
-      when_to_deviate: "批处理 / OLAP workload 本身流式扫描 · cache 命中率低正常 · 关注 pages evicted rate 即可。OLTP 场景 < 95% 必须排查。",
+      summary: "WT cache 显著小于官方默认时 · 工作集长期超出 cache 容量 · 每次读 miss 走 pread() 拉磁盘 · 延迟跃升 10-50 倍。",
+      mechanism: "MongoDB 文档明确 `default cache = max(0.256GB, 50% × (RAM-1GB))` · 该值是面向单实例 OLTP 经验最优。 cache << 默认时 evict 线程频繁清理 · CPU 上升 + IO 放大 · OLTP 场景 p99 通常翻倍。",
+      trade_offs: "调高 cache 减少 miss 但受 OS 安全边界 (≤ 80% RAM) 约束 · 由 wt_cache_vs_memory 独立把守。多实例宿主例外见 when_to_deviate。",
+      when_to_deviate: "单宿主跑多个 mongod · 必须按实例数等分内存 · 此时 cache 远低于默认是预期。容器/cgroup 场景须以 limit 而非宿主 RAM 计算默认值。",
     },
   });
 };
@@ -1180,9 +1225,9 @@ export const check_wt_pages_read_volume: CheckFn = (ctx) => {
 export const mongoChecks: ReadonlyArray<CheckFn> = [
   check_mongo_connections,
   check_wt_cache_vs_memory,
-  check_wt_cache_hit,
+  check_wt_cache_size_advisory,
   check_oplog_window,
-  check_compression_algorithm,
+  // check_compression_algorithm · removed 2026-04-26 audit · NO_URL (mongo.config.wt_block_compressor)
   check_db_cache_vs_memory,
   check_storage_journaling_enabled,
   check_wt_ticket_read,
