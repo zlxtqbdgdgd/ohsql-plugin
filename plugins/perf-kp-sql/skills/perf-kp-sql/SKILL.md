@@ -33,7 +33,7 @@ argument-hint: "host=<ip> user=<user> (privateKeyPath=<path>|password=<pw>) [eng
 - **Persist** — write stdout to `~/.ohsql/tmp/perf-kp-sql-<engine>-{os,db}-<ts>.txt` (NOT `/tmp` — sandboxes vary)
 - **Analyze** — local shell: `node ${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/scripts/diagnose.mjs --os-file ... --db-file ... --engine <name>`
 - **Knowledge base** — read / grep over `${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/data/<engine>/` + `data/common/`
-- **Flamegraph** — local shell: `node ${CLAUDE_PLUGIN_ROOT:-$OHSQL_DEP_CPU_FLAMEGRAPH_ROOT}/scripts/capture.mjs ...` (cpu-flamegraph plugin)
+- **Flamegraph** — local shell: `node ${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/scripts/capture-flamegraph.mjs ...` (内部自定位 cpu-flamegraph 插件,跨 harness 兼容)
 - **Report** — local shell: `node .../scripts/render-html-report.mjs` + `render-screen-footer.mjs`
 
 > ⚠️ Some agent shell sandboxes reject heredoc / `>` / `<` / `|` / 3+ consecutive quotes. Strictly use **write-file → shell (no redirection) → write-file** for the collection chain.
@@ -525,18 +525,18 @@ Write(
   · 火焰图 · offcpu 3s · pid=<pid>             # 仅 oncpu+offcpu 时多打
 ```
 
-调 capture.mjs(凭据用真实未脱敏密码,单引号包裹):
+调 capture-flamegraph.mjs(凭据用真实未脱敏密码,单引号包裹;wrapper 内部自定位 cpu-flamegraph 插件):
 ```
-Bash(command="node ${CLAUDE_PLUGIN_ROOT:-$OHSQL_DEP_CPU_FLAMEGRAPH_ROOT}/scripts/capture.mjs \
+Bash(command="node ${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/scripts/capture-flamegraph.mjs \
        --host=<ip> --user=<user> --password='<真实pw>' [--port=<n>] \
        --process=<engine 进程名> --type=oncpu --duration=3 --engine=<engine>")
 ```
 
-> ⚠️ **capture.mjs 的 stdout 必须整段落盘 · 严禁 pipe 任何过滤命令**:
+> ⚠️ **capture-flamegraph.mjs 的 stdout 必须整段落盘 · 严禁 pipe 任何过滤命令**(wrapper 透传内部 capture.mjs 的 stdout):
 > - 不要 `2>&1 | tail`、`| head`、`| grep`、`| jq -r`、`| awk` 等管道
 > - 不要 `> /dev/null` 重定向
 > - 一过滤就废 JSON · 后续 Read parse 必爆 `Unexpected token '}'`
-> - 调试时若想看末尾,落盘后 `Read(..., offset=N, limit=K)` 看,**不要在 capture.mjs 调用处过滤**
+> - 调试时若想看末尾,落盘后 `Read(..., offset=N, limit=K)` 看,**不要在 wrapper 调用处过滤**
 > - run_in_background:true 模式特别注意:管道结果会落到 background output 文件,等于把 JSON 写残
 
 `flame_capable=oncpu+offcpu` → 再调一次 `--type=offcpu`(同样**整段落盘**,不要过滤)。
