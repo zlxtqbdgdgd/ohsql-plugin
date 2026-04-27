@@ -96,6 +96,20 @@ export const KUNPENG_REFS = {
     title: "鲲鹏性能优化十板斧 · numactl 工具",
     url: "https://www.hikunpeng.com/document/detail/zh/perftuning/tuningtip/kunpengtuning_12_0009.html",
   } as Citation,
+
+  /** Ampere MongoDB Tuning Guide · 含 sysctl net.core.somaxconn / vm.max_map_count 等 ARM 调优字面值
+   *  (2026-04-26 新增 · 用于 somaxconn 类规则的字面引用,鲲鹏官方页未涵盖该 sysctl) */
+  ampereMongo: {
+    title: "Ampere · MongoDB Tuning Guide",
+    url: "https://amperecomputing.com/tuning-guides/mongoDB-tuning-guide",
+  } as Citation,
+
+  /** MongoDB 官方 Production Notes · 含 swappiness / keepalive / 110-115% / connection pool 等
+   *  (2026-04-26 新增 · 用于 swappiness 类规则的字面引用,鲲鹏官方页未涵盖该 sysctl) */
+  mongoProdNotes: {
+    title: "MongoDB Production Notes",
+    url: "https://www.mongodb.com/docs/manual/administration/production-notes/",
+  } as Citation,
 } as const;
 
 // ===========================================================================

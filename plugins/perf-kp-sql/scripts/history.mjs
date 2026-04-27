@@ -6,12 +6,14 @@ const require = createRequire(import.meta.url);
 const __filename = __fileURLToPath(import.meta.url);
 const __dirname = __pathDirname(__filename);
 
-// skills/perf-kp-sql/src/cli-history.ts
+// ../ohsql-plugin/plugins/perf-kp-sql/src/cli-history.ts
 import { homedir } from "node:os";
 import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 var MAX_ENTRIES = 5;
 function historyPath() {
+  const home = process.env.PERF_KP_SQL_HOME;
+  if (home) return join(home, "hosts.json");
   return process.env.OHSQL_PERF_KP_SQL_HISTORY ?? join(homedir(), ".ohsql", "perf-kp-sql", "hosts.json");
 }
 async function loadHistory(path) {

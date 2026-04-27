@@ -1182,7 +1182,7 @@ export const mongoChecks: ReadonlyArray<CheckFn> = [
   check_wt_cache_vs_memory,
   check_wt_cache_hit,
   check_oplog_window,
-  check_compression_algorithm,
+  // check_compression_algorithm · removed 2026-04-26 audit · NO_URL (mongo.config.wt_block_compressor)
   check_db_cache_vs_memory,
   check_storage_journaling_enabled,
   check_wt_ticket_read,

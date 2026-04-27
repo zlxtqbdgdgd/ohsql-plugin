@@ -224,8 +224,8 @@ export const check_arm64_pagesize: CheckFn = (ctx) => {
 
 export const arm64Checks: ReadonlyArray<CheckFn> = [
   check_arm64_lse_cpu,
-  check_arm64_lse_kernel,
-  check_arm64_lse_binary,
+  // check_arm64_lse_kernel · removed 2026-04-26 audit · NO_URL
+  // check_arm64_lse_binary · removed 2026-04-26 audit · TOPIC_MISMATCH (kernel.org elf_hwcaps 不含 opcodes/binary)
   check_arm64_pagesize,
 ];
 
@@ -596,9 +596,9 @@ export const check_kunpeng_somaxconn_strict: CheckFn = (ctx) => {
       bucket: 1,
       scope,
       summary: `somaxconn=${val}`,
-      reason: "已达鲲鹏 BoostKit Mongo 推荐 ≥ 65535",
-      threshold_display: "≥ 65535",
-      citations: [{ title: "鲲鹏 BoostKit · MongoDB 调优 · somaxconn", url: "https://www.hikunpeng.com/document/detail/zh/kunpengdbs/ecosystemEnable/MongoDB/kunpengdbstune_05_0029.html" }],
+      reason: "已达 Ampere MongoDB 调优指南推荐值",
+      threshold_display: "sysctl -w net.core.somaxconn = 65535",
+      citations: [KUNPENG_REFS.ampereMongo],
     });
   }
   return finding({
@@ -608,21 +608,22 @@ export const check_kunpeng_somaxconn_strict: CheckFn = (ctx) => {
     bucket: 1,
     scope,
     summary: `somaxconn=${val} < 65535`,
-    description: "鲲鹏 BoostKit MongoDB 调优指南要求 net.core.somaxconn ≥ 65535,通用 Linux 1024 的阈值在鲲鹏高并发 DB 下偏小",
-    reason: `net.core.somaxconn=${val} · 鲲鹏官方建议 ≥ 65535`,
-    threshold_display: "≥ 65535",
+    description: "Ampere MongoDB Tuning Guide 推荐 sysctl -w net.core.somaxconn = 65535,通用 Linux 1024 的阈值在 ARM 高并发 DB 下偏小",
+    reason: `net.core.somaxconn=${val} · Ampere 推荐值 65535`,
+    threshold_display: "sysctl -w net.core.somaxconn = 65535",
     evidence: [{ kind: "config", value: `net.core.somaxconn=${val}` }],
     impact: { metric: "connection_util_pct", value: 10, unit: "percent", confidence: "medium" },
     citations: [
-      KUNPENG_REFS.boostkitMongo,
+      KUNPENG_REFS.ampereMongo,
     ],
     recommendations: [
       {
-        action: "sysctl -w net.core.somaxconn=65535",
-        rationale: "对齐鲲鹏 BoostKit DB 调优建议 · 避开高并发 SYN 丢包",
+        action: "sysctl -w net.core.somaxconn = 65535",
+        rationale: "对齐 Ampere MongoDB 调优指南字面建议 · 避开高并发 SYN 丢包",
         type: "mitigate",
         fix_cost: "trivial",
         verifiable: true,
+        fix_url: KUNPENG_REFS.ampereMongo.url,
       },
     ],
   });
@@ -719,9 +720,9 @@ export const check_kunpeng_swappiness_strict: CheckFn = (ctx) => {
       bucket: 1,
       scope,
       summary: `swappiness=${val}`,
-      reason: "已对齐鲲鹏 BoostKit 推荐",
-      threshold_display: "== 1",
-      citations: [{ title: "鲲鹏 BoostKit · MongoDB 调优 · vm.swappiness", url: "https://www.hikunpeng.com/document/detail/zh/kunpengdbs/ecosystemEnable/MongoDB/kunpengdbstune_05_0029.html" }],
+      reason: "已对齐 MongoDB Production Notes 推荐",
+      threshold_display: "Set vm.swappiness to 1 or 0",
+      citations: [KUNPENG_REFS.mongoProdNotes],
     });
   }
   const severity = val > 10 ? "warning" : "info";
@@ -732,9 +733,9 @@ export const check_kunpeng_swappiness_strict: CheckFn = (ctx) => {
       bucket: 1,
       scope,
       summary: `swappiness=${val}`,
-      reason: "低于 10 · 通用可接受;但鲲鹏 BoostKit 明确 == 1(更严)",
-      threshold_display: "== 1",
-      citations: [{ title: "鲲鹏 BoostKit · MongoDB 调优", url: "https://www.hikunpeng.com/document/detail/zh/kunpengdbs/ecosystemEnable/MongoDB/kunpengdbstune_05_0029.html" }],
+      reason: "低于 10 · 通用可接受;但 MongoDB Production Notes 明确 1 或 0",
+      threshold_display: "Set vm.swappiness to 1 or 0",
+      citations: [KUNPENG_REFS.mongoProdNotes],
     });
   }
   return finding({
@@ -743,22 +744,23 @@ export const check_kunpeng_swappiness_strict: CheckFn = (ctx) => {
     severity: "warning",
     bucket: 1,
     scope,
-    summary: `swappiness=${val} 不符鲲鹏严格阈值`,
-    description: "鲲鹏 BoostKit 调优指南原文:将 vm.swappiness 设置为较低值 \"1\" 以减少交换分区使用",
-    reason: `vm.swappiness=${val} · 鲲鹏官方推荐 1`,
-    threshold_display: "== 1",
+    summary: `swappiness=${val} 偏离 MongoDB 推荐值`,
+    description: "MongoDB Production Notes 明确:Set vm.swappiness to 1 or 0",
+    reason: `vm.swappiness=${val} · MongoDB 官方推荐 1 或 0`,
+    threshold_display: "Set vm.swappiness to 1 or 0",
     evidence: [{ kind: "config", value: `vm.swappiness=${val}` }],
     impact: { metric: "latency_p95_ms", value: 15, unit: "percent", confidence: "medium" },
     citations: [
-      KUNPENG_REFS.boostkitMongo,
+      KUNPENG_REFS.mongoProdNotes,
     ],
     recommendations: [
       {
-        action: "sysctl -w vm.swappiness=1",
-        rationale: "对齐鲲鹏 BoostKit MongoDB 调优指南",
+        action: "Set vm.swappiness to 1 or 0",
+        rationale: "对齐 MongoDB Production Notes 字面推荐",
         type: "repair",
         fix_cost: "trivial",
         verifiable: true,
+        fix_url: KUNPENG_REFS.mongoProdNotes.url,
       },
     ],
   });
@@ -862,16 +864,16 @@ export const check_kunpeng_numa_interleave: CheckFn = (ctx) => {
 };
 
 export const kunpengChecks: ReadonlyArray<CheckFn> = [
-  check_cpu_governor,
+  // check_cpu_governor · removed 2026-04-26 audit · TOPIC_MISMATCH (cnblogs page 无 governor 字面)
   check_numa,
-  check_smt,
-  check_numa_topology,
-  check_irqbalance,
-  check_numa_distance_matrix,
+  // check_smt · removed 2026-04-26 audit · NO_URL
+  // check_numa_topology · removed 2026-04-26 audit · NO_URL
+  // check_irqbalance · removed 2026-04-26 audit · NO_URL
+  // check_numa_distance_matrix · removed 2026-04-26 audit · NO_URL
   check_kunpeng_somaxconn_strict,
   check_kunpeng_tcp_keepalive_strict,
   check_kunpeng_swappiness_strict,
-  check_kunpeng_tcp_max_syn_backlog_mongo,
+  // check_kunpeng_tcp_max_syn_backlog_mongo · removed 2026-04-26 audit · TOPIC_MISMATCH (KB 无 tcp_max_syn_backlog 源)
   check_kunpeng_numa_interleave,
 ];
 
@@ -1338,8 +1340,8 @@ export const check_net_somaxconn: CheckFn = (ctx) => {
   if (val === 0) {
     return infoResult({ id, title, bucket: 1, scope, summary: "未采集到", reason: "无法读取 net.core.somaxconn" });
   }
-  if (val >= 1024) {
-    return okResult({ id, title, bucket: 1, scope, summary: `somaxconn=${val}`, reason: "队列长度充足", threshold_display: "≥ 4096", citations: [{ title: "MongoDB Production Notes · TCP", url: "https://www.mongodb.com/docs/manual/administration/production-notes/" }] });
+  if (val >= 65535) {
+    return okResult({ id, title, bucket: 1, scope, summary: `somaxconn=${val}`, reason: "已达 Ampere MongoDB 推荐值", threshold_display: "sysctl -w net.core.somaxconn = 65535", citations: [KUNPENG_REFS.ampereMongo] });
   }
   return finding({
     id,
@@ -1347,23 +1349,23 @@ export const check_net_somaxconn: CheckFn = (ctx) => {
     severity: "warning",
     bucket: 1,
     scope,
-    summary: `somaxconn=${val} < 1024`,
-    description: "监听队列过短,高并发时 TCP 连接请求会被内核丢弃",
-    reason: `somaxconn=${val} · DB 服务器建议 ≥ 1024(Ampere/Mongo 建议 65535)`,
-    threshold_display: "≥ 4096",
+    summary: `somaxconn=${val} < 65535`,
+    description: "监听队列偏短 · 高并发 DB 下 TCP 连接请求易被内核丢弃 · Ampere MongoDB Tuning Guide 推荐 sysctl -w net.core.somaxconn = 65535",
+    reason: `somaxconn=${val} · Ampere 推荐 65535`,
+    threshold_display: "sysctl -w net.core.somaxconn = 65535",
     evidence: [{ kind: "config", value: `net.core.somaxconn=${val}` }],
     impact: { metric: "connection_util_pct", value: 15, unit: "percent", confidence: "medium" },
     citations: [
-      KUNPENG_REFS.boostkitMongo,
-      { title: "Ampere MongoDB Tuning · somaxconn", url: "https://amperecomputing.com/tuning-guides/mongoDB-tuning-guide" },
+      KUNPENG_REFS.ampereMongo,
     ],
     recommendations: [
       {
-        action: "sysctl -w net.core.somaxconn=4096",
-        rationale: "减少高并发时 SYN 丢包",
+        action: "sysctl -w net.core.somaxconn = 65535",
+        rationale: "对齐 Ampere MongoDB 调优指南字面建议",
         type: "mitigate",
         fix_cost: "trivial",
         verifiable: true,
+        fix_url: KUNPENG_REFS.ampereMongo.url,
       },
     ],
   });
@@ -1861,16 +1863,16 @@ export const check_kernel_version_rseq: CheckFn = (ctx) => {
 };
 
 export const osChecks: ReadonlyArray<CheckFn> = [
-  check_hugepage,
+  // check_hugepage · removed 2026-04-26 audit · NO_URL
   check_thp,
-  check_io_scheduler,
+  // check_io_scheduler · removed 2026-04-26 audit · NO_URL
   check_swappiness,
   check_net_somaxconn,
   check_tcp_keepalive,
-  check_vm_dirty_ratio,
+  // check_vm_dirty_ratio · removed 2026-04-26 audit · NO_URL
   check_disk_latency,
   check_disk_usage,
-  check_tcp_retransmit,
+  // check_tcp_retransmit · removed 2026-04-26 audit · NO_URL
   check_vm_zone_reclaim,
   check_vm_max_map_count,
   check_env_virt_type,

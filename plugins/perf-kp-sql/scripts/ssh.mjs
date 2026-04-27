@@ -6,15 +6,15 @@ const require = createRequire(import.meta.url);
 const __filename = __fileURLToPath(import.meta.url);
 const __dirname = __pathDirname(__filename);
 
-// plugins/perf-kp-sql/src/cli-ssh.ts
-import { spawn } from "node:child_process";
-import { createWriteStream, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+// ../ohsql-plugin/plugins/perf-kp-sql/src/cli-ssh.ts
+import { Client } from "ssh2";
+import { createWriteStream, mkdirSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { createHash } from "node:crypto";
 
-// plugins/perf-kp-sql/src/shared/utils.ts
+// ../ohsql-plugin/plugins/perf-kp-sql/src/shared/utils.ts
 function parseOsIntoMetrics(osStdout) {
   const out = {};
   parseOsBatch(osStdout, out);
@@ -152,7 +152,7 @@ function parseIntOr(s, fallback) {
   return fallback;
 }
 
-// plugins/perf-kp-sql/src/cli-ssh.ts
+// ../ohsql-plugin/plugins/perf-kp-sql/src/cli-ssh.ts
 function parseArgs(args) {
   const out = {};
   for (let i = 0; i < args.length; i++) {
@@ -348,7 +348,11 @@ async function connectOnce(args) {
       });
     } else if (args.password) {
       cfg.password = args.password;
-      cfg.authHandler = ["password"];
+      cfg.authHandler = ["password", "keyboard-interactive"];
+      cfg.tryKeyboard = true;
+      client.on("keyboard-interactive", (_name, _instructions, _lang, _prompts, finish) => {
+        finish([args.password]);
+      });
       client.connect(cfg);
     } else {
       clearTimeout(timer);
@@ -653,15 +657,20 @@ async function runSessionClose(argv) {
   });
 }
 var DEFAULT_PORTS = {
-  mongo: "27017"
+  mongo: "27017",
+  mysql: "3306",
+  redis: "6379"
 };
 var ENGINE_BY_PROCESS = {
-  mongod: "mongo"
+  mongod: "mongo",
+  mysqld: "mysql",
+  "redis-server": "redis"
 };
 function normalizeHintEngine(raw) {
   const s = (raw ?? "").trim().toLowerCase();
   if (!s || s === "skipped" || s === "auto") return null;
-  if (s === "mongodb" || s === "mongo") return "mongo";
+  if (s === "mongodb") return "mongo";
+  if (s === "mongo" || s === "mysql" || s === "redis") return s;
   return null;
 }
 function buildFallbackInstance(engine) {
@@ -678,13 +687,14 @@ function buildFallbackInstance(engine) {
     port_source: "no-pid-default"
   };
 }
-function parseInstances(stdout, hintEngine = null) {
+function parseInstances(stdout, hintEngine = null, sectionMarker = "DISCOVERY") {
+  const openMarker = `###${sectionMarker}###`;
   const lines = stdout.split("\n");
   let inDiscovery = false;
   const out = [];
   for (const raw of lines) {
     const line = raw.trim();
-    if (line === "###DISCOVERY###") {
+    if (line === openMarker) {
       inDiscovery = true;
       continue;
     }
@@ -724,7 +734,13 @@ function parseInstances(stdout, hintEngine = null) {
     });
   }
   if (out.length === 0) {
-    out.push(buildFallbackInstance("mongo"));
+    if (hintEngine) {
+      out.push(buildFallbackInstance(hintEngine));
+    } else {
+      for (const eng of ["mongo", "mysql", "redis"]) {
+        out.push(buildFallbackInstance(eng));
+      }
+    }
   }
   return out;
 }
@@ -741,7 +757,7 @@ async function runDiscover(argv) {
   } catch (e) {
     const baseErr = e instanceof Error ? e.message : String(e);
     const isMissing = /ENOENT|no such file|does not exist/i.test(baseErr);
-    const hint = isMissing ? " \xB7 \u6700\u53EF\u80FD\u539F\u56E0:LLM \u5728 SshExec \u4E4B\u540E\u8DF3\u8FC7\u4E86 Write \u843D\u76D8\u6B65\u9AA4 \xB7 \u8BF7\u56DE\u67E5\u4E0A\u4E00\u8F6E SshExec \u8FD4\u56DE\u7684 stdout \u662F\u5426\u8C03\u7528\u4E86 Write(file_path=" + osFile + ", content=<osStdout>) \xB7 \u89C1 SKILL.md Step 2.3 \xB7 \u4E0D\u662F Write \u5DE5\u5177\u4E0D\u53EF\u7528" : "";
+    const hint = isMissing ? " \xB7 \u6700\u53EF\u80FD\u539F\u56E0:LLM \u5728 SSH \u547D\u4EE4(remote osBatchCmd)\u4E4B\u540E\u8DF3\u8FC7\u4E86 Write \u843D\u76D8\u6B65\u9AA4 \xB7 \u8BF7\u56DE\u67E5\u4E0A\u4E00\u8F6E SSH \u547D\u4EE4\u8FD4\u56DE\u7684 stdout \u662F\u5426\u8C03\u7528\u4E86 Write(file_path=" + osFile + ", content=<osStdout>) \xB7 \u89C1 SKILL.md Step 2.3 \xB7 \u4E0D\u662F Write \u5DE5\u5177\u4E0D\u53EF\u7528" : "";
     discoverWriteError(`failed to read ${osFile}: ${baseErr}${hint}`);
   }
   const osMetrics = parseOsIntoMetrics(raw);
@@ -778,15 +794,71 @@ async function runDiscover(argv) {
     })
   );
 }
+function parseSectionContent(stdout, sectionMarker) {
+  const openMarker = `###${sectionMarker}###`;
+  const lines = stdout.split("\n");
+  let inSection = false;
+  const collected = [];
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (line === openMarker) {
+      inSection = true;
+      continue;
+    }
+    if (!inSection) continue;
+    if (line.startsWith("###")) break;
+    collected.push(line);
+  }
+  return collected.join("\n").trim();
+}
+async function runProbeParse(argv) {
+  const probeFile = typeof argv["probe-file"] === "string" ? argv["probe-file"] : void 0;
+  if (!probeFile) {
+    process.stdout.write(JSON.stringify({ ok: false, error: "missing --probe-file" }));
+    process.exit(1);
+  }
+  let raw;
+  try {
+    raw = await readFile(probeFile, "utf8");
+  } catch (e) {
+    const baseErr = e instanceof Error ? e.message : String(e);
+    const isMissing = /ENOENT|no such file|does not exist/i.test(baseErr);
+    const hint = isMissing ? " \xB7 LLM \u53EF\u80FD\u8DF3\u8FC7\u4E86 Write \u843D\u76D8\u6B65\u9AA4 \xB7 \u8BF7\u56DE\u67E5 ssh probe \u8FD4\u56DE\u7684 stdout \u662F\u5426\u8C03\u7528\u4E86 Write(file_path=" + probeFile + ", content=<probeStdout>) \xB7 \u89C1 SKILL.md Step 1.3" : "";
+    process.stdout.write(JSON.stringify({ ok: false, error: `failed to read ${probeFile}: ${baseErr}${hint}` }));
+    process.exit(1);
+  }
+  const hintRaw = argv["hint-engine"];
+  const hintEngine = normalizeHintEngine(typeof hintRaw === "string" ? hintRaw : "");
+  const allInstances = parseInstances(raw, null, "ENGINES");
+  const realInstances = allInstances.filter((i) => i.source !== "no-pid-default-engine");
+  const perfRaw = parseSectionContent(raw, "PERF");
+  const offcpuRaw = parseSectionContent(raw, "OFFCPU");
+  const perfAvailable = !!perfRaw && perfRaw !== "MISSING" && !/MISSING/.test(perfRaw);
+  const offcpuAvailable = !!offcpuRaw && offcpuRaw !== "MISSING" && !/MISSING/.test(offcpuRaw);
+  let flame_capable = "none";
+  if (perfAvailable && offcpuAvailable) flame_capable = "oncpu+offcpu";
+  else if (perfAvailable) flame_capable = "oncpu";
+  process.stdout.write(
+    JSON.stringify({
+      ok: true,
+      instances: realInstances,
+      hint_engine: hintEngine,
+      flame_capable,
+      perf_path: perfAvailable ? perfRaw : null,
+      offcpu_path: offcpuAvailable ? offcpuRaw : null
+    })
+  );
+}
 async function main() {
   const argv = parseArgs(process.argv.slice(2));
   const op = typeof argv.op === "string" ? argv.op : "";
   if (op === "exec") return runExec(argv);
   if (op === "session-close") return runSessionClose(argv);
   if (op === "discover") return runDiscover(argv);
+  if (op === "probe-parse") return runProbeParse(argv);
   process.stdout.write(JSON.stringify({
     ok: false,
-    err: `unknown --op: ${op || "(missing)"} \xB7 expect: exec | discover`
+    err: `unknown --op: ${op || "(missing)"} \xB7 expect: exec | discover | probe-parse`
   }) + "\n");
   process.exit(2);
 }

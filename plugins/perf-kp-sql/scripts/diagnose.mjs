@@ -12,12 +12,12 @@ var __require = /* @__PURE__ */ ((x) => typeof require !== "undefined" ? require
   throw Error('Dynamic require of "' + x + '" is not supported');
 });
 
-// skills/perf-kp-sql/src/cli-diagnose.ts
+// ../ohsql-plugin/plugins/perf-kp-sql/src/cli-diagnose.ts
 import { readFile } from "node:fs/promises";
 import { join as join3, dirname as dirname2 } from "node:path";
 import { fileURLToPath as fileURLToPath2 } from "node:url";
 
-// skills/perf-kp-sql/src/models.ts
+// ../ohsql-plugin/plugins/perf-kp-sql/src/models.ts
 function osVal(ctx, key, def) {
   const v = ctx.os_metrics[key];
   return v === void 0 ? def : v;
@@ -125,7 +125,7 @@ function templateFixExperiment(args) {
   };
 }
 
-// skills/perf-kp-sql/src/shared/utils.ts
+// ../ohsql-plugin/plugins/perf-kp-sql/src/shared/utils.ts
 function isDigitString(v) {
   return /^\d+$/.test(String(v));
 }
@@ -179,6 +179,18 @@ var KUNPENG_REFS = {
   numactlTool: {
     title: "\u9CB2\u9E4F\u6027\u80FD\u4F18\u5316\u5341\u677F\u65A7 \xB7 numactl \u5DE5\u5177",
     url: "https://www.hikunpeng.com/document/detail/zh/perftuning/tuningtip/kunpengtuning_12_0009.html"
+  },
+  /** Ampere MongoDB Tuning Guide · 含 sysctl net.core.somaxconn / vm.max_map_count 等 ARM 调优字面值
+   *  (2026-04-26 新增 · 用于 somaxconn 类规则的字面引用,鲲鹏官方页未涵盖该 sysctl) */
+  ampereMongo: {
+    title: "Ampere \xB7 MongoDB Tuning Guide",
+    url: "https://amperecomputing.com/tuning-guides/mongoDB-tuning-guide"
+  },
+  /** MongoDB 官方 Production Notes · 含 swappiness / keepalive / 110-115% / connection pool 等
+   *  (2026-04-26 新增 · 用于 swappiness 类规则的字面引用,鲲鹏官方页未涵盖该 sysctl) */
+  mongoProdNotes: {
+    title: "MongoDB Production Notes",
+    url: "https://www.mongodb.com/docs/manual/administration/production-notes/"
   }
 };
 var WAIT_CLASS_MAP = {
@@ -414,7 +426,7 @@ function parseIntOr(s, fallback) {
   return fallback;
 }
 
-// skills/perf-kp-sql/src/shared/legacy-checks.ts
+// ../ohsql-plugin/plugins/perf-kp-sql/src/shared/legacy-checks.ts
 function requireArm64(ctx, id, title, bucket) {
   const engine = ctx.db_type;
   const scope = deriveScope(ctx, engine);
@@ -482,86 +494,6 @@ var check_arm64_lse_cpu = (ctx) => {
     }
   });
 };
-var check_arm64_lse_kernel = (ctx) => {
-  const id = "arm64.lse.kernel_enabled";
-  const title = "LSE atomics \u5185\u6838\u65E5\u5FD7";
-  const { skip, scope } = requireArm64(ctx, id, title, 1);
-  if (skip) return skip;
-  const hasKernel = osVal(ctx, "lse_dmesg_has_lse", false);
-  if (!hasKernel) {
-    return infoResult({
-      id,
-      title,
-      bucket: 1,
-      scope,
-      summary: "dmesg \u672A\u663E\u793A LSE atomics \u542F\u7528\u4FE1\u606F",
-      reason: "\u53EF\u80FD dmesg \u6743\u9650\u4E0D\u8DB3(\u975E root)\u6216\u542F\u52A8\u65E5\u5FD7\u5DF2\u8F6E\u8F6C \xB7 \u53EF\u7528 lscpu atomics \u4EA4\u53C9\u786E\u8BA4"
-    });
-  }
-  return okResult({ id, title, bucket: 1, scope, summary: "\u5185\u6838\u542F\u52A8\u65E5\u5FD7\u786E\u8BA4 LSE \u542F\u7528", reason: "Linux \u5185\u6838\u5728\u542F\u52A8\u65F6\u8BC6\u522B\u5E76\u542F\u7528\u4E86 LSE atomics" });
-};
-function engineBinary(engine) {
-  if (engine === "mongo") return "mongod";
-  return null;
-}
-var check_arm64_lse_binary = (ctx) => {
-  const id = "arm64.lse.db_binary_opcodes";
-  const title = "DB \u4E8C\u8FDB\u5236 LSE \u6307\u4EE4";
-  const { skip, scope } = requireArm64(ctx, id, title, 1);
-  if (skip) return skip;
-  const engine = scope.engine;
-  const bin = engineBinary(engine);
-  if (!bin) {
-    return infoResult({ id, title, bucket: 1, scope, summary: `${engine} \u4E0D\u9002\u7528`, reason: "\u4EC5 mongod \u9700\u8981\u68C0\u67E5" });
-  }
-  const count = osVal(ctx, "lse_mongod_count", null);
-  if (count === null) {
-    return infoResult({ id, title, bucket: 1, scope, summary: `\u672A\u627E\u5230 ${bin} \u4E8C\u8FDB\u5236`, reason: `command -v ${bin} \u65E0\u8FD4\u56DE(\u6216 nm \u4E0D\u53EF\u7528)` });
-  }
-  if (count > 0) {
-    return okResult({
-      id,
-      title,
-      bucket: 1,
-      scope,
-      summary: `${bin} .dynsym \u542B ${count} \u4E2A outline-atomics \u7B26\u53F7`,
-      reason: `\u4E8C\u8FDB\u5236\u7F16\u8BD1\u65F6\u5E26\u4E86 -moutline-atomics(\u9ED8\u8BA4 gcc 10+),\u8FD0\u884C\u671F\u5728\u9CB2\u9E4F CPU \u4E0A\u4F1A\u8C03\u5EA6\u5230 LSE \u539F\u5B50\u6307\u4EE4`
-    });
-  }
-  return finding({
-    id,
-    title,
-    severity: "info",
-    bucket: 1,
-    scope,
-    summary: `${bin} .dynsym \u672A\u53D1\u73B0 outline-atomics \u7B26\u53F7 \xB7 \u9700\u624B\u52A8\u786E\u8BA4 LSE \u662F\u5426\u542F\u7528`,
-    description: `${bin} \u4E8C\u8FDB\u5236 .dynsym \u6BB5\u6CA1\u6709 __aarch64_(cas|ldadd|swp|ldset) \u7B49 outline-atomics \u52A8\u6001\u7B26\u53F7\u3002\u8FD9\u6709\u4E09\u79CD\u53EF\u80FD,\u65E0\u6CD5\u9760 nm -D \u533A\u5206: (a) \u7F16\u8BD1\u65F6\u65E2\u6CA1\u5E26 -moutline-atomics \u4E5F\u6CA1 -march=armv8.1-a+lse \u00B7 \u7ADE\u4E89\u8DEF\u5F84\u9000\u56DE ldxr/stxr \u00B7 ARM64 \u4E0A\u541E\u5410\u8170\u65A9(\u6700\u5E38\u89C1 \u00B7 \u8001 distro repo build); (b) \u7528 -march=armv8.1-a+lse \u76F4\u63A5\u5185\u8054 LSE \u00B7 \u5DF2\u662F\u6700\u4F18 build \u4F46 outline \u7B26\u53F7\u81EA\u7136\u4E0D\u51FA\u73B0; (c) \u9759\u6001\u94FE\u63A5 libgcc \u00B7 outline-atomics \u51FD\u6570\u88AB inline \u8FDB\u4E8C\u8FDB\u5236 \u00B7 \u4E5F\u4E0D\u5728 .dynsym\u3002\u5EFA\u8BAE\u624B\u52A8 readelf -A / \u6216\u5BF9\u6BD4 perf \u706B\u7130\u56FE\u7684 ldxr/stxr \u5360\u6BD4\u6765\u533A\u5206\u3002`,
-    reason: `nm -D $(command -v ${bin}) \u4E2D __aarch64_(have_lse_atomics|cas|ldadd|swp|ldset) \u7B49 outline-atomics \u52A8\u6001\u7B26\u53F7\u51FA\u73B0 0 \u6B21 \u00B7 \u4F46\u65E0\u6CD5\u636E\u6B64\u72EC\u7ACB\u5224\u65AD\u662F\u5426\u8D70\u4E86 LSE`,
-    threshold_display: "> 0 outline-atomics symbols (info-only \xB7 \u4E0D\u5224 warning)",
-    evidence: [{ kind: "metric", value: `lse_outline_symbols_${bin}=0` }],
-    impact: { metric: "throughput_qps", value: 25, unit: "percent", confidence: "high" },
-    citations: [
-      KUNPENG_REFS.arm64Porting,
-      { title: "AWS Graviton \xB7 C/C++ LSE (-moutline-atomics)", url: "https://github.com/aws/aws-graviton-getting-started/blob/main/c-c%2B%2B.md" },
-      { title: "Percona \xB7 ARM64 MySQL builds", url: "https://www.percona.com/blog/percona-server-for-mysql-and-percona-xtrabackup-now-available-for-arm64/" }
-    ],
-    recommendations: [
-      {
-        action: `\u6362\u88C5\u5E26 LSE \u7684 ${bin} \u6784\u5EFA(Percona ARM64 RPM / \u81EA\u7F16\u8BD1 -march=armv8.1-a / -moutline-atomics)`,
-        rationale: "LSE atomics \u662F ARM64 DB \u541E\u5410\u7684\u6700\u5927\u5355\u4E00\u6760\u6746",
-        type: "repair",
-        fix_cost: "restart_engine",
-        verifiable: true
-      }
-    ],
-    rationale: {
-      summary: "\u5373\u4F7F CPU \u548C\u5185\u6838\u90FD\u652F\u6301 LSE \xB7 DB \u4E8C\u8FDB\u5236\u672C\u8EAB\u5FC5\u987B\u7528 LSE-aware \u7F16\u8BD1\u5668\u6784\u5EFA\u624D\u80FD\u7528\u4E0A\u3002\u8001\u53D1\u884C\u7248 repo \u7684 mongod / mysqld \u5E38\u662F -march=armv8-a \u6784\u5EFA \xB7 \u8FD0\u884C\u5728\u9CB2\u9E4F\u4E0A\u4E5F\u662F ldxr \u5FAA\u73AF \xB7 \u786C\u4EF6\u767D\u7ED9\u4E0D\u7528\u3002",
-      mechanism: "\u4E8C\u8FDB\u5236\u91CC\u6709\u6CA1\u6709 LSE \u770B objdump -d \u4E2D\u7684 cas*/ldadd*/swp*/cas* \u7CFB\u5217 opcode\u3002\u82E5\u8BA1\u6570\u4E3A 0 \u8BF4\u660E\u7F16\u8BD1\u5668\u6CA1\u5E26 -march=armv8.1-a \u6216 -moutline-atomics\u3002\u540E\u8005\u66F4\u5B9E\u7528:\u7F16\u8BD1\u65F6\u751F\u6210 runtime-dispatch stub \xB7 \u8001 CPU \u8D70 ldxr \u8DEF\u5F84 \xB7 LSE CPU \u8D70 cas \u8DEF\u5F84 \xB7 \u4E00\u4E2A\u4E8C\u8FDB\u5236\u4E24\u5904\u8DD1\u3002",
-      trade_offs: "\u6362\u5E26 LSE \u7684\u4E8C\u8FDB\u5236\u9700\u8981\u91CD\u88C5 package(Percona ARM64 repo / MongoDB \u5B98\u65B9 aarch64 rpm)\u6216\u81EA\u7F16\u8BD1\u3002\u91CD\u88C5\u5F15\u5165 engine restart \xB7 rolling restart \u65E0\u635F\u3002LSE \u541E\u5410\u589E\u76CA\u5728\u9AD8\u7ADE\u4E89 OLTP \u573A\u666F\u53EF\u8FBE 25-40%\u3002",
-      when_to_deviate: "\u53D7\u9650\u73AF\u5883\u53EA\u80FD\u88C5\u53D1\u884C\u7248 repo \u4E8C\u8FDB\u5236\u65F6\u6CA1\u5F97\u9009\u3002\u53EF\u8003\u8651 LD_PRELOAD \u7684 glibc atomics \u517C\u5BB9\u5C42 \xB7 \u4F46\u6548\u679C\u4E0D\u5982\u91CD\u7F16\u8BD1\u5F7B\u5E95\u3002"
-    }
-  });
-};
 var check_arm64_pagesize = (ctx) => {
   const id = "arm64.kernel.page_size";
   const title = "ARM64 \u5185\u6838\u9875\u5927\u5C0F";
@@ -583,8 +515,8 @@ var check_arm64_pagesize = (ctx) => {
 };
 var arm64Checks = [
   check_arm64_lse_cpu,
-  check_arm64_lse_kernel,
-  check_arm64_lse_binary,
+  // check_arm64_lse_kernel · removed 2026-04-26 audit · NO_URL
+  // check_arm64_lse_binary · removed 2026-04-26 audit · TOPIC_MISMATCH (kernel.org elf_hwcaps 不含 opcodes/binary)
   check_arm64_pagesize
 ];
 function requireKunpeng(ctx, id, title, bucket) {
@@ -603,71 +535,6 @@ function requireKunpeng(ctx, id, title, bucket) {
   }
   return { scope };
 }
-var check_cpu_governor = (ctx) => {
-  const id = "kunpeng.cpu.governor";
-  const title = "CPU Governor \u8C03\u9891\u7B56\u7565";
-  const gate = requireKunpeng(ctx, id, title, 1);
-  if ("severity" in gate) return gate;
-  const { scope } = gate;
-  const governor = osVal(ctx, "cpu_governor", "");
-  if (!governor || governor === "SKIP") {
-    return infoResult({
-      id,
-      title,
-      bucket: 1,
-      scope,
-      summary: "\u672A\u91C7\u96C6\u5230 scaling_governor",
-      reason: "cpufreq \u4E0D\u53EF\u8BFB(\u53EF\u80FD\u5185\u6838\u4E0D\u652F\u6301\u6216\u6743\u9650\u4E0D\u8DB3)"
-    });
-  }
-  const governors = governor.split(",").map((g) => g.trim()).filter(Boolean);
-  const bad = governors.filter((g) => g === "powersave" || g === "ondemand");
-  if (bad.length === 0) {
-    return okResult({
-      id,
-      title,
-      bucket: 1,
-      scope,
-      summary: `governor=${governor}`,
-      reason: "\u5DF2\u914D\u7F6E\u9AD8\u6027\u80FD\u8C03\u9891\u7B56\u7565"
-    });
-  }
-  return finding({
-    id,
-    title,
-    severity: "warning",
-    bucket: 1,
-    scope,
-    summary: `governor=${bad.join(",")} \u975E\u9AD8\u6027\u80FD\u6A21\u5F0F`,
-    description: "CPU \u8C03\u9891\u7B56\u7565\u5728 powersave/ondemand \u4E0B,\u8D1F\u8F7D\u5CF0\u503C\u4F1A\u56E0\u9891\u7387\u5207\u6362\u5F15\u5165\u989D\u5916\u5EF6\u8FDF,\u9CB2\u9E4F\u4E0A\u5C24\u5176\u660E\u663E\u3002",
-    reason: `governor=${governor} \xB7 \u6570\u636E\u5E93\u751F\u4EA7\u573A\u666F\u8981\u6C42 performance`,
-    threshold_display: "performance",
-    evidence: [
-      { kind: "config", value: `scaling_governor=${governor}`, source_url: "/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor" }
-    ],
-    impact: { metric: "latency_p95_ms", value: 15, unit: "percent", confidence: "medium" },
-    citations: [
-      KUNPENG_REFS.boostkitOverview,
-      { title: "Ampere Redis Setup and Tuning Guide \xB7 CPU scaling", url: "https://amperecomputing.com/en/tuning-guides/Redis-setup-and-tuning-guide" },
-      { title: "openEuler MySQL Performance Tuning", url: "https://docs.openeuler.org/en/docs/22.09/docs/SystemOptimization/mysql-performance-tuning.html" }
-    ],
-    recommendations: [
-      {
-        action: "echo performance | tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor",
-        rationale: "DB \u751F\u4EA7\u8D1F\u8F7D\u8981\u6C42\u9891\u7387\u7A33\u5B9A,\u907F\u514D\u8C03\u9891\u5F15\u5165\u6296\u52A8",
-        type: "repair",
-        fix_cost: "trivial",
-        verifiable: true
-      }
-    ],
-    rationale: {
-      summary: "CPU governor \u63A7\u5236\u9891\u7387\u52A8\u6001\u8C03\u8282 \xB7 powersave/ondemand \u5728\u4F4E\u8D1F\u8F7D\u65F6\u964D\u9891\u7701\u7535 \xB7 \u7A81\u53D1\u8BF7\u6C42\u65F6\u9700 \u03BCs \u7EA7\u722C\u9891 \xB7 DB \u573A\u666F\u4E0B\u5BB9\u6613\u8BA9 p99 \u5EF6\u8FDF\u6296\u52A8\u3002performance \u56FA\u5B9A\u6700\u9AD8\u9891 \xB7 \u7A33\u6001\u529F\u8017\u7565\u9AD8\u4F46\u6027\u80FD\u53EF\u9884\u6D4B\u3002",
-      mechanism: "ondemand \u6BCF 10ms \u91C7\u6837 CPU \u5229\u7528\u7387\u51B3\u5B9A\u662F\u5426\u5347\u9891 \xB7 \u5347\u9891\u8981 CPU \u53D1 PMIC \u547D\u4EE4 \xB7 \u5178\u578B 50-200\u03BCs \u5EF6\u8FDF\u3002DB \u8BF7\u6C42\u547D\u4E2D\u4F4E\u9891\u7A97\u53E3\u65F6 \xB7 \u5F00\u59CB\u5904\u7406\u540E\u624D\u89E6\u53D1\u5347\u9891 \xB7 \u9996 request \u989D\u5916\u62C9\u957F 100\u03BCs+\u3002performance \u907F\u5F00\u8FD9\u4E2A\u6296\u52A8 \xB7 \u4EE3\u4EF7\u662F\u95F2\u65F6\u6301\u7EED\u9AD8\u9891\u3002",
-      trade_offs: "performance \u6BD4 powersave \u6574\u673A\u529F\u8017\u9AD8 10-20W(2U \u9CB2\u9E4F 920 \u670D\u52A1\u5668\u5178\u578B)\xB7 \u6362\u6765 p99 \u7A33\u5B9A\u3002\u751F\u4EA7 DB \u7269\u7406\u673A\u51E0\u4E4E\u90FD\u8BE5 performance \xB7 \u529F\u8017\u654F\u611F\u7684\u8FB9\u7F18\u8282\u70B9\u53EF\u4FDD ondemand\u3002",
-      when_to_deviate: "VM / \u5BB9\u5668\u573A\u666F governor \u5E38\u7531 hypervisor \u63A7\u5236 \xB7 cpufreq \u63A5\u53E3\u53EF\u80FD\u65E0\u6548 \xB7 \u6B64\u65F6\u9700 hypervisor \u5C42\u914D\u7F6E\u3002\u6D4B\u8BD5 / \u5F00\u53D1\u73AF\u5883\u529F\u8017\u4F18\u5148\u53EF\u4FDD powersave\u3002"
-    }
-  });
-};
 var check_numa = (ctx) => {
   const id = "kunpeng.numa.balancing";
   const title = "NUMA \u81EA\u52A8\u5E73\u8861";
@@ -723,159 +590,6 @@ var check_numa = (ctx) => {
     }
   });
 };
-var check_smt = (ctx) => {
-  const id = "kunpeng.smt.threads_per_core";
-  const title = "SMT \xB7 CPU \u6BCF\u6838\u7EBF\u7A0B\u6570";
-  const gate = requireKunpeng(ctx, id, title, 1);
-  if ("severity" in gate) return gate;
-  const { scope } = gate;
-  const threadsPerCore = toInt(osVal(ctx, "smt_threads_per_core", 0), 0);
-  if (threadsPerCore === 0) {
-    return infoResult({
-      id,
-      title,
-      bucket: 1,
-      scope,
-      summary: "\u672A\u91C7\u96C6\u5230 Thread(s) per core",
-      reason: "lscpu \u672A\u8FD4\u56DE\u5B57\u6BB5"
-    });
-  }
-  return infoResult({
-    id,
-    title,
-    bucket: 1,
-    scope,
-    summary: `${threadsPerCore} thread(s)/core`,
-    reason: threadsPerCore === 1 ? "\u9CB2\u9E4F 920 \u65E0 SMT(logical=physical),\u7EBF\u7A0B\u6C60\u6309\u7269\u7406\u6838\u6570\u914D\u7F6E\u5373\u53EF" : "\u591A\u7EBF\u7A0B/\u6838 \xB7 \u7EBF\u7A0B\u6C60\u6309\u7269\u7406\u6838\u6570\u914D,\u907F\u514D\u8BEF\u4E58 threads/core"
-  });
-};
-var check_numa_topology = (ctx) => {
-  const id = "kunpeng.numa.topology";
-  const title = "NUMA \u8282\u70B9\u62D3\u6251";
-  const gate = requireKunpeng(ctx, id, title, 1);
-  if ("severity" in gate) return gate;
-  const { scope } = gate;
-  const nodes = toInt(osVal(ctx, "numa_nodes", 0), 0);
-  if (nodes === 0) {
-    return infoResult({
-      id,
-      title,
-      bucket: 1,
-      scope,
-      summary: "\u672A\u91C7\u96C6\u5230 NUMA \u8282\u70B9\u6570",
-      reason: "\u672A\u80FD\u8BFB\u53D6 /sys/devices/system/node"
-    });
-  }
-  const label = nodes >= 4 ? "2P \u9CB2\u9E4F\u7269\u7406\u673A\u5178\u578B(4 \u8282\u70B9)" : nodes === 2 ? "\u5355\u8DEF\u9CB2\u9E4F\u6216\u865A\u62DF\u673A(2 \u8282\u70B9)" : "\u5355\u8282\u70B9(VM \u6216\u5355\u8DEF\u88C1\u526A\u578B\u53F7)";
-  return infoResult({
-    id,
-    title,
-    bucket: 1,
-    scope,
-    summary: `${nodes} \u8282\u70B9(${label})`,
-    reason: "\u62D3\u6251\u4FE1\u606F \xB7 \u5F71\u54CD\u5206\u7247\u90E8\u7F72/\u7EBF\u7A0B\u7ED1\u6838\u67B6\u6784\u51B3\u7B56"
-  });
-};
-var check_irqbalance = (ctx) => {
-  const id = "kunpeng.irqbalance.active";
-  const title = "irqbalance IRQ \u5747\u8861";
-  const gate = requireKunpeng(ctx, id, title, 1);
-  if ("severity" in gate) return gate;
-  const { scope } = gate;
-  const active = osVal(ctx, "irqbalance_active", "");
-  if (!active || active === "unknown") {
-    return infoResult({
-      id,
-      title,
-      bucket: 1,
-      scope,
-      summary: "\u672A\u91C7\u96C6\u5230 irqbalance \u72B6\u6001",
-      reason: "systemctl \u4E0D\u53EF\u7528\u6216\u672A\u5B89\u88C5 irqbalance"
-    });
-  }
-  if (active === "active") {
-    return okResult({
-      id,
-      title,
-      bucket: 1,
-      scope,
-      summary: "irqbalance active",
-      reason: "IRQ \u81EA\u52A8\u5206\u6563\u5230\u5404 CPU \u6838"
-    });
-  }
-  return finding({
-    id,
-    title,
-    severity: "warning",
-    bucket: 1,
-    scope,
-    summary: `irqbalance ${active}`,
-    description: "irqbalance \u672A\u8FD0\u884C\u65F6 IRQ \u5BB9\u6613\u96C6\u4E2D\u5230 CPU0,\u9AD8\u5E76\u53D1 DB \u573A\u666F\u6253\u6EE1\u5355\u6838\u3002",
-    reason: `irqbalance=${active} \xB7 \u672A\u7ED1\u5B9A IRQ \u4EB2\u548C\u6027\u65F6 IRQ \u96C6\u4E2D CPU0,\u9AD8\u5E76\u53D1\u6253\u6EE1\u5355\u6838`,
-    threshold_display: "active",
-    evidence: [
-      { kind: "config", value: `irqbalance=${active}` }
-    ],
-    impact: { metric: "latency_p95_ms", value: 10, unit: "percent", confidence: "medium" },
-    citations: [
-      { title: "Red Hat Performance Tuning \xB7 IRQ balancing", url: "https://access.redhat.com/sites/default/files/attachments/rhel7_numa_perf_brief.pdf" }
-    ],
-    recommendations: [
-      {
-        action: "systemctl enable --now irqbalance",
-        rationale: "\u542F\u52A8 irqbalance \u8BA9\u5185\u6838\u81EA\u9002\u5E94\u5206\u6563\u4E2D\u65AD;\u6216\u624B\u52A8 /proc/irq/$irq/smp_affinity_list \u7ED1\u5B9A",
-        type: "repair",
-        fix_cost: "trivial",
-        verifiable: true
-      }
-    ],
-    rationale: {
-      summary: "irqbalance \u662F userspace daemon \xB7 \u628A\u7F51\u5361 / \u5B58\u50A8 / \u5176\u5B83 PCI \u8BBE\u5907\u7684\u786C\u4E2D\u65AD\u5747\u5300\u5206\u6563\u5230\u5404 CPU\u3002\u672A\u542F\u52A8\u65F6 IRQ \u9ED8\u8BA4\u96C6\u4E2D\u5728 CPU0 \xB7 \u9AD8\u5E76\u53D1 DB \u573A\u666F\u4E0B CPU0 \u88AB\u4E2D\u65AD\u6253\u6EE1 \xB7 DB \u8FDE\u63A5\u7EBF\u7A0B\u4E5F\u62A2 CPU0 \xB7 \u6574\u673A\u53D8\u74F6\u9888\u3002",
-      mechanism: "Linux \u542F\u52A8\u65F6\u9ED8\u8BA4\u628A\u6240\u6709 IRQ \u7684 smp_affinity \u8BBE\u6210 CPU0 \xB7 \u9664\u975E irqbalance \u542F\u52A8\u540E\u52A8\u6001\u8C03\u6574\u3002\u9CB2\u9E4F 920 \u5355\u673A\u5E38\u89C1 64/128 \u6838 \xB7 \u4E0D\u5206\u6563 IRQ \u5C31\u662F 1/64 \u7684 CPU \u5728\u670D\u52A1\u7F51\u7EDC \xB7 softirq \u6392\u961F \xB7 \u7F51\u7EDC\u6536\u5305\u5EF6\u8FDF\u653E\u5927\u3002DB \u5BA2\u6237\u7AEF\u611F\u77E5\u5230\u7684\u662F p95/p99 \u6296\u52A8\u3002",
-      trade_offs: "\u542F irqbalance \u5BF9 CPU \u5F00\u9500\u6781\u5C0F(< 1%)\xB7 \u517C\u5BB9\u6027\u597D\u3002\u5BF9\u8D85\u4F4E\u5EF6\u8FDF\u573A\u666F(HFT / in-memory KV)\u53EF\u9009\u62E9\u5173 irqbalance \u5E76\u624B\u52A8\u7ED1\u5B9A\u7279\u5B9A IRQ \u5230\u4E13\u95E8\u7684\u6838 \xB7 \u4F46\u9700\u8981\u7CBE\u7EC6\u8C03\u4F18\u3002\u901A\u7528 DB \u90E8\u7F72\u542F irqbalance \u5373\u53EF\u3002",
-      when_to_deviate: "\u5DF2\u624B\u52A8\u7ED1\u5B9A IRQ smp_affinity \u7684\u4E13\u4E1A\u8C03\u4F18\u573A\u666F \xB7 \u4FDD\u6301\u624B\u52A8\u7ED1\u5B9A\u5373\u53EF\u4E0D\u542F irqbalance\u3002\u5355\u6838 / VM \u573A\u666F irqbalance \u610F\u4E49\u4E0D\u5927\u4F46\u65E0\u5BB3\u3002"
-    }
-  });
-};
-var check_numa_distance_matrix = (ctx) => {
-  const id = "kunpeng.numa.distance_matrix";
-  const title = "NUMA \u8DDD\u79BB\u77E9\u9635";
-  const gate = requireKunpeng(ctx, id, title, 1);
-  if ("severity" in gate) return gate;
-  const { scope } = gate;
-  const raw = osVal(ctx, "numa_dist_raw", "");
-  const max = toInt(osVal(ctx, "numa_dist_max", 0), 0);
-  const min = toInt(osVal(ctx, "numa_dist_min", 0), 0);
-  if (!raw || max === 0) {
-    return infoResult({
-      id,
-      title,
-      bucket: 1,
-      scope,
-      summary: "\u672A\u91C7\u96C6 NUMA \u8DDD\u79BB\u77E9\u9635",
-      reason: "numactl -H \u4E0D\u53EF\u7528\u6216\u4E0D\u542B distances \u6BB5"
-    });
-  }
-  if (max === min) {
-    return infoResult({
-      id,
-      title,
-      bucket: 1,
-      scope,
-      summary: `\u8DDD\u79BB\u5747\u5300 \xB7 \u6240\u6709\u8282\u70B9\u8DDD\u79BB = ${max}`,
-      reason: "\u5355\u8DEF\u9CB2\u9E4F\u6216\u865A\u62DF\u673A \xB7 \u65E0\u8DE8 die/socket \u6210\u672C\u5DEE\u5F02,\u65E0\u9700\u5206\u7247\u7ED1\u6838\u4F18\u5316"
-    });
-  }
-  return okResult({
-    id,
-    title,
-    bucket: 1,
-    scope,
-    summary: `\u8DDD\u79BB\u975E\u5BF9\u79F0 min=${min} max=${max}`,
-    description: "\u68C0\u6D4B\u5230\u8DE8 die/socket \u8DDD\u79BB\u5DEE \xB7 \u5EFA\u8BAE\u7528 numactl --cpunodebind/--membind \u628A DB \u8FDB\u7A0B\u7ED1\u5230\u5355\u8282\u70B9,\u907F\u514D\u8FDC\u7AEF\u8BBF\u5B58",
-    reason: "\u591A NUMA \u8282\u70B9\u5E03\u5C40\u9700\u8981\u7ED1\u6838\u90E8\u7F72"
-  });
-};
 var check_kunpeng_somaxconn_strict = (ctx) => {
   const id = "kunpeng.net.somaxconn_strict";
   const title = "somaxconn";
@@ -893,9 +607,9 @@ var check_kunpeng_somaxconn_strict = (ctx) => {
       bucket: 1,
       scope,
       summary: `somaxconn=${val}`,
-      reason: "\u5DF2\u8FBE\u9CB2\u9E4F BoostKit Mongo \u63A8\u8350 \u2265 65535",
-      threshold_display: "\u2265 65535",
-      citations: [{ title: "\u9CB2\u9E4F BoostKit \xB7 MongoDB \u8C03\u4F18 \xB7 somaxconn", url: "https://www.hikunpeng.com/document/detail/zh/kunpengdbs/ecosystemEnable/MongoDB/kunpengdbstune_05_0029.html" }]
+      reason: "\u5DF2\u8FBE Ampere MongoDB \u8C03\u4F18\u6307\u5357\u63A8\u8350\u503C",
+      threshold_display: "sysctl -w net.core.somaxconn = 65535",
+      citations: [KUNPENG_REFS.ampereMongo]
     });
   }
   return finding({
@@ -905,21 +619,22 @@ var check_kunpeng_somaxconn_strict = (ctx) => {
     bucket: 1,
     scope,
     summary: `somaxconn=${val} < 65535`,
-    description: "\u9CB2\u9E4F BoostKit MongoDB \u8C03\u4F18\u6307\u5357\u8981\u6C42 net.core.somaxconn \u2265 65535,\u901A\u7528 Linux 1024 \u7684\u9608\u503C\u5728\u9CB2\u9E4F\u9AD8\u5E76\u53D1 DB \u4E0B\u504F\u5C0F",
-    reason: `net.core.somaxconn=${val} \xB7 \u9CB2\u9E4F\u5B98\u65B9\u5EFA\u8BAE \u2265 65535`,
-    threshold_display: "\u2265 65535",
+    description: "Ampere MongoDB Tuning Guide \u63A8\u8350 sysctl -w net.core.somaxconn = 65535,\u901A\u7528 Linux 1024 \u7684\u9608\u503C\u5728 ARM \u9AD8\u5E76\u53D1 DB \u4E0B\u504F\u5C0F",
+    reason: `net.core.somaxconn=${val} \xB7 Ampere \u63A8\u8350\u503C 65535`,
+    threshold_display: "sysctl -w net.core.somaxconn = 65535",
     evidence: [{ kind: "config", value: `net.core.somaxconn=${val}` }],
     impact: { metric: "connection_util_pct", value: 10, unit: "percent", confidence: "medium" },
     citations: [
-      KUNPENG_REFS.boostkitMongo
+      KUNPENG_REFS.ampereMongo
     ],
     recommendations: [
       {
-        action: "sysctl -w net.core.somaxconn=65535",
-        rationale: "\u5BF9\u9F50\u9CB2\u9E4F BoostKit DB \u8C03\u4F18\u5EFA\u8BAE \xB7 \u907F\u5F00\u9AD8\u5E76\u53D1 SYN \u4E22\u5305",
+        action: "sysctl -w net.core.somaxconn = 65535",
+        rationale: "\u5BF9\u9F50 Ampere MongoDB \u8C03\u4F18\u6307\u5357\u5B57\u9762\u5EFA\u8BAE \xB7 \u907F\u5F00\u9AD8\u5E76\u53D1 SYN \u4E22\u5305",
         type: "mitigate",
         fix_cost: "trivial",
-        verifiable: true
+        verifiable: true,
+        fix_url: KUNPENG_REFS.ampereMongo.url
       }
     ]
   });
@@ -1003,9 +718,9 @@ var check_kunpeng_swappiness_strict = (ctx) => {
       bucket: 1,
       scope,
       summary: `swappiness=${val}`,
-      reason: "\u5DF2\u5BF9\u9F50\u9CB2\u9E4F BoostKit \u63A8\u8350",
-      threshold_display: "== 1",
-      citations: [{ title: "\u9CB2\u9E4F BoostKit \xB7 MongoDB \u8C03\u4F18 \xB7 vm.swappiness", url: "https://www.hikunpeng.com/document/detail/zh/kunpengdbs/ecosystemEnable/MongoDB/kunpengdbstune_05_0029.html" }]
+      reason: "\u5DF2\u5BF9\u9F50 MongoDB Production Notes \u63A8\u8350",
+      threshold_display: "Set vm.swappiness to 1 or 0",
+      citations: [KUNPENG_REFS.mongoProdNotes]
     });
   }
   const severity = val > 10 ? "warning" : "info";
@@ -1016,9 +731,9 @@ var check_kunpeng_swappiness_strict = (ctx) => {
       bucket: 1,
       scope,
       summary: `swappiness=${val}`,
-      reason: "\u4F4E\u4E8E 10 \xB7 \u901A\u7528\u53EF\u63A5\u53D7;\u4F46\u9CB2\u9E4F BoostKit \u660E\u786E == 1(\u66F4\u4E25)",
-      threshold_display: "== 1",
-      citations: [{ title: "\u9CB2\u9E4F BoostKit \xB7 MongoDB \u8C03\u4F18", url: "https://www.hikunpeng.com/document/detail/zh/kunpengdbs/ecosystemEnable/MongoDB/kunpengdbstune_05_0029.html" }]
+      reason: "\u4F4E\u4E8E 10 \xB7 \u901A\u7528\u53EF\u63A5\u53D7;\u4F46 MongoDB Production Notes \u660E\u786E 1 \u6216 0",
+      threshold_display: "Set vm.swappiness to 1 or 0",
+      citations: [KUNPENG_REFS.mongoProdNotes]
     });
   }
   return finding({
@@ -1027,73 +742,23 @@ var check_kunpeng_swappiness_strict = (ctx) => {
     severity: "warning",
     bucket: 1,
     scope,
-    summary: `swappiness=${val} \u4E0D\u7B26\u9CB2\u9E4F\u4E25\u683C\u9608\u503C`,
-    description: '\u9CB2\u9E4F BoostKit \u8C03\u4F18\u6307\u5357\u539F\u6587:\u5C06 vm.swappiness \u8BBE\u7F6E\u4E3A\u8F83\u4F4E\u503C "1" \u4EE5\u51CF\u5C11\u4EA4\u6362\u5206\u533A\u4F7F\u7528',
-    reason: `vm.swappiness=${val} \xB7 \u9CB2\u9E4F\u5B98\u65B9\u63A8\u8350 1`,
-    threshold_display: "== 1",
+    summary: `swappiness=${val} \u504F\u79BB MongoDB \u63A8\u8350\u503C`,
+    description: "MongoDB Production Notes \u660E\u786E:Set vm.swappiness to 1 or 0",
+    reason: `vm.swappiness=${val} \xB7 MongoDB \u5B98\u65B9\u63A8\u8350 1 \u6216 0`,
+    threshold_display: "Set vm.swappiness to 1 or 0",
     evidence: [{ kind: "config", value: `vm.swappiness=${val}` }],
     impact: { metric: "latency_p95_ms", value: 15, unit: "percent", confidence: "medium" },
     citations: [
-      KUNPENG_REFS.boostkitMongo
+      KUNPENG_REFS.mongoProdNotes
     ],
     recommendations: [
       {
-        action: "sysctl -w vm.swappiness=1",
-        rationale: "\u5BF9\u9F50\u9CB2\u9E4F BoostKit MongoDB \u8C03\u4F18\u6307\u5357",
+        action: "Set vm.swappiness to 1 or 0",
+        rationale: "\u5BF9\u9F50 MongoDB Production Notes \u5B57\u9762\u63A8\u8350",
         type: "repair",
         fix_cost: "trivial",
-        verifiable: true
-      }
-    ]
-  });
-};
-var check_kunpeng_tcp_max_syn_backlog_mongo = (ctx) => {
-  const id = "kunpeng.net.tcp_max_syn_backlog_mongo";
-  const title = "tcp_max_syn_backlog \xB7 \u9CB2\u9E4F Mongo";
-  const gate = requireKunpeng(ctx, id, title, 1);
-  if ("severity" in gate) return gate;
-  const { scope } = gate;
-  if (scope.engine !== "mongo") {
-    return infoResult({ id, title, bucket: 1, scope, summary: "\u4EC5\u5BF9 MongoDB", reason: `db_type=${scope.engine}` });
-  }
-  const val = toInt(osVal(ctx, "tcp_max_syn_backlog", 0), 0);
-  if (val === 0) {
-    return infoResult({ id, title, bucket: 1, scope, summary: "\u672A\u91C7\u96C6", reason: "sysctl \u4E0D\u53EF\u8BFB" });
-  }
-  if (val >= 8192) {
-    return okResult({
-      id,
-      title,
-      bucket: 1,
-      scope,
-      summary: `tcp_max_syn_backlog=${val}`,
-      reason: "\u5DF2\u8FBE\u9CB2\u9E4F BoostKit Mongo \u63A8\u8350 \u2265 8192",
-      threshold_display: "\u2265 8192",
-      citations: [{ title: "\u9CB2\u9E4F BoostKit \xB7 MongoDB \u8C03\u4F18 \xB7 tcp_max_syn_backlog", url: "https://www.hikunpeng.com/document/detail/zh/kunpengdbs/ecosystemEnable/MongoDB/kunpengdbstune_05_0029.html" }]
-    });
-  }
-  return finding({
-    id,
-    title,
-    severity: "warning",
-    bucket: 1,
-    scope,
-    summary: `tcp_max_syn_backlog=${val} < 8192`,
-    description: "\u9CB2\u9E4F BoostKit MongoDB \u8C03\u4F18\u6307\u5357\u8981\u6C42 tcp_max_syn_backlog \u2265 8192 \u4EE5\u627F\u63A5\u9AD8\u5E76\u53D1 SYN \u8BF7\u6C42",
-    reason: `net.ipv4.tcp_max_syn_backlog=${val} \xB7 \u9CB2\u9E4F\u5B98\u65B9\u5EFA\u8BAE \u2265 8192`,
-    threshold_display: "\u2265 8192",
-    evidence: [{ kind: "config", value: `net.ipv4.tcp_max_syn_backlog=${val}` }],
-    impact: { metric: "connection_util_pct", value: 10, unit: "percent", confidence: "medium" },
-    citations: [
-      KUNPENG_REFS.boostkitMongo
-    ],
-    recommendations: [
-      {
-        action: "sysctl -w net.ipv4.tcp_max_syn_backlog=8192",
-        rationale: "\u6269\u5BB9 SYN \u961F\u5217 \xB7 \u5BF9\u9F50\u9CB2\u9E4F BoostKit \u63A8\u8350",
-        type: "mitigate",
-        fix_cost: "trivial",
-        verifiable: true
+        verifiable: true,
+        fix_url: KUNPENG_REFS.mongoProdNotes.url
       }
     ]
   });
@@ -1130,16 +795,16 @@ var check_kunpeng_numa_interleave = (ctx) => {
   });
 };
 var kunpengChecks = [
-  check_cpu_governor,
+  // check_cpu_governor · removed 2026-04-26 audit · TOPIC_MISMATCH (cnblogs page 无 governor 字面)
   check_numa,
-  check_smt,
-  check_numa_topology,
-  check_irqbalance,
-  check_numa_distance_matrix,
+  // check_smt · removed 2026-04-26 audit · NO_URL
+  // check_numa_topology · removed 2026-04-26 audit · NO_URL
+  // check_irqbalance · removed 2026-04-26 audit · NO_URL
+  // check_numa_distance_matrix · removed 2026-04-26 audit · NO_URL
   check_kunpeng_somaxconn_strict,
   check_kunpeng_tcp_keepalive_strict,
   check_kunpeng_swappiness_strict,
-  check_kunpeng_tcp_max_syn_backlog_mongo,
+  // check_kunpeng_tcp_max_syn_backlog_mongo · removed 2026-04-26 audit · TOPIC_MISMATCH (KB 无 tcp_max_syn_backlog 源)
   check_kunpeng_numa_interleave
 ];
 function requireOpenEuler(ctx, id, title, bucket) {
@@ -1392,79 +1057,6 @@ var check_thp = (ctx) => {
     }
   });
 };
-var check_hugepage = (ctx) => {
-  const id = "os.hugepages.static_reserved";
-  const title = "\u9759\u6001 HugePages";
-  const engine = ctx.db_type;
-  const scope = deriveScope(ctx, engine);
-  const nr = toInt(osVal(ctx, "nr_hugepages", 0), 0);
-  if (nr === 0) {
-    return okResult({
-      id,
-      title,
-      bucket: 1,
-      scope,
-      summary: "nr_hugepages=0",
-      reason: "WT/Redis/InnoDB \u81EA\u7BA1 cache \u4E0D\u8D70 hugetlb,\u4FDD\u6301 0 \u5373\u53EF"
-    });
-  }
-  return infoResult({
-    id,
-    title,
-    bucket: 1,
-    scope,
-    summary: `nr_hugepages=${nr}`,
-    reason: "\u5DF2\u9884\u7559\u9759\u6001\u5927\u9875(\u53EF\u80FD\u4F9B\u540C\u673A\u5176\u5B83\u670D\u52A1\u4F7F\u7528,DB \u672C\u8EAB\u65E0\u76F4\u63A5\u5F71\u54CD)"
-  });
-};
-var check_io_scheduler = (ctx) => {
-  const id = "os.iosched.device_scheduler";
-  const title = "IO \u8C03\u5EA6\u5668";
-  const engine = ctx.db_type;
-  const scope = deriveScope(ctx, engine);
-  const raw = osVal(ctx, "io_scheduler", "");
-  const m = /\[(\w[\w-]*)\]/.exec(raw);
-  const sched = m ? m[1] : raw;
-  if (!raw.toLowerCase().includes("[cfq]")) {
-    return okResult({
-      id,
-      title,
-      bucket: 1,
-      scope,
-      summary: `scheduler=${sched}`,
-      reason: "\u8C03\u5EA6\u5668\u914D\u7F6E\u5408\u7406(\u975E CFQ)",
-      threshold_display: "mq-deadline / none / kyber",
-      // Linux kernel doc 是 I/O scheduler 行为的权威定义 · Kunpeng 只转述
-      citations: [{ title: "Red Hat Performance Tuning \xB7 I/O scheduler", url: "https://access.redhat.com/sites/default/files/attachments/rhel7_numa_perf_brief.pdf" }]
-    });
-  }
-  return finding({
-    id,
-    title,
-    severity: "warning",
-    bucket: 1,
-    scope,
-    summary: `scheduler=[cfq] \u4E0D\u9002\u5408 DB`,
-    description: "CFQ \u8C03\u5EA6\u5668\u4F1A\u5F15\u5165\u961F\u5217\u5EF6\u8FDF,DB \u968F\u673A IO \u9700\u8981\u4F4E\u5EF6\u8FDF(none/mq-deadline)",
-    reason: "CFQ \u5BF9 SSD \u5F15\u5165\u4E0D\u5FC5\u8981\u961F\u5217\u5EF6\u8FDF",
-    threshold_display: "mq-deadline / none / kyber",
-    evidence: [{ kind: "config", value: `io_scheduler=${raw}` }],
-    impact: { metric: "latency_p95_ms", value: 10, unit: "percent", confidence: "medium" },
-    citations: [
-      KUNPENG_REFS.boostkitMongo,
-      { title: "Red Hat Performance Tuning \xB7 I/O scheduler", url: "https://access.redhat.com/sites/default/files/attachments/rhel7_numa_perf_brief.pdf" }
-    ],
-    recommendations: [
-      {
-        action: "echo none > /sys/block/sda/queue/scheduler",
-        rationale: "SSD \u7528 none \xB7 HDD \u7528 mq-deadline",
-        type: "repair",
-        fix_cost: "trivial",
-        verifiable: true
-      }
-    ]
-  });
-};
 var check_swappiness = (ctx) => {
   const id = "os.vm.swappiness";
   const title = "Swap \u503E\u5411";
@@ -1535,8 +1127,8 @@ var check_net_somaxconn = (ctx) => {
   if (val === 0) {
     return infoResult({ id, title, bucket: 1, scope, summary: "\u672A\u91C7\u96C6\u5230", reason: "\u65E0\u6CD5\u8BFB\u53D6 net.core.somaxconn" });
   }
-  if (val >= 1024) {
-    return okResult({ id, title, bucket: 1, scope, summary: `somaxconn=${val}`, reason: "\u961F\u5217\u957F\u5EA6\u5145\u8DB3", threshold_display: "\u2265 4096", citations: [{ title: "MongoDB Production Notes \xB7 TCP", url: "https://www.mongodb.com/docs/manual/administration/production-notes/" }] });
+  if (val >= 65535) {
+    return okResult({ id, title, bucket: 1, scope, summary: `somaxconn=${val}`, reason: "\u5DF2\u8FBE Ampere MongoDB \u63A8\u8350\u503C", threshold_display: "sysctl -w net.core.somaxconn = 65535", citations: [KUNPENG_REFS.ampereMongo] });
   }
   return finding({
     id,
@@ -1544,23 +1136,23 @@ var check_net_somaxconn = (ctx) => {
     severity: "warning",
     bucket: 1,
     scope,
-    summary: `somaxconn=${val} < 1024`,
-    description: "\u76D1\u542C\u961F\u5217\u8FC7\u77ED,\u9AD8\u5E76\u53D1\u65F6 TCP \u8FDE\u63A5\u8BF7\u6C42\u4F1A\u88AB\u5185\u6838\u4E22\u5F03",
-    reason: `somaxconn=${val} \xB7 DB \u670D\u52A1\u5668\u5EFA\u8BAE \u2265 1024(Ampere/Mongo \u5EFA\u8BAE 65535)`,
-    threshold_display: "\u2265 4096",
+    summary: `somaxconn=${val} < 65535`,
+    description: "\u76D1\u542C\u961F\u5217\u504F\u77ED \xB7 \u9AD8\u5E76\u53D1 DB \u4E0B TCP \u8FDE\u63A5\u8BF7\u6C42\u6613\u88AB\u5185\u6838\u4E22\u5F03 \xB7 Ampere MongoDB Tuning Guide \u63A8\u8350 sysctl -w net.core.somaxconn = 65535",
+    reason: `somaxconn=${val} \xB7 Ampere \u63A8\u8350 65535`,
+    threshold_display: "sysctl -w net.core.somaxconn = 65535",
     evidence: [{ kind: "config", value: `net.core.somaxconn=${val}` }],
     impact: { metric: "connection_util_pct", value: 15, unit: "percent", confidence: "medium" },
     citations: [
-      KUNPENG_REFS.boostkitMongo,
-      { title: "Ampere MongoDB Tuning \xB7 somaxconn", url: "https://amperecomputing.com/tuning-guides/mongoDB-tuning-guide" }
+      KUNPENG_REFS.ampereMongo
     ],
     recommendations: [
       {
-        action: "sysctl -w net.core.somaxconn=4096",
-        rationale: "\u51CF\u5C11\u9AD8\u5E76\u53D1\u65F6 SYN \u4E22\u5305",
+        action: "sysctl -w net.core.somaxconn = 65535",
+        rationale: "\u5BF9\u9F50 Ampere MongoDB \u8C03\u4F18\u6307\u5357\u5B57\u9762\u5EFA\u8BAE",
         type: "mitigate",
         fix_cost: "trivial",
-        verifiable: true
+        verifiable: true,
+        fix_url: KUNPENG_REFS.ampereMongo.url
       }
     ]
   });
@@ -1609,53 +1201,6 @@ var check_tcp_keepalive = (ctx) => {
       mechanism: "TCP keepalive \u673A\u5236\u5728\u8FDE\u63A5\u7A7A\u95F2\u8D85\u8FC7 tcp_keepalive_time \u79D2\u540E \xB7 \u5185\u6838\u6BCF tcp_keepalive_intvl \u79D2\u53D1\u63A2\u6D4B\u5305 \xB7 \u7D2F\u8BA1 tcp_keepalive_probes \u6B21(\u9ED8\u8BA4 9)\u6CA1 ACK \u5C31\u6807\u8BB0\u8FDE\u63A5\u6B7B\u3002\u9ED8\u8BA4\u5168\u94FE\u8DEF\u9700 2h + 9\xD775s \u2248 2h11m\u3002MongoDB \u5B98\u65B9\u63A8\u8350 120s + 10s \u95F4\u9694 \xB7 \u8FDE\u63A5\u95EE\u9898 3 \u5206\u949F\u5185\u88AB\u53D1\u73B0\u3002",
       trade_offs: "\u8C03\u4F4E\u589E\u52A0\u5C11\u91CF keepalive \u63A2\u6D4B\u5305\u6D41\u91CF(\u53EF\u5FFD\u7565)\xB7 \u6362\u6765\u5FEB\u901F\u6545\u969C\u611F\u77E5\u3002\u8D1F\u8F7D\u5747\u8861\u5668 / NAT \u8D85\u65F6\u5E38\u8BBE\u5728 5-15 \u5206\u949F \xB7 keepalive \u5FC5\u987B\u77ED\u4E8E\u8FD9\u4E2A\u503C\u624D\u80FD\u9632\u6B62 NAT \u63D0\u524D\u6E05\u8868\u3002",
       when_to_deviate: "\u6781\u4F4E\u5EF6\u8FDF / HFT \u573A\u666F\u76F4\u63A5\u7981 keepalive \u9760\u5E94\u7528\u5C42\u5FC3\u8DF3\u3002\u666E\u901A OLTP / \u670D\u52A1\u7AEF mongod \u540E\u63A5 NAT \u6216\u4E91 LB \u7684\u5FC5\u987B \u2264 300s\u3002"
-    }
-  });
-};
-var check_vm_dirty_ratio = (ctx) => {
-  const id = "os.vm.dirty_ratio";
-  const title = "\u810F\u9875\u5199\u56DE\u7B56\u7565";
-  const engine = ctx.db_type;
-  const scope = deriveScope(ctx, engine);
-  const dr = toInt(osVal(ctx, "vm_dirty_ratio", 0), 0);
-  const dbg = toInt(osVal(ctx, "vm_dirty_background_ratio", 0), 0);
-  if (dr === 0 && dbg === 0) {
-    return infoResult({ id, title, bucket: 1, scope, summary: "\u672A\u91C7\u96C6\u5230", reason: "sysctl \u8BFB\u53D6\u5931\u8D25" });
-  }
-  const current = `dirty_ratio=${dr}% \xB7 dirty_background_ratio=${dbg}%`;
-  if (dr < 10 && dbg < 5) {
-    return okResult({ id, title, bucket: 1, scope, summary: current, reason: "\u810F\u9875\u53C2\u6570\u5408\u7406" });
-  }
-  return finding({
-    id,
-    title,
-    severity: "warning",
-    bucket: 1,
-    scope,
-    summary: `${current} \u504F\u9AD8`,
-    description: "\u5927\u91CF\u810F\u9875\u79EF\u538B\u540E\u96C6\u4E2D\u5237\u76D8\u4F1A\u5BFC\u81F4\u5199\u505C\u987F(write stall)",
-    reason: `dirty_ratio=${dr}% / dirty_background_ratio=${dbg}% \xB7 DB \u573A\u666F\u5E94 \u2264 5/2`,
-    threshold_display: "dirty_ratio \u2264 5% \xB7 dirty_bg \u2264 2%",
-    evidence: [{ kind: "config", value: current }],
-    impact: { metric: "latency_p95_ms", value: 15, unit: "percent", confidence: "medium" },
-    citations: [
-      KUNPENG_REFS.boostkitMongo,
-      { title: "Red Hat Performance Tuning \xB7 dirty ratio", url: "https://access.redhat.com/sites/default/files/attachments/rhel7_numa_perf_brief.pdf" }
-    ],
-    recommendations: [
-      {
-        action: "sysctl -w vm.dirty_ratio=5 && sysctl -w vm.dirty_background_ratio=2",
-        rationale: "\u8BA9\u810F\u9875\u6301\u7EED\u5C0F\u6279\u91CF\u5237\u76D8 \xB7 \u907F\u514D\u96C6\u4E2D IO \u98CE\u66B4",
-        type: "repair",
-        fix_cost: "trivial",
-        verifiable: true
-      }
-    ],
-    rationale: {
-      summary: "\u5185\u6838 page cache \u7684\u810F\u9875\u6BD4\u4F8B\u4E0A\u9650\u7531 vm.dirty_ratio \u63A7\u5236 \xB7 \u9ED8\u8BA4 20%\u3002256GB \u7269\u7406\u673A = \u6700\u591A 50GB \u810F\u9875 \xB7 \u89E6\u53D1\u9608\u503C\u65F6\u5E94\u7528\u7EBF\u7A0B\u88AB\u963B\u585E\u76F4\u5230 pdflush \u5237\u5B8C \xB7 DB \u5199\u8BF7\u6C42\u88AB\u6574\u4F53 freeze \u51E0\u79D2\u5230\u51E0\u5341\u79D2(write stall)\u3002",
-      mechanism: "Linux \u6709\u4E24\u7EA7\u9608\u503C:dirty_background_ratio(\u9ED8\u8BA4 10%)\u89E6\u53D1\u540E pdflush \u540E\u53F0\u5F02\u6B65\u5237 \xB7 dirty_ratio(\u9ED8\u8BA4 20%)\u89E6\u53D1\u540E**\u5E94\u7528\u7EBF\u7A0B\u540C\u6B65\u5237**\u4E0D\u518D\u8FD4\u56DE\u3002DB \u6279\u91CF\u5199(checkpoint / redo rotate / bulk insert)\u77AC\u65F6\u751F\u6210\u5927\u91CF\u810F\u9875 \xB7 \u8F7B\u677E\u89E6\u8FBE 20% \xB7 \u6574\u4E2A mongod \u8FDB\u7A0B\u88AB write() syscall \u5361\u4F4F\u3002",
-      trade_offs: "\u964D\u4F4E\u9608\u503C\u8BA9\u5237\u76D8\u66F4\u9891\u7E41\u4F46\u66F4\u5E73\u6ED1 \xB7 5%/2% \u5BF9 NVMe \u662F\u6BCF\u79D2 MB \u7EA7\u5C0F\u6279\u91CF \xB7 \u5F71\u54CD\u53EF\u5FFD\u7565\u3002\u63D0\u9AD8\u4F1A\u4EA7\u751F\u66F4\u5927 IO bursts \xB7 \u5BF9 DB \u662F\u81F4\u547D\u7684\u3002\u751F\u4EA7 DB \u573A\u666F\u4E0D\u5B58\u5728\u8BA9\u9608\u503C\u53D8\u9AD8\u7684\u5408\u7406\u7406\u7531\u3002",
-      when_to_deviate: "\u7EAF\u65E5\u5FD7 workload(append-only + fsync \u9891\u7E41)\u53EF\u4FDD\u9ED8\u8BA4 \xB7 \u53CD\u6B63\u810F\u9875\u5F88\u5FEB\u88AB fsync \u6E05\u6389\u3002\u4F46 MongoDB WT checkpoint \u8D70 OS fsync \xB7 \u8FD8\u662F\u53D7\u5F71\u54CD \xB7 \u4E0D\u7B97\u4F8B\u5916\u3002"
     }
   });
 };
@@ -1727,42 +1272,6 @@ var check_disk_usage = (ctx) => {
         rationale: "\u907F\u514D\u78C1\u76D8\u5199\u6EE1\u5BFC\u81F4 DB \u505C\u5199",
         type: "prevent",
         fix_cost: "schema_migration",
-        verifiable: false
-      }
-    ]
-  });
-};
-var check_tcp_retransmit = (ctx) => {
-  const id = "os.net.tcp_retrans_pct";
-  const title = "TCP \u91CD\u4F20\u7387";
-  const engine = ctx.db_type;
-  const scope = deriveScope(ctx, engine);
-  const pct = toFloat(osVal(ctx, "tcp_retrans_pct", 0), 0);
-  if (pct <= 1) {
-    return okResult({ id, title, bucket: 1, scope, summary: `retrans=${pct.toFixed(2)}%`, reason: "TCP \u91CD\u4F20\u7387\u6B63\u5E38" });
-  }
-  return finding({
-    id,
-    title,
-    severity: "warning",
-    bucket: 1,
-    scope,
-    summary: `retrans=${pct.toFixed(2)}% > 1%`,
-    description: "\u9AD8\u91CD\u4F20\u7387\u5BFC\u81F4 DB \u5BA2\u6237\u7AEF\u8FDE\u63A5\u8D85\u65F6 / \u6162\u67E5\u8BE2\u653E\u5927",
-    reason: `tcp_retrans=${pct.toFixed(2)}% \xB7 \u9608\u503C 1%`,
-    threshold_display: "\u2264 1%",
-    evidence: [{ kind: "metric", value: `tcp_retrans_pct=${pct.toFixed(2)}` }],
-    impact: { metric: "latency_p95_ms", value: 20, unit: "percent", confidence: "medium" },
-    citations: [
-      KUNPENG_REFS.boostkitMongo,
-      { title: "Red Hat Performance Tuning \xB7 TCP retransmission", url: "https://access.redhat.com/sites/default/files/attachments/rhel7_numa_perf_brief.pdf" }
-    ],
-    recommendations: [
-      {
-        action: "\u6392\u67E5\u4EA4\u6362\u673A\u62E5\u585E \xB7 \u68C0\u67E5 MTU / TCP congestion algorithm / \u7F51\u7EDC\u8D1F\u8F7D",
-        rationale: "\u94FE\u8DEF\u8D28\u91CF\u95EE\u9898,\u975E DB \u4FA7\u76F4\u63A5\u53EF\u4FEE",
-        type: "detect",
-        fix_cost: "restart_engine",
         verifiable: false
       }
     ]
@@ -1997,16 +1506,16 @@ var check_kernel_version_rseq = (ctx) => {
   });
 };
 var osChecks = [
-  check_hugepage,
+  // check_hugepage · removed 2026-04-26 audit · NO_URL
   check_thp,
-  check_io_scheduler,
+  // check_io_scheduler · removed 2026-04-26 audit · NO_URL
   check_swappiness,
   check_net_somaxconn,
   check_tcp_keepalive,
-  check_vm_dirty_ratio,
+  // check_vm_dirty_ratio · removed 2026-04-26 audit · NO_URL
   check_disk_latency,
   check_disk_usage,
-  check_tcp_retransmit,
+  // check_tcp_retransmit · removed 2026-04-26 audit · NO_URL
   check_vm_zone_reclaim,
   check_vm_max_map_count,
   check_env_virt_type,
@@ -2014,7 +1523,7 @@ var osChecks = [
   check_kernel_version_rseq
 ];
 
-// skills/perf-kp-sql/src/shared/index.ts
+// ../ohsql-plugin/plugins/perf-kp-sql/src/shared/index.ts
 var sharedChecks = [
   ...kunpengChecks,
   ...arm64Checks,
@@ -2022,7 +1531,7 @@ var sharedChecks = [
   ...osChecks
 ];
 
-// skills/perf-kp-sql/src/engines/mongo/checks.ts
+// ../ohsql-plugin/plugins/perf-kp-sql/src/engines/mongo/checks.ts
 function mongoScope(ctx) {
   return deriveScope(ctx, "mongo");
 }
@@ -2268,55 +1777,6 @@ var check_oplog_window = (ctx) => {
       mechanism: "secondary \u901A\u8FC7 tailing primary \u7684 local.oplog.rs \u96C6\u5408\u590D\u5236\u6570\u636E\u3002oplog \u662F\u56FA\u5B9A\u5927\u5C0F capped collection \xB7 \u5199\u5165\u901F\u7387\u51B3\u5B9A\u7A97\u53E3\u65F6\u957F\u3002\u5F53 secondary \u79BB\u7EBF\u8D85\u8FC7\u7A97\u53E3 \xB7 \u5B83\u8981\u8BFB\u7684 oplog entries \u5DF2\u88AB\u8986\u76D6 \xB7 \u65E0\u6CD5\u589E\u91CF\u8FFD\u8D76 \xB7 \u89E6\u53D1\u5168\u91CF initial sync\u3002initial sync \u8D70\u5168\u91CF collection \u590D\u5236 + \u6240\u6709 index \u91CD\u5EFA \xB7 TB \u7EA7\u6570\u636E\u96C6\u901A\u5E38 6-12 \u5C0F\u65F6\u3002",
       trade_offs: "\u589E\u5927 oplog \u5360\u7528\u78C1\u76D8 \xB7 \u6BCF GB oplog \u2248 \u652F\u6301 1-2 \u5C0F\u65F6\u9AD8\u5CF0\u5199\u5165(\u53D6\u51B3\u5199\u5165\u901F\u7387)\u3002\u78C1\u76D8\u7A7A\u95F4\u6362\u8FD0\u7EF4\u5B89\u5168 \xB7 \u4E0D\u5F71\u54CD\u8BFB\u5199\u6027\u80FD\u3002",
       when_to_deviate: "\u5F00\u53D1\u73AF\u5883 / \u5141\u8BB8\u624B\u52A8 resync \u7684\u5C0F\u5E93 \xB7 oplog \u53EF\u77ED\u3002\u751F\u4EA7 OLTP \u5FC5\u987B \u2265 24h \xB7 \u9AD8\u5199\u5165\u6216\u8DE8\u673A\u623F\u573A\u666F\u5EFA\u8BAE 48-72h \u7ED9 DBA \u8DB3\u591F\u6392\u969C\u65F6\u95F4\u3002"
-    }
-  });
-};
-var check_compression_algorithm = (ctx) => {
-  const id = "mongo.config.wt_block_compressor";
-  const title = "WiredTiger \u5757\u538B\u7F29\u7B97\u6CD5";
-  const skip = notMongoSkip(ctx, id, title, 2);
-  if (skip) return skip;
-  const scope = mongoScope(ctx);
-  const compressor = dbVal(ctx, "_wt_block_compressor", "");
-  if (!compressor) {
-    return infoResult({ id, title, bucket: 2, scope, summary: "\u672A\u91C7\u96C6 compressor", reason: "\u53EF\u80FD\u4F7F\u7528\u5F15\u64CE\u9ED8\u8BA4 snappy" });
-  }
-  if (compressor !== "zlib") {
-    return okResult({ id, title, bucket: 2, scope, summary: `compressor=${compressor}`, reason: "\u538B\u7F29\u7B97\u6CD5\u5408\u7406" });
-  }
-  const severityOnKunpeng = scope.vendor === "kunpeng" ? "warning" : "info";
-  if (severityOnKunpeng === "info") {
-    return infoResult({ id, title, bucket: 2, scope, summary: `compressor=zlib`, reason: "zlib \u538B\u7F29\u6BD4\u9AD8\u4F46 CPU \u5F00\u9500\u5927,\u975E\u9CB2\u9E4F\u73AF\u5883\u4EC5\u63D0\u793A" });
-  }
-  return finding({
-    id,
-    title,
-    severity: "warning",
-    bucket: 2,
-    scope,
-    summary: `compressor=zlib on ${scope.vendor}`,
-    description: "zlib \u538B\u7F29\u5728 Kunpeng / ARM64 \u4E0A CPU \u6D88\u8017\u663E\u8457\u9AD8\u4E8E x86,FTDC \u4E2D deflate_slow \u70ED\u70B9\u660E\u663E\u3002",
-    reason: "Kunpeng \u4E0A zlib \u538B\u7F29\u6210\u672C\u8FC7\u9AD8 \xB7 \u5EFA\u8BAE snappy \u6216 zstd",
-    threshold_display: "snappy / zstd",
-    evidence: [{ kind: "config", value: `wiredTigerCollectionBlockCompressor=zlib` }],
-    impact: { metric: "db_time_pct", value: 20, unit: "percent", confidence: "medium" },
-    citations: [
-      KUNPENG_REFS.boostkitMongo
-    ],
-    recommendations: [
-      {
-        action: "\u5728 mongod.conf \u8BBE\u7F6E storage.wiredTiger.collectionConfig.blockCompressor: snappy (\u6216 zstd)",
-        rationale: "Kunpeng \u4E0A\u66F4\u6362 compressor \u663E\u8457\u964D\u4F4E CPU \u538B\u529B",
-        type: "repair",
-        fix_cost: "restart_engine",
-        verifiable: true
-      }
-    ],
-    rationale: {
-      summary: "\u9CB2\u9E4F 920 \u4E0A zlib \u538B\u7F29/\u89E3\u538B\u5B8C\u5168\u8D70\u901A\u7528 ALU \u8DEF\u5F84 \xB7 \u6CA1\u6709 Intel ISA-L \u6216\u7B49\u4EF7\u7684\u786C\u4EF6\u538B\u7F29\u52A0\u901F \xB7 \u76F8\u540C\u541E\u5410\u4E0B CPU \u5360\u7528\u663E\u8457\u9AD8\u4E8E x86\u3002FTDC \u706B\u7130\u56FE\u4E2D deflate_slow \u5E38\u5E74\u5360 15-30% CPU \xB7 \u538B\u7F29\u5F00\u9500\u5403\u6389\u67E5\u8BE2 CPU \u9884\u7B97\u3002",
-      mechanism: "zlib \u7684 deflate_slow \u5927\u91CF\u4F7F\u7528 sliding window \u67E5\u627E\u548C Huffman \u7F16\u7801 \xB7 \u7EAF CPU \u8BA1\u7B97 \xB7 ARM64 \u65E0\u5BF9\u5E94\u52A0\u901F ISA(\u9CB2\u9E4F\u6709 SMMU \u52A0\u5BC6\u52A0\u901F\u4F46\u4E0D\u8986\u76D6 compression)\u3002snappy \u662F byte-level LZ77 \xB7 zstd \u6709\u8F7B\u91CF dictionary \xB7 \u4E24\u8005\u90FD\u5BF9 ARM64 \u6307\u4EE4\u96C6\u53CB\u597D \xB7 \u5176\u4E2D snappy \u89E3\u538B\u53EF SIMD \u5316\u8FDB\u4E00\u6B65\u51CF\u5F00\u9500\u3002",
-      trade_offs: "snappy \u538B\u7F29\u6BD4 ~2x \xB7 zlib ~3x \xB7 zstd ~3.2x \xB7 zstd \u538B\u7F29\u6BD4\u63A5\u8FD1 zlib \u4F46 CPU \u53EA\u7528 zlib \u7684 50-70%\u3002\u78C1\u76D8\u5360\u7528\u5207\u6362\u540E\u53EF\u80FD\u4E0A\u5347 40-50% \xB7 \u4F46\u6362\u6765 CPU \u9884\u7B97\u53EF\u4EE5\u6D88\u5316\u66F4\u591A QPS\u3002NVMe \u573A\u666F\u78C1\u76D8\u6210\u672C\u8FDC\u4F4E\u4E8E CPU\u3002",
-      when_to_deviate: "\u5F52\u6863\u96C6\u5408\u8BFB\u5199\u6781\u5C11 \xB7 \u53EF\u4FDD\u7559 zlib \u7701\u78C1\u76D8\u3002\u70ED\u6570\u636E\u96C6\u5408\u5F3A\u70C8\u63A8\u8350 snappy \u6216 zstd\u3002MongoDB 4.2+ \u539F\u751F\u652F\u6301 zstd \xB7 3.x \u53EA zlib/snappy \u53EF\u9009\u3002"
     }
   });
 };
@@ -3047,7 +2507,7 @@ var mongoChecks = [
   check_wt_cache_vs_memory,
   check_wt_cache_hit,
   check_oplog_window,
-  check_compression_algorithm,
+  // check_compression_algorithm · removed 2026-04-26 audit · NO_URL (mongo.config.wt_block_compressor)
   check_db_cache_vs_memory,
   check_storage_journaling_enabled,
   check_wt_ticket_read,
@@ -3064,7 +2524,7 @@ var mongoChecks = [
   check_wt_pages_read_volume
 ];
 
-// skills/perf-kp-sql/src/engines/mongo/collector.ts
+// ../ohsql-plugin/plugins/perf-kp-sql/src/engines/mongo/collector.ts
 var OS_BATCH_CMD = [
   "echo '###THP###'",
   "cat /sys/kernel/mm/transparent_hugepage/enabled 2>/dev/null || echo unknown",
@@ -3281,7 +2741,7 @@ function extractJsonObject(stdout) {
   return lastObject;
 }
 
-// skills/perf-kp-sql/src/report.ts
+// ../ohsql-plugin/plugins/perf-kp-sql/src/report.ts
 var SEVERITY_WEIGHT = {
   critical: 10,
   warning: 5,
@@ -3453,7 +2913,7 @@ function collectEvidenceTrail(ranked) {
   return sorted;
 }
 
-// skills/perf-kp-sql/src/rule-engine-v2.ts
+// ../ohsql-plugin/plugins/perf-kp-sql/src/rule-engine-v2.ts
 var FIELD_BRACKET_RE = /^\['([^']+)'\]|^\["([^"]+)"\]|^\[(\d+)\]/;
 function resolveField(metrics, path) {
   let cur = metrics;
@@ -3772,7 +3232,7 @@ function evaluateRule(rule, metrics) {
   return { rule_id: rule.rule_id, status: "ok" };
 }
 
-// skills/perf-kp-sql/src/rule-engine.ts
+// ../ohsql-plugin/plugins/perf-kp-sql/src/rule-engine.ts
 function evaluateRule2(rule, collected) {
   const base = {
     rule_id: rule.rule_id,
@@ -4062,7 +3522,7 @@ function formatActual(v) {
   return String(v);
 }
 
-// skills/perf-kp-sql/src/kb-enrich.ts
+// ../ohsql-plugin/plugins/perf-kp-sql/src/kb-enrich.ts
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 function loadSqlite() {
@@ -4162,7 +3622,7 @@ function mergeFactsIntoResult(r, rows) {
   return out;
 }
 
-// skills/perf-kp-sql/src/baseline-store.ts
+// ../ohsql-plugin/plugins/perf-kp-sql/src/baseline-store.ts
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { join as join2 } from "node:path";
 import { homedir } from "node:os";
@@ -4217,7 +3677,7 @@ function tryLoadBaseline(hostname) {
   }
 }
 
-// skills/perf-kp-sql/src/cli-diagnose.ts
+// ../ohsql-plugin/plugins/perf-kp-sql/src/cli-diagnose.ts
 async function main() {
   const inputs = await readInputs();
   let ctx;
