@@ -7,7 +7,9 @@
   "scripts": {
     "validate": "node tools/build/validate.mjs",
     "validate:strict": "node tools/build/validate.mjs --strict",
-    "test": "node --test tools/build/validate.test.mjs"
+    "test": "npm run test:validate && npm run test:perf-kp-sql",
+    "test:validate": "node --test tools/build/validate.test.mjs",
+    "test:perf-kp-sql": "node --import tsx --test plugins/perf-kp-sql/tests/cli-ssh.test.ts"
   },
   "engines": {
     "node": ">=18.0.0"
