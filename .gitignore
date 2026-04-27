@@ -9,3 +9,6 @@ dist/
 *.sqlite-wal
 *.sqlite-shm
 *.sqlite-journal
+
+# MiniLM model cache (downloaded by kb-build at runtime · not versioned)
+plugins/*/data/models/

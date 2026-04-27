@@ -11,7 +11,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#mongodb-dbpath",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/",
       "title": "MongoDB dbPath",
       "quote": "If you use an antivirus (AV) scanner or an endpoint detection and response (EDR) scanner, configure your scanner to exclude the database storage path and the database log path from the scan.",
       "accessed": "2026-04-25"
@@ -35,7 +35,7 @@
     "fix_cost": "restart_engine",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#disable-http-interface",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/",
       "title": "Disable HTTP Interface",
       "quote": "The HTTP interface is disabled by default. Do not enable the HTTP interface in production environments.",
       "accessed": "2026-04-25"
@@ -83,7 +83,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#write-concern",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/",
       "title": "Write Concern",
       "quote": "With insufficient write concerns, write operations may appear to a client to have succeeded, but may not persist in some cases of server failure.",
       "accessed": "2026-04-25"
@@ -275,7 +275,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/tutorial/transparent-huge-pages/",
+      "url": "https://www.mongodb.com/docs/manual/administration/tcmalloc-performance/",
       "title": "Enable Transparent Hugepages (THP)",
       "quote": "In MongoDB 8.0 and later, ensure that THP is enabled before mongod starts by creating a service file for your platform's initialization system.",
       "accessed": "2026-04-25"
@@ -299,7 +299,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/tutorial/transparent-huge-pages/",
+      "url": "https://www.mongodb.com/docs/manual/administration/tcmalloc-performance/",
       "title": "Using tuned and ktune",
       "quote": "(Optional) Customize tuned or ktune profile",
       "accessed": "2026-04-25"
@@ -347,7 +347,7 @@
     "fix_cost": "restart_engine",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/tutorial/transparent-huge-pages/",
+      "url": "https://www.mongodb.com/docs/manual/administration/tcmalloc-performance/",
       "title": "Enable Per-CPU Caches",
       "quote": "To verify that TCMalloc is running with per-CPU caches, ensure that: tcmalloc.usingPerCPUCaches is true. tcmalloc.tcmalloc.cpu_free is greater than 0.",
       "accessed": "2026-04-25"
@@ -587,7 +587,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/#mongodb-setting-systemLog.quiet",
+      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/",
       "title": "systemLog.quiet",
       "quote": "systemLog.quiet is not recommended for production systems as it may make tracking problems during particular connections much more difficult.",
       "accessed": "2026-04-25"
@@ -611,7 +611,7 @@
     "fix_cost": "restart_engine",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/#mongodb-setting-systemLog.destination",
+      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/",
       "title": "systemLog.destination",
       "quote": "We recommend using the file option for production systems to ensure accurate timestamps.",
       "accessed": "2026-04-25"
@@ -635,7 +635,7 @@
     "fix_cost": "restart_engine",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/#mongodb-setting-systemLog.logRotate",
+      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/",
       "title": "systemLog.logRotate",
       "quote": "If you specify reopen, you must also set systemLog.logAppend to true.",
       "accessed": "2026-04-25"
@@ -659,7 +659,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/#mongodb-setting-systemLog.verbosity",
+      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/",
       "title": "systemLog.verbosity",
       "quote": "0 is the MongoDB's default log verbosity level, to include Informational messages. 1 to 5 increases the verbosity level to include Debug messages.",
       "accessed": "2026-04-25"
@@ -1258,7 +1258,7 @@
     "fix_cost": "restart_engine",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/tutorial/transparent-huge-pages/",
+      "url": "https://www.mongodb.com/docs/manual/administration/tcmalloc-performance/",
       "title": "TCMalloc Performance Optimization for a Self-Managed Deployment",
       "quote": "In MongoDB 8.0 and later, ensure that THP is enabled before mongod starts by creating a service file for your platform's initialization system.",
       "accessed": "2026-04-25"
@@ -1282,7 +1282,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/tutorial/transparent-huge-pages/",
+      "url": "https://www.mongodb.com/docs/manual/administration/tcmalloc-performance/",
       "title": "Enable Transparent Huge Pages",
       "quote": "In MongoDB 8.0 and later, ensure that THP is enabled before mongod starts by creating a service file for your platform's initialization system.",
       "accessed": "2026-04-25"
@@ -1305,7 +1305,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/tutorial/transparent-huge-pages/",
+      "url": "https://www.mongodb.com/docs/manual/administration/tcmalloc-performance/",
       "title": "Enable Transparent Huge Pages",
       "quote": "Run: sudo systemctl start enable-transparent-huge-pages",
       "accessed": "2026-04-25"
@@ -1328,7 +1328,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/tutorial/transparent-huge-pages/",
+      "url": "https://www.mongodb.com/docs/manual/administration/tcmalloc-performance/",
       "title": "Enable Transparent Huge Pages",
       "quote": "Create the following file and save it at /etc/init.d/enable-transparent-hugepages:",
       "accessed": "2026-04-25"
@@ -1351,7 +1351,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/tutorial/transparent-huge-pages/",
+      "url": "https://www.mongodb.com/docs/manual/administration/tcmalloc-performance/",
       "title": "Disable glibc rseq for TCMalloc",
       "quote": "To ensure that TCMalloc can use rseq to enable per-CPU caches, you can disable glibc’s registration of a rseq structure.",
       "accessed": "2026-04-25"
@@ -1375,7 +1375,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/tutorial/transparent-huge-pages/",
+      "url": "https://www.mongodb.com/docs/manual/administration/tcmalloc-performance/",
       "title": "Check Kernel Version",
       "quote": "Check Kernel Version If you disabled glibc rseq and per-CPU caches are still not enabled, ensure that you're using Linux kernel version 4.18 or later.",
       "accessed": "2026-04-25"
@@ -1398,7 +1398,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#platform-support",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/",
       "title": "Production Notes for Self-Managed Deployments",
       "quote": "For Intel x86_64, MongoDB requires one of: a Haswell or later Core processor, or a Tiger Lake or later Celeron or Pentium processor. For AMD x86_64, MongoDB requires: a Bulldozer or later processor.",
       "accessed": "2026-04-25"
@@ -1422,7 +1422,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#platform-support",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/",
       "title": "MongoDB Production Notes",
       "quote": "MongoDB 5.0 requires use of the AVX instruction set, available on select Intel and AMD processors.",
       "accessed": "2026-04-25"
@@ -1468,7 +1468,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#recommended-platforms",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/",
       "title": "MongoDB Production Notes",
       "quote": "While MongoDB supports a variety of platforms, the following operating systems are recommended for production use on x86_64 architecture: Amazon Linux, Debian, RHEL, SLES, Ubuntu LTS, Windows Server.",
       "accessed": "2026-04-25"
@@ -1491,7 +1491,7 @@
     "fix_cost": "restart_engine",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#use-trusted-networking-environments",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/",
       "title": "Networking",
       "quote": "By default, authorization is not enabled, and bin.mongod assumes a trusted environment. Enable security.authorization mode as needed.",
       "accessed": "2026-04-25"
@@ -1516,7 +1516,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#manage-connection-pool-sizes",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/",
       "title": "Manage Connection Pool Sizes",
       "quote": "Avoid overloading the connection resources of a bin.mongod or bin.mongos instance by adjusting the connection pool size to suit your use case.",
       "accessed": "2026-04-25"
@@ -1541,7 +1541,7 @@
     "fix_cost": "restart_engine",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#adjust-tcp_keepalive_time",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/",
       "title": "Adjust tcp_keepalive_time",
       "quote": "If the TCP keepalive value is greater than the TCP idle timeout on your cloud provider's load balancer, there is a risk that the system might silently drop connections. To reduce this risk, set tcp_keepalive_time to 120.",
       "accessed": "2026-04-25"
@@ -1566,7 +1566,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#allocate-sufficient-ram-and-cpu",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/",
       "title": "Allocate Sufficient RAM and CPU",
       "quote": "At a minimum, ensure that each :binary:`~bin.mongod` or :binary:`~bin.mongos` instance has access to two real cores or one multi-core physical CPU.",
       "accessed": "2026-04-25"
@@ -1589,7 +1589,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#wiredtiger-1",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/",
       "title": "WiredTiger",
       "quote": "Throughput *increases* as the number of concurrent active operations increases up to the number of CPUs. Throughput *decreases* as the number of concurrent active operations exceeds the number of CPUs by some threshold amount.",
       "accessed": "2026-04-25"
@@ -1612,7 +1612,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#use-solid-state-disks--ssds-",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/",
       "title": "Use Solid State Disks (SSDs)",
       "quote": "MongoDB has good results and a good price-performance ratio with SATA SSD (Solid State Disk). Use SSD if available and economical.",
       "accessed": "2026-04-25"
@@ -1635,7 +1635,7 @@
     "fix_cost": "restart_engine",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#mongodb-and-numa-hardware",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/",
       "title": "MongoDB and NUMA Hardware",
       "quote": "When running MongoDB servers and clients on NUMA hardware, you should configure a memory interleave policy so that the host behaves in a non-NUMA fashion.",
       "accessed": "2026-04-25"
@@ -1658,7 +1658,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#configuring-numa-on-linux",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/",
       "title": "MongoDB Production Notes",
       "quote": "The numad daemon process can also reduce MongoDB performance. You should ensure numad is not enabled on MongoDB servers.",
       "accessed": "2026-04-25"
@@ -1681,7 +1681,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#configuring-numa-on-linux",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/",
       "title": "MongoDB Production Notes",
       "quote": "On Linux, you must disable zone reclaim to properly disable NUMA for use with MongoDB.",
       "accessed": "2026-04-25"
@@ -1704,7 +1704,7 @@
     "fix_cost": "restart_engine",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#configuring-numa-on-linux",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/",
       "title": "MongoDB Production Notes",
       "quote": "You must use numactl to start each of your mongod instances, including all config servers, mongos instances, and clients.",
       "accessed": "2026-04-25"
@@ -1727,7 +1727,7 @@
     "fix_cost": "restart_engine",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#configuring-numa-on-linux",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/",
       "title": "MongoDB Production Notes",
       "quote": "You must use `numactl` to start each of your `mongod` instances...",
       "accessed": "2026-04-25"
@@ -1751,7 +1751,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#swap",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/",
       "title": "Swap Strategies",
       "quote": "Generally, you should choose one of the following swap strategies: Assign swap space on your system, and configure the kernel to only permit swapping under high memory load, or Do not assign swap space on your system, and configure the kernel to disable swapping entirely.",
       "accessed": "2026-04-25"
@@ -1774,7 +1774,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#raid",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/",
       "title": "RAID",
       "quote": "For optimal performance in terms of the storage layer, use disks backed by RAID-10. RAID-5 and RAID-6 do not typically provide sufficient performance to support a MongoDB deployment.",
       "accessed": "2026-04-25"
@@ -1797,7 +1797,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#remote-filesystems--nfs-",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/",
       "title": "Remote Filesystems (NFS)",
       "quote": "If you decide to use NFS, add the following NFS options to your /etc/fstab file: bg, hard, nolock, noatime, nointr.",
       "accessed": "2026-04-25"
@@ -1820,7 +1820,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#scheduling-for-physical-servers",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/",
       "title": "Scheduling for Physical Servers",
       "quote": "For physical servers using NVMe or SSD drives, the operating system should use the none scheduler. For physical servers using spinning disks, the operating system should use the mq-deadline scheduler. The mq-deadline scheduler caps maximum latency per request and maintains a good disk throughput that is best for disk-intensive database applications.",
       "accessed": "2026-04-25"
@@ -1845,7 +1845,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#compression",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/",
       "title": "Compression",
       "quote": "By default, WiredTiger uses :term:`snappy` compression library. To change the compression setting, see :setting:`storage.wiredTiger.collectionConfig.blockCompressor`.",
       "accessed": "2026-04-25"
@@ -1870,7 +1870,7 @@
     "fix_cost": "restart_engine",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#clock-synchronization",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/",
       "title": "Clock Synchronization",
       "quote": "Using NTP to synchronize host machine clocks mitigates the risk of clock drift between components. Clock drift between components increases the likelihood of incorrect or abnormal behavior of time-dependent operations.",
       "accessed": "2026-04-25"
@@ -1895,7 +1895,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#kernel-and-file-systems",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/",
       "title": "Platform Specific Considerations",
       "quote": "When running MongoDB in production on Linux, you should use Linux kernel version 2.6.36 or later, with either the XFS or EXT4 filesystem. If possible, use XFS as it generally performs better with MongoDB.",
       "accessed": "2026-04-25"
@@ -1920,7 +1920,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#set-vm.swappiness-to-1-or-0",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/",
       "title": "Set vm.swappiness to 1 or 0",
       "quote": "'Swappiness' is a Linux kernel setting that influences the behavior of the Virtual Memory manager. The 'vm.swappiness' setting ranges from '0' to '100': the higher the value, the more strongly it prefers swapping memory pages to disk over dropping pages from RAM.",
       "accessed": "2026-04-25"
@@ -1945,7 +1945,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#set-vm.swappiness-to-1-or-0",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/",
       "title": "MongoDB Production Notes",
       "quote": "MongoDB performs best where swapping can be avoided or kept to a minimum. As such you should set `vm.swappiness` to either `1` or `0` depending on your application needs and cluster configuration.",
       "accessed": "2026-04-25"
@@ -1968,7 +1968,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#recommended-configuration",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/",
       "title": "MongoDB Production Notes",
       "quote": "Adjust the `ulimit` settings for your platform according to the recommendations. Low `ulimit` values will negatively affect MongoDB when under heavy use and can lead to failed connections to MongoDB processes and loss of service.",
       "accessed": "2026-04-25"
@@ -1991,7 +1991,7 @@
     "fix_cost": "restart_engine",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#recommended-configuration",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/",
       "title": "MongoDB Production Notes",
       "quote": "If you are running MongoDB 8.0, enable Transparent Hugepages. If you are running MongoDB 7.0 or earlier, disable Transparent Hugepages.",
       "accessed": "2026-04-25"
@@ -2014,7 +2014,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#recommended-configuration",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/",
       "title": "MongoDB Production Notes",
       "quote": "If you are running MongoDB 7.0 or earlier, disable Transparent Hugepages. In earlier versions, MongoDB performs better with typical (4096 bytes) virtual memory pages.",
       "accessed": "2026-04-25"
@@ -2038,7 +2038,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#mongodb-and-numa-hardware",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/",
       "title": "MongoDB Production Notes",
       "quote": "Disable NUMA in your BIOS. If that is not possible, see MongoDB on NUMA Hardware.",
       "accessed": "2026-04-25"
@@ -2063,7 +2063,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#recommended-configuration",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/",
       "title": "MongoDB Production Notes",
       "quote": "Set the readahead setting between 8 and 32 regardless of storage media type (spinning disk, SSD, etc.).",
       "accessed": "2026-04-25"
@@ -2086,7 +2086,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/enhanced-networking.html#enabling_enhanced_networking",
+      "url": "https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/enhanced-networking.html",
       "title": "MongoDB on Virtual Environments",
       "quote": "To tune performance on EC2 (Elastic Compute Cloud) for either configuration, you should: Enable AWS (Amazon Web Services) Enhanced Networking for your instance. Not all instance types support Enhanced Networking.",
       "accessed": "2026-04-25"
@@ -2111,7 +2111,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#mongodb-on-virtual-environments",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/",
       "title": "MongoDB on Virtual Environments",
       "quote": "Disable DVFS and CPU power saving modes.",
       "accessed": "2026-04-25"
@@ -2136,7 +2136,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#aws--amazon-web-services--ec2--elastic-compute-cloud-",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/",
       "title": "MongoDB on Virtual Environments",
       "quote": "Use provisioned IOPS (Input/Output Operations Per Second) for the storage, with separate devices for journal and data.",
       "accessed": "2026-04-25"
@@ -2161,7 +2161,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#iostat",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/",
       "title": "Performance Monitoring",
       "quote": "On Linux, use the iostat command to check if disk I/O is a bottleneck for your database. Specify a number of seconds when running iostat to avoid displaying stats covering the time since server boot.",
       "accessed": "2026-04-25"
@@ -2185,7 +2185,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/tutorial/transparent-huge-pages/#platform-support",
+      "url": "https://www.mongodb.com/docs/manual/administration/tcmalloc-performance/",
       "title": "Platform Support",
       "quote": "If you use these operating systems, disable THP.",
       "accessed": "2026-04-25"
@@ -2208,7 +2208,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/tutorial/transparent-huge-pages/#start-the-service",
+      "url": "https://www.mongodb.com/docs/manual/administration/tcmalloc-performance/",
       "title": "Start the service",
       "quote": "Run: sudo systemctl start enable-transparent-huge-pages",
       "accessed": "2026-04-25"
@@ -2233,7 +2233,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/tutorial/transparent-huge-pages/#start-the-service",
+      "url": "https://www.mongodb.com/docs/manual/administration/tcmalloc-performance/",
       "title": "Start the service",
       "quote": "To verify that the relevant THP settings have changed, run the following command: cat /sys/kernel/mm/transparent_hugepage/enabled...",
       "accessed": "2026-04-25"
@@ -2258,7 +2258,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/tutorial/transparent-huge-pages/#create-the-init.d-script",
+      "url": "https://www.mongodb.com/docs/manual/administration/tcmalloc-performance/",
       "title": "Create the init.d script",
       "quote": "Create the following file and save it at /etc/init.d/enable-transparent-hugepages:",
       "accessed": "2026-04-25"
@@ -2281,7 +2281,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/tutorial/transparent-huge-pages/#create-the-systemd-unit-file",
+      "url": "https://www.mongodb.com/docs/manual/administration/tcmalloc-performance/",
       "title": "Create the systemd unit file",
       "quote": "To ensure that this setting is applied each time the operating sytem starts, run the following command for your Linux distribution:",
       "accessed": "2026-04-25"
@@ -2304,7 +2304,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/tutorial/transparent-huge-pages/#enable-per-cpu-caches",
+      "url": "https://www.mongodb.com/docs/manual/administration/tcmalloc-performance/",
       "title": "Enable Per-CPU Caches",
       "quote": "To verify that TCMalloc is running with per-CPU caches, ensure that: - tcmalloc.usingPerCPUCaches is true.",
       "accessed": "2026-04-25"
@@ -2327,7 +2327,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/tutorial/transparent-huge-pages/#enable-per-cpu-caches",
+      "url": "https://www.mongodb.com/docs/manual/administration/tcmalloc-performance/",
       "title": "Enable Per-CPU Caches",
       "quote": "tcmalloc.tcmalloc.cpu_free is greater than 0.",
       "accessed": "2026-04-25"
@@ -2350,7 +2350,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/tutorial/transparent-huge-pages/#enable-per-cpu-caches",
+      "url": "https://www.mongodb.com/docs/manual/administration/tcmalloc-performance/",
       "title": "Enable Per-CPU Caches",
       "quote": "If per-CPU caches aren't enabled, ensure that: - You disable glibc rseq.",
       "accessed": "2026-04-25"
@@ -2373,7 +2373,7 @@
     "fix_cost": "restart_engine",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/tutorial/transparent-huge-pages/#enable-per-cpu-caches",
+      "url": "https://www.mongodb.com/docs/manual/administration/tcmalloc-performance/",
       "title": "Enable Per-CPU Caches",
       "quote": "You're using Linux kernel version 4.18 or later.",
       "accessed": "2026-04-25"
@@ -2396,7 +2396,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/tutorial/transparent-huge-pages/#enable-per-cpu-caches",
+      "url": "https://www.mongodb.com/docs/manual/administration/tcmalloc-performance/",
       "title": "Enable Per-CPU Caches",
       "quote": "To ensure that TCMalloc can use rseq to enable per-CPU caches, you can disable glibc’s registration of a rseq structure.",
       "accessed": "2026-04-25"
@@ -2419,7 +2419,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/tutorial/transparent-huge-pages/#check-kernel-version",
+      "url": "https://www.mongodb.com/docs/manual/administration/tcmalloc-performance/",
       "title": "Check Kernel Version",
       "quote": "If you disabled glibc rseq and per-CPU caches are still not enabled, ensure that you're using Linux kernel version 4.18 or later.",
       "accessed": "2026-04-25"
@@ -2442,7 +2442,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/reference/parameters/#mongodb-parameter-param.storageEngineConcurrentReadTransactions",
+      "url": "https://www.mongodb.com/docs/manual/reference/parameters/",
       "title": "MongoDB WiredTiger Engine",
       "quote": "The maximum number of concurrent storage engine transactions, or read and write tickets, never exceeds 128 read tickets and 128 write tickets and may differ across nodes in a cluster.",
       "accessed": "2026-04-25"
@@ -2465,7 +2465,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/core/wiredtiger/#journalJournal",
+      "url": "https://www.mongodb.com/docs/manual/core/wiredtiger/",
       "title": "Journal",
       "quote": "WiredTiger journal is compressed using the snappy compression library. To specify a different compression algorithm or no compression, use the storage.wiredTiger.engineConfig.journalCompressor setting.",
       "accessed": "2026-04-25"
@@ -2488,7 +2488,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/core/wiredtiger/#compressionCompression",
+      "url": "https://www.mongodb.com/docs/manual/core/wiredtiger/",
       "title": "Compression",
       "quote": "By default, WiredTiger uses block compression with the snappy compression library for most collections and prefix compression for all indexes. However, the default block compression for time-series collections is zstd.",
       "accessed": "2026-04-25"
@@ -2511,7 +2511,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/core/wiredtiger/#compressionCompression",
+      "url": "https://www.mongodb.com/docs/manual/core/wiredtiger/",
       "title": "Compression",
       "quote": "For indexes, to disable prefix compression, use the storage.wiredTiger.indexConfig.prefixCompression setting.",
       "accessed": "2026-04-25"
@@ -2534,7 +2534,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/core/wiredtiger/#memory-use",
+      "url": "https://www.mongodb.com/docs/manual/core/wiredtiger/",
       "title": "Memory Use",
       "quote": "The default WiredTiger internal cache size is the larger of either: 50% of (RAM - 1GB), or 0.256 GB. Avoid increasing the WiredTiger internal cache size above its default value.",
       "accessed": "2026-04-25"
@@ -2557,7 +2557,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/core/wiredtiger/#memory-use",
+      "url": "https://www.mongodb.com/docs/manual/core/wiredtiger/",
       "title": "Memory Use",
       "quote": "If your use case requires to do so, you can use storage.wiredTiger.engineConfig.cacheSizePct to specify a percentage of up to 80% of available memory.",
       "accessed": "2026-04-25"
@@ -2580,7 +2580,7 @@
     "fix_cost": "restart_engine",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-checklist-operations/#sharding",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-checklist-operations/",
       "title": "MongoDB Operations Checklist",
       "quote": "Ensure that your replica set includes at least three data-bearing voting members that run with journaling and that you issue writes with w: majority for availability and durability.",
       "accessed": "2026-04-25"
@@ -2603,7 +2603,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-checklist-operations/#sharding",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-checklist-operations/",
       "title": "MongoDB Operations Checklist",
       "quote": "Ensure that your replica set includes at least three data-bearing voting members that run with journaling and that you issue writes with w: majority for availability and durability.",
       "accessed": "2026-04-25"
@@ -2626,7 +2626,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/reference/command/replSetInitiate/#mongodb-dbcommand-dbcmd.replSetInitiate",
+      "url": "https://www.mongodb.com/docs/manual/reference/command/replsetinitiate/",
       "title": "MongoDB Operations Checklist",
       "quote": "Use hostnames when configuring replica set members, rather than IP addresses.",
       "accessed": "2026-04-25"
@@ -2649,7 +2649,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-checklist-operations/#sharding",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-checklist-operations/",
       "title": "Sharding",
       "quote": "Place your config servers on dedicated hardware for optimal performance in large clusters. Ensure that the hardware has enough RAM to hold the data files entirely in memory and that it has dedicated storage.",
       "accessed": "2026-04-25"
@@ -2672,7 +2672,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-checklist-operations/#shardingSharding",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-checklist-operations/",
       "title": "Sharding",
       "quote": "Use NTP to synchronize the clocks on all components of your sharded cluster.",
       "accessed": "2026-04-25"
@@ -2695,7 +2695,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-checklist-operations/#shardingSharding",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-checklist-operations/",
       "title": "Sharding",
       "quote": "Ensure full bidirectional network connectivity between mongod, mongos, and config servers.",
       "accessed": "2026-04-25"
@@ -2718,7 +2718,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/core/journaling/#std-label-journaling-internals",
+      "url": "https://www.mongodb.com/docs/manual/core/journaling/",
       "title": "Journaling: WiredTiger Storage Engine",
       "quote": "Ensure that all instances use journaling. Place the journal on its own low-latency disk for write-intensive workloads.",
       "accessed": "2026-04-25"
@@ -2741,7 +2741,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/core/journaling/#std-label-journaling-internals",
+      "url": "https://www.mongodb.com/docs/manual/core/journaling/",
       "title": "Journaling: WiredTiger Storage Engine",
       "quote": "Place the journal on its own low-latency disk for write-intensive workloads.",
       "accessed": "2026-04-25"
@@ -2764,7 +2764,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-checklist-operations/#hardwareHardware",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-checklist-operations/",
       "title": "Hardware",
       "quote": "Use RAID10 and SSD drives for optimal performance.",
       "accessed": "2026-04-25"
@@ -2787,7 +2787,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-checklist-operations/#hardwareHardware",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-checklist-operations/",
       "title": "Hardware",
       "quote": "Ensure that each mongod has provisioned IOPS for its dbPath, or has its own physical drive or LUN.",
       "accessed": "2026-04-25"
@@ -2810,7 +2810,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-checklist-operations/#hardwareHardware",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-checklist-operations/",
       "title": "Hardware",
       "quote": "Avoid dynamic memory features, such as memory ballooning, when running in virtual environments.",
       "accessed": "2026-04-25"
@@ -2833,7 +2833,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-checklist-operations/#hardwareHardware",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-checklist-operations/",
       "title": "Hardware",
       "quote": "Avoid placing all replica set members on the same SAN, as the SAN can be a single point of failure.",
       "accessed": "2026-04-25"
@@ -2856,7 +2856,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-checklist-operations/#deployments-to-cloud-hardware",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-checklist-operations/",
       "title": "Deployments to Cloud Hardware",
       "quote": "Adjust the TCP keepalive (tcp_keepalive_time) to 100-120. The TCP idle timeout on the Azure load balancer is too slow for MongoDB's connection pooling behavior.",
       "accessed": "2026-04-25"
@@ -2879,7 +2879,7 @@
     "fix_cost": "restart_engine",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-checklist-operations/#deployments-to-cloud-hardware",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-checklist-operations/",
       "title": "Deployments to Cloud Hardware",
       "quote": "Use MongoDB version 2.6.4 or later on systems with high-latency storage, such as Windows Azure, as these versions include performance improvements for those systems.",
       "accessed": "2026-04-25"
@@ -2904,7 +2904,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-checklist-operations/#deployments-to-cloud-hardware",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-checklist-operations/",
       "title": "Deployments to Cloud Hardware",
       "quote": "For the WiredTiger storage engine, set readahead between 8 and 32 regardless of storage media type (spinning disk, SSD, etc.).",
       "accessed": "2026-04-25"
@@ -2927,7 +2927,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-checklist-operations/#linuxLinux",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-checklist-operations/",
       "title": "Deployments to Cloud Hardware",
       "quote": "Do not assign swap space on your system, and configure the kernel to disable swapping entirely.",
       "accessed": "2026-04-25"
@@ -2950,7 +2950,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-checklist-operations/#linuxLinux",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-checklist-operations/",
       "title": "Deployments to Cloud Hardware",
       "quote": "A value of 120 often provides better performance for replica sets and sharded clusters.",
       "accessed": "2026-04-25"
@@ -2973,7 +2973,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-checklist-operations/#monitoringMonitoring",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-checklist-operations/",
       "title": "Monitoring",
       "quote": "Create a dummy 4 GB file on the storage.dbPath drive to ensure available space if the disk becomes full.",
       "accessed": "2026-04-25"
@@ -2996,7 +2996,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-checklist-operations/#monitoringMonitoring",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-checklist-operations/",
       "title": "Monitoring",
       "quote": "A combination of cron+df can alert when disk space hits a high-water mark, if no other monitoring tool is available.",
       "accessed": "2026-04-25"
@@ -3019,7 +3019,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-checklist-operations/#load-balancing",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-checklist-operations/",
       "title": "Load Balancing",
       "quote": "Configure load balancers to enable 'sticky sessions' or 'client affinity', with a sufficient timeout for existing connections.",
       "accessed": "2026-04-25"
@@ -3042,7 +3042,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/reference/parameters/#mongodb-parameter-param.storageEngineConcurrentReadTransactions",
+      "url": "https://www.mongodb.com/docs/manual/reference/parameters/",
       "title": "MongoDB Storage Engine Parameters",
       "quote": "The maximum number of concurrent storage engine transactions, or read and write tickets, never exceeds 128 read tickets and 128 write tickets and may differ across nodes in a cluster.",
       "accessed": "2026-04-25"
@@ -3065,7 +3065,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/reference/parameters/#mongodb-parameter-param.storageEngineConcurrentWriteTransactions",
+      "url": "https://www.mongodb.com/docs/manual/reference/parameters/",
       "title": "MongoDB Storage Engine Parameters",
       "quote": "The maximum number of concurrent storage engine transactions, or read and write tickets, never exceeds 128 read tickets and 128 write tickets and may differ across nodes in a cluster.",
       "accessed": "2026-04-25"
@@ -3088,7 +3088,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/core/wiredtiger/#snapshots-and-checkpoints",
+      "url": "https://www.mongodb.com/docs/manual/core/wiredtiger/",
       "title": "Snapshots and Checkpoints",
       "quote": "MongoDB configures WiredTiger to create checkpoints, specifically, writing the snapshot data to disk at intervals of 60 seconds.",
       "accessed": "2026-04-25"
@@ -3112,7 +3112,7 @@
     "fix_cost": "restart_engine",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/core/wiredtiger/#journalJournal",
+      "url": "https://www.mongodb.com/docs/manual/core/wiredtiger/",
       "title": "WiredTiger Journal",
       "quote": "WiredTiger journal is compressed using the snappy compression library. To specify a different compression algorithm or no compression, use the storage.wiredTiger.engineConfig.journalCompressor setting.",
       "accessed": "2026-04-25"
@@ -3135,7 +3135,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/core/wiredtiger/#compressionCompression",
+      "url": "https://www.mongodb.com/docs/manual/core/wiredtiger/",
       "title": "WiredTiger Storage Engine",
       "quote": "By default, WiredTiger uses block compression with the snappy compression library for most collections and prefix compression for all indexes.",
       "accessed": "2026-04-25"
@@ -3158,7 +3158,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/core/wiredtiger/#compressionCompression",
+      "url": "https://www.mongodb.com/docs/manual/core/wiredtiger/",
       "title": "WiredTiger Storage Engine",
       "quote": "However, the default block compression for time-series collections is zstd.",
       "accessed": "2026-04-25"
@@ -3181,7 +3181,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/core/wiredtiger/#compressionCompression",
+      "url": "https://www.mongodb.com/docs/manual/core/wiredtiger/",
       "title": "WiredTiger Storage Engine",
       "quote": "To disable prefix compression, use the storage.wiredTiger.indexConfig.prefixCompression setting.",
       "accessed": "2026-04-25"
@@ -3204,7 +3204,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/core/wiredtiger/#memory-use",
+      "url": "https://www.mongodb.com/docs/manual/core/wiredtiger/",
       "title": "Memory Use",
       "quote": "The default WiredTiger internal cache size is the larger of either: 50% of (RAM - 1GB), or 0.256 GB. Avoid increasing the WiredTiger internal cache size above its default value.",
       "accessed": "2026-04-25"
@@ -3227,7 +3227,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/core/wiredtiger/#memory-use",
+      "url": "https://www.mongodb.com/docs/manual/core/wiredtiger/",
       "title": "Memory Use",
       "quote": "If your use case requires to do so, you can use storage.wiredTiger.engineConfig.cacheSizePct to specify a percentage of up to 80% of available memory.",
       "accessed": "2026-04-25"
@@ -3250,7 +3250,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/tutorial/transparent-huge-pages/#platform-support",
+      "url": "https://www.mongodb.com/docs/manual/administration/tcmalloc-performance/",
       "title": "Platform Support",
       "quote": "If you use these operating systems, disable THP.",
       "accessed": "2026-04-25"
@@ -3275,7 +3275,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/tutorial/transparent-huge-pages/#create-the-systemd-unit-file",
+      "url": "https://www.mongodb.com/docs/manual/administration/tcmalloc-performance/",
       "title": "Create the systemd unit file",
       "quote": "To verify that the relevant THP settings have changed, run the following command: cat /sys/kernel/mm/transparent_hugepage/enabled...",
       "accessed": "2026-04-25"
@@ -3298,7 +3298,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/tutorial/transparent-huge-pages/#configure-your-operating-system-to-run-it-on-boot",
+      "url": "https://www.mongodb.com/docs/manual/administration/tcmalloc-performance/",
       "title": "Configure your operating system to run it on boot",
       "quote": "To ensure that this setting is applied each time the operating system starts, run the following command for your Linux distribution:...",
       "accessed": "2026-04-25"
@@ -3321,7 +3321,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/tutorial/transparent-huge-pages/#enable-per-cpu-caches",
+      "url": "https://www.mongodb.com/docs/manual/administration/tcmalloc-performance/",
       "title": "Enable Per-CPU Caches",
       "quote": "To verify that TCMalloc is running with per-CPU caches, ensure that: - tcmalloc.usingPerCPUCaches is true. - tcmalloc.tcmalloc.cpu_free is greater than 0.",
       "accessed": "2026-04-25"
@@ -3344,7 +3344,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/tutorial/transparent-huge-pages/#enable-per-cpu-caches",
+      "url": "https://www.mongodb.com/docs/manual/administration/tcmalloc-performance/",
       "title": "Enable Per-CPU Caches",
       "quote": "If per-CPU caches aren't enabled, ensure that: - You disable glibc rseq. - You're using Linux kernel version 4.18 or later.",
       "accessed": "2026-04-25"
@@ -3367,7 +3367,7 @@
     "fix_cost": "restart_engine",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/tutorial/transparent-huge-pages/#enable-per-cpu-caches",
+      "url": "https://www.mongodb.com/docs/manual/administration/tcmalloc-performance/",
       "title": "Enable Per-CPU Caches",
       "quote": "If per-CPU caches aren't enabled, ensure that: - You disable glibc rseq. - You're using Linux kernel version 4.18 or later.",
       "accessed": "2026-04-25"
@@ -3390,7 +3390,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/tutorial/transparent-huge-pages/#enable-per-cpu-caches",
+      "url": "https://www.mongodb.com/docs/manual/administration/tcmalloc-performance/",
       "title": "Enable Per-CPU Caches",
       "quote": "To ensure that TCMalloc can use rseq to enable per-CPU caches, you can disable glibc’s registration of a rseq structure.",
       "accessed": "2026-04-25"
@@ -3413,7 +3413,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/tutorial/transparent-huge-pages/#check-kernel-version",
+      "url": "https://www.mongodb.com/docs/manual/administration/tcmalloc-performance/",
       "title": "Check Kernel Version",
       "quote": "If you disabled glibc rseq and per-CPU caches are still not enabled, ensure that you're using Linux kernel version 4.18 or later.",
       "accessed": "2026-04-25"
@@ -3436,7 +3436,7 @@
     "fix_cost": "restart_engine",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/tutorial/manage-the-database-profiler/#profiling-levels",
+      "url": "https://www.mongodb.com/docs/manual/tutorial/manage-the-database-profiler/",
       "title": "Profiling Levels",
       "quote": "To enable profiling for all operations on the currently connected database, run in mongosh:",
       "accessed": "2026-04-25"
@@ -3459,7 +3459,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/tutorial/manage-the-database-profiler/#profiling-levels",
+      "url": "https://www.mongodb.com/docs/manual/tutorial/manage-the-database-profiler/",
       "title": "Profiling Levels",
       "quote": "The profiler collects data for operations that exceed the slowms threshold or match a specified filter.",
       "accessed": "2026-04-25"
@@ -3482,7 +3482,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/tutorial/manage-the-database-profiler/#profiling-levels",
+      "url": "https://www.mongodb.com/docs/manual/tutorial/manage-the-database-profiler/",
       "title": "Profiling Levels",
       "quote": "The profiler only captures operations that match the filter. The slowms and sampleRate options are not used for profiling.",
       "accessed": "2026-04-25"
@@ -3505,7 +3505,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/tutorial/manage-the-database-profiler/#disable-profiling",
+      "url": "https://www.mongodb.com/docs/manual/tutorial/manage-the-database-profiler/",
       "title": "Disable Profiling",
       "quote": "Disabling profiling can improve database performance and lower disk use.",
       "accessed": "2026-04-25"
@@ -3528,7 +3528,7 @@
     "fix_cost": "restart_engine",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/tutorial/manage-the-database-profiler/#profiling-levels",
+      "url": "https://www.mongodb.com/docs/manual/tutorial/manage-the-database-profiler/",
       "title": "Profiling Levels",
       "quote": "Pass the following options to mongod at startup: mongod --profile 1 --slowms 15 --slowOpSampleRate 0.5",
       "accessed": "2026-04-25"
@@ -3551,7 +3551,7 @@
     "fix_cost": "restart_engine",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/tutorial/manage-the-database-profiler/#change-size-of-system.profile-collection-on-the-primary",
+      "url": "https://www.mongodb.com/docs/manual/tutorial/manage-the-database-profiler/",
       "title": "Change Size of system.profile Collection on the Primary",
       "quote": "To create a new system.profile collection of 4000000 bytes (4 MB) in mongosh:",
       "accessed": "2026-04-25"
@@ -3574,7 +3574,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/core/index-creation/#sharded-collections",
+      "url": "https://www.mongodb.com/docs/manual/core/index-creation/",
       "title": "Sharded Collections",
       "quote": "To mitigate the risk of this occurrence, before creating the index: Validate that no documents in the collection violate the index constraints.",
       "accessed": "2026-04-25"
@@ -3597,7 +3597,7 @@
     "fix_cost": "restart_engine",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/reference/parameters/#mongodb-parameter-param.maxNumActiveUserIndexBuilds",
+      "url": "https://www.mongodb.com/docs/manual/reference/parameters/",
       "title": "maxNumActiveUserIndexBuilds",
       "quote": "By default, the server allows up to three concurrent index builds. To change the number of allowed concurrent index builds, modify the maxNumActiveUserIndexBuilds parameter.",
       "accessed": "2026-04-25"
@@ -3620,7 +3620,7 @@
     "fix_cost": "restart_engine",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/core/index-creation/#insufficient-available-system-memory--ram",
+      "url": "https://www.mongodb.com/docs/manual/core/index-creation/",
       "title": "Insufficient Available System Memory (RAM)",
       "quote": "Adjust the memory limit with the maxIndexBuildMemoryUsageMegabytes parameter. Increasing this parameter is only necessary in rare cases, such as when you run many simultaneous index builds with a single createIndexes command or when you index a data set larger than 500GB.",
       "accessed": "2026-04-25"
@@ -3643,7 +3643,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/reference/command/createIndexes/#mongodb-dbcommand-dbcmd.createIndexes",
+      "url": "https://www.mongodb.com/docs/manual/reference/command/createindexes/",
       "title": "Important",
       "quote": "By default, index builds use a commit quorum of 'votingMembers', or all data-bearing voting members. To start an index build with a non-default commit quorum, specify the commitQuorum parameter to createIndexes or its shell helpers.",
       "accessed": "2026-04-25"
@@ -3666,7 +3666,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/core/index-creation/#interrupted-index-builds-on-a-primary-mongod",
+      "url": "https://www.mongodb.com/docs/manual/core/index-creation/",
       "title": "Interrupted Index Builds on a Primary mongod",
       "quote": "Starting in MongoDB 5.0, if the primary mongod performs a clean shutdown with 'force' : true or receives a SIGTERM signal during an index build and the commitQuorum is set to the default votingMembers, then the index build progress is saved to disk.",
       "accessed": "2026-04-25"
@@ -3689,7 +3689,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/core/index-creation/#interrupted-index-builds-on-a-secondary-mongod",
+      "url": "https://www.mongodb.com/docs/manual/core/index-creation/",
       "title": "Interrupted Index Builds on a Secondary mongod",
       "quote": "If you restart the mongod as a standalone (i.e. removing or commenting out replication.replSetName or omitting --replSetName), the mongod cannot restart the index build. The build remains in a paused state until it is manually dropped.",
       "accessed": "2026-04-25"
@@ -3712,7 +3712,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/core/index-creation/#rollbacks-during-build-process",
+      "url": "https://www.mongodb.com/docs/manual/core/index-creation/",
       "title": "Rollbacks during Build Process",
       "quote": "Starting in MongoDB 5.0, if a node is rolled back to a prior state during the index build, the index build progress is saved to disk. If there is still work to be done when the rollback concludes, the mongod automatically recovers the index build and continues from the saved checkpoint.",
       "accessed": "2026-04-25"
@@ -3736,7 +3736,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/core/query-optimization/#create-selective-queries",
+      "url": "https://www.mongodb.com/docs/manual/core/query-optimization/",
       "title": "Create Selective Queries",
       "quote": "Highly selective queries match fewer documents and use indexes more effectively. For instance, an equality match on _id is highly selective as it can match at most one document.",
       "accessed": "2026-04-25"
@@ -3759,7 +3759,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/core/query-optimization/#create-selective-queries",
+      "url": "https://www.mongodb.com/docs/manual/core/query-optimization/",
       "title": "Create Selective Queries",
       "quote": "When you need a subset of fields from documents, you can improve performance by returning only the fields you need. Projections reduce network traffic and processing time.",
       "accessed": "2026-04-25"
@@ -3782,7 +3782,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/core/query-optimization/#create-selective-queries",
+      "url": "https://www.mongodb.com/docs/manual/core/query-optimization/",
       "title": "Create Selective Queries",
       "quote": "To achieve a covered query, index the projected fields. The ESR (Equality, Sort, Range) rule applies to the order of fields in the index.",
       "accessed": "2026-04-25"
@@ -3805,7 +3805,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/core/query-optimization/#use-index-hints",
+      "url": "https://www.mongodb.com/docs/manual/core/query-optimization/",
       "title": "Use Index Hints",
       "quote": "However, you can force a specific index using the hint() method. This is useful for performance testing or when a field appears in several indexes and you need to guarantee which index MongoDB uses.",
       "accessed": "2026-04-25"
@@ -3828,7 +3828,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/core/query-optimization/#run-covered-queries",
+      "url": "https://www.mongodb.com/docs/manual/core/query-optimization/",
       "title": "Run Covered Queries",
       "quote": "The index covers the following query, which filters on type and item and returns only item.",
       "accessed": "2026-04-25"
@@ -3851,7 +3851,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/core/query-optimization/#run-covered-queries",
+      "url": "https://www.mongodb.com/docs/manual/core/query-optimization/",
       "title": "Run Covered Queries",
       "quote": "To index fields in embedded documents, use dot notation. The { \"user.login\": 1 } index covers the following query: { \"user.login\": \"tester\" }",
       "accessed": "2026-04-25"
@@ -3874,7 +3874,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/core/query-optimization/#run-covered-queries",
+      "url": "https://www.mongodb.com/docs/manual/core/query-optimization/",
       "title": "Run Covered Queries",
       "quote": "When run on mongos, indexes can only cover queries on sharded collections if the index contains the shard key.",
       "accessed": "2026-04-25"
@@ -3943,7 +3943,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-checklist-operations/#shardingSharding",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-checklist-operations/",
       "title": "Production Checklist for Operations",
       "quote": "Place your config servers on dedicated hardware for optimal performance in large clusters. Ensure that the hardware has enough RAM to hold the data files entirely in memory and that it has dedicated storage.",
       "accessed": "2026-04-25"
@@ -3966,7 +3966,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-checklist-operations/#hardwareHardware",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-checklist-operations/",
       "title": "Hardware",
       "quote": "Use RAID10 and SSD drives for optimal performance.",
       "accessed": "2026-04-25"
@@ -3989,7 +3989,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-checklist-operations/#hardwareHardware",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-checklist-operations/",
       "title": "Hardware",
       "quote": "Ensure that each mongod has provisioned IOPS for its dbPath, or has its own physical drive or LUN.",
       "accessed": "2026-04-25"
@@ -4012,7 +4012,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-checklist-operations/#hardwareHardware",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-checklist-operations/",
       "title": "Hardware",
       "quote": "Avoid dynamic memory features, such as memory ballooning, when running in virtual environments.",
       "accessed": "2026-04-25"
@@ -4035,7 +4035,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-checklist-operations/#hardwareHardware",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-checklist-operations/",
       "title": "Hardware",
       "quote": "Avoid placing all replica set members on the same SAN, as the SAN can be a single point of failure.",
       "accessed": "2026-04-25"
@@ -4058,7 +4058,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-checklist-operations/#deployments-to-cloud-hardware",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-checklist-operations/",
       "title": "Deployments to Cloud Hardware",
       "quote": "Adjust the TCP keepalive (tcp_keepalive_time) to 100-120. The TCP idle timeout on the Azure load balancer is too slow for MongoDB's connection pooling behavior.",
       "accessed": "2026-04-25"
@@ -4081,7 +4081,7 @@
     "fix_cost": "restart_engine",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-checklist-operations/#deployments-to-cloud-hardware",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-checklist-operations/",
       "title": "Deployments to Cloud Hardware",
       "quote": "Use MongoDB version 2.6.4 or later on systems with high-latency storage, such as Windows Azure, as these versions include performance improvements for those systems.",
       "accessed": "2026-04-25"
@@ -4106,7 +4106,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-checklist-operations/#deployments-to-cloud-hardware",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-checklist-operations/",
       "title": "Deployments to Cloud Hardware",
       "quote": "For the WiredTiger storage engine, set readahead between 8 and 32 regardless of storage media type (spinning disk, SSD, etc.), unless testing shows a measurable, repeatable, and advice and guidance on alternate readahead configurations.",
       "accessed": "2026-04-25"
@@ -4129,7 +4129,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-checklist-operations/#linuxLinux",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-checklist-operations/",
       "title": "Deployments to Cloud Hardware",
       "quote": "Do not assign swap space on your system, and configure the kernel to disable swapping entirely.",
       "accessed": "2026-04-25"
@@ -4152,7 +4152,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-checklist-operations/#linuxLinux",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-checklist-operations/",
       "title": "Deployments to Cloud Hardware",
       "quote": "Ensure that the system default TCP keepalive is set correctly. A value of 120 often provides better performance for replica sets and sharded clusters.",
       "accessed": "2026-04-25"
@@ -4175,7 +4175,7 @@
     "fix_cost": "restart_engine",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/reference/ulimit/#mongosmongos",
+      "url": "https://www.mongodb.com/docs/manual/reference/ulimit/",
       "title": "UNIX ulimit 配置",
       "quote": "A low 'soft' ulimit can cause can't create new thread, closing connection errors if the number of connections grows too high. For this reason, it is extremely important to set both ulimit values to the recommended values.",
       "accessed": "2026-04-25"
@@ -4198,7 +4198,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/reference/ulimit/#red-hat-linux-enterprise-server-and-centos",
+      "url": "https://www.mongodb.com/docs/manual/reference/ulimit/",
       "title": "UNIX ulimit 配置",
       "quote": "RHEL / CentOS 7 4096 /etc/security/limits.d/20-nproc.conf",
       "accessed": "2026-04-25"
@@ -4223,7 +4223,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/reference/ulimit/#red-hat-linux-enterprise-server-and-centos",
+      "url": "https://www.mongodb.com/docs/manual/reference/ulimit/",
       "title": "UNIX ulimit 配置",
       "quote": "RHEL / CentOS 6 1024 /etc/security/limits.d/90-nproc.conf",
       "accessed": "2026-04-25"
@@ -4248,7 +4248,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/reference/ulimit/#std-label-recommended-ulimit-settings",
+      "url": "https://www.mongodb.com/docs/manual/reference/ulimit/",
       "title": "UNIX ulimit 配置",
       "quote": "Every deployment may have unique requirements and settings; however, the following thresholds and settings are particularly important for mongod and mongos deployments:",
       "accessed": "2026-04-25"
@@ -4273,7 +4273,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/reference/ulimit/#considerationsConsiderations",
+      "url": "https://www.mongodb.com/docs/manual/reference/ulimit/",
       "title": "UNIX ulimit 配置",
       "quote": "For the macOS platform, the recommended process limit is 2500, which is the maximum configurable value for this platform.",
       "accessed": "2026-04-25"
@@ -4296,7 +4296,7 @@
     "fix_cost": "restart_engine",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/reference/ulimit/#linux-distributions-using-upstart",
+      "url": "https://www.mongodb.com/docs/manual/reference/ulimit/",
       "title": "UNIX ulimit 配置",
       "quote": "Specify the Recommended ulimit Settings, as in the following example: limit fsize unlimited unlimited # (file size) limit cpu unlimited unlimited # (cpu time) limit as unlimited unlimited # (virtual memory size) limit memlock unlimited unlimited # (locked-in-memory size) limit nofile 64000 64000 # (open files) limit nproc 64000 64000 # (processes/threads)",
       "accessed": "2026-04-25"
@@ -4319,7 +4319,7 @@
     "fix_cost": "restart_engine",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/reference/ulimit/#linux-distributions-using-systemd",
+      "url": "https://www.mongodb.com/docs/manual/reference/ulimit/",
       "title": "UNIX ulimit 配置",
       "quote": "You can set limits by using resource limit directives. Specify the Recommended ulimit Settings, as in the following example: LimitNOFILE=64000; LimitNPROC=64000.",
       "accessed": "2026-04-25"
@@ -4342,7 +4342,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/core/query-optimization/#create-selective-queries",
+      "url": "https://www.mongodb.com/docs/manual/core/query-optimization/",
       "title": "Create Selective Queries",
       "quote": "Highly selective queries match fewer documents and use indexes more effectively. For instance, an equality match on _id is highly selective as it can match at most one document.",
       "accessed": "2026-04-25"
@@ -4365,7 +4365,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/core/query-optimization/#create-selective-queries",
+      "url": "https://www.mongodb.com/docs/manual/core/query-optimization/",
       "title": "Create Selective Queries",
       "quote": "Less selective queries match more documents and use indexes less efficiently. For instance, the inequality operators $nin and $ne are not very selective since they often match a large portion of the index.",
       "accessed": "2026-04-25"
@@ -4388,7 +4388,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/core/query-optimization/#create-selective-queries",
+      "url": "https://www.mongodb.com/docs/manual/core/query-optimization/",
       "title": "Create Selective Queries",
       "quote": "When you need a subset of fields from documents, you can improve performance by returning only the fields you need. Projections reduce network traffic and processing time.",
       "accessed": "2026-04-25"
@@ -4411,7 +4411,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/core/query-optimization/#limit-query-results",
+      "url": "https://www.mongodb.com/docs/manual/core/query-optimization/",
       "title": "Limit Query Results",
       "quote": "If you know how many results you need, pass that value to the limit() method to reduce network resource usage.",
       "accessed": "2026-04-25"
@@ -4434,7 +4434,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/core/query-optimization/#run-covered-queries",
+      "url": "https://www.mongodb.com/docs/manual/core/query-optimization/",
       "title": "Run Covered Queries",
       "quote": "An index can cover a query on fields within embedded documents. To index fields in embedded documents, use dot notation.",
       "accessed": "2026-04-25"
@@ -4457,7 +4457,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/core/index-creation/#sharded-collections",
+      "url": "https://www.mongodb.com/docs/manual/core/index-creation/",
       "title": "Sharded Collections",
       "quote": "Stop all writes to the collection from applications that cannot guarantee violation-free write operations.",
       "accessed": "2026-04-25"
@@ -4480,7 +4480,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/reference/command/createIndexes/#mongodb-dbcommand-dbcmd.createIndexes",
+      "url": "https://www.mongodb.com/docs/manual/reference/command/createindexes/",
       "title": "Important",
       "quote": "By default, index builds use a commit quorum of 'votingMembers', or all data-bearing voting members. To start an index build with a non-default commit quorum, specify the commitQuorum parameter to createIndexes.",
       "accessed": "2026-04-25"
@@ -4503,7 +4503,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/core/index-creation/#interrupted-index-builds-on-a-secondary-mongod",
+      "url": "https://www.mongodb.com/docs/manual/core/index-creation/",
       "title": "Interrupted Index Builds on a Secondary mongod",
       "quote": "Starting in MongoDB 5.0, if a secondary mongod performs a clean shutdown with 'force' : true or receives a SIGTERM signal during an index build and the commitQuorum is set to the default votingMembers, then the index build progress is saved to disk.",
       "accessed": "2026-04-25"
@@ -4527,7 +4527,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/core/index-creation/#interrupted-index-builds-on-a-secondary-mongod",
+      "url": "https://www.mongodb.com/docs/manual/core/index-creation/",
       "title": "Interrupted Index Builds on a Secondary mongod",
       "quote": "If you restart the mongod as a standalone, the mongod cannot restart the index build. The build remains in a paused state until it is manually dropped.",
       "accessed": "2026-04-25"
@@ -4550,7 +4550,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/reference/parameters/#mongodb-parameter-param.enableShardedIndexConsistencyCheck",
+      "url": "https://www.mongodb.com/docs/manual/reference/parameters/",
       "title": "Rollbacks during Build Process",
       "quote": "To configure these periodic checks, see enableShardedIndexConsistencyCheck and shardedIndexConsistencyCheckIntervalMS.",
       "accessed": "2026-04-25"
@@ -4573,7 +4573,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/reference/parameters/#mongodb-parameter-param.shardedIndexConsistencyCheckIntervalMS",
+      "url": "https://www.mongodb.com/docs/manual/reference/parameters/",
       "title": "Rollbacks during Build Process",
       "quote": "To configure these periodic checks, see enableShardedIndexConsistencyCheck and shardedIndexConsistencyCheckIntervalMS.",
       "accessed": "2026-04-25"
@@ -4596,7 +4596,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/tutorial/manage-the-database-profiler/#specify-the-threshold-for-slow-operations",
+      "url": "https://www.mongodb.com/docs/manual/tutorial/manage-the-database-profiler/",
       "title": "Specify the Threshold for Slow Operations",
       "quote": "To change the slow operation threshold, use one of the following: Set the value of slowms using the profile command or db.setProfilingLevel() shell helper method. Set the value of --slowms from the command line at startup. Set the value of slowOpThresholdMs in a configuration file.",
       "accessed": "2026-04-25"
@@ -4619,7 +4619,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/tutorial/manage-the-database-profiler/#disable-profiling",
+      "url": "https://www.mongodb.com/docs/manual/tutorial/manage-the-database-profiler/",
       "title": "Disable Profiling",
       "quote": "Disabling profiling can improve database performance and lower disk use.",
       "accessed": "2026-04-25"
@@ -4642,7 +4642,7 @@
     "fix_cost": "restart_engine",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/tutorial/manage-the-database-profiler/#profiling-levels",
+      "url": "https://www.mongodb.com/docs/manual/tutorial/manage-the-database-profiler/",
       "title": "Profiling Levels",
       "quote": "Pass the following options to mongod at startup: mongod --profile 1 --slowms 15 --slowOpSampleRate 0.5",
       "accessed": "2026-04-25"
@@ -4665,7 +4665,7 @@
     "fix_cost": "restart_engine",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/tutorial/manage-the-database-profiler/#change-size-of-system.profile-collection-on-the-primary",
+      "url": "https://www.mongodb.com/docs/manual/tutorial/manage-the-database-profiler/",
       "title": "Change Size of system.profile Collection on the Primary",
       "quote": "For example, to create a new system.profile collection of 4000000 bytes (4 MB) in mongosh.",
       "accessed": "2026-04-25"
@@ -4688,7 +4688,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#platform-support",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/",
       "title": "Platform Support",
       "quote": "Due to an incompatibility between a new kernel release and the currently vendored version of TCMalloc, running MongoDB 8.0 or newer with Linux kernel version 6.19 can cause MongoDB to crash on startup.",
       "accessed": "2026-04-25"
@@ -4711,7 +4711,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#platform-support",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/",
       "title": "Platform Support",
       "quote": "For Intel x86_64, MongoDB requires one of: a Haswell or later Core processor, or a Tiger Lake or later Celeron or Pentium processor.",
       "accessed": "2026-04-25"
@@ -4734,7 +4734,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#platform-support",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/",
       "title": "Platform Support",
       "quote": "For AMD x86_64, MongoDB requires: a Bulldozer or later processor.",
       "accessed": "2026-04-25"
@@ -4757,7 +4757,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#platform-support",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/",
       "title": "Platform Support",
       "quote": "MongoDB 5.0 requires use of the AVX instruction set, available on select Intel and AMD processors.",
       "accessed": "2026-04-25"
@@ -4780,7 +4780,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#platform-support",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/",
       "title": "Platform Support",
       "quote": "MongoDB on arm64 requires the ARMv8.2-A or later microarchitecture.",
       "accessed": "2026-04-25"
@@ -4803,7 +4803,7 @@
     "fix_cost": "restart_engine",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#platform-support-matrix",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/",
       "title": "Platform Support Matrix",
       "quote": "MongoDB 8.0 supports the following minimum OS minor versions: - Red Hat Enterprise Linux 8.8 - Red Hat Enterprise Linux 9.3 - SUSE Linux Enterprise Server 15 SP5 - Amazon Linux 2023 version 2023.3",
       "accessed": "2026-04-25"
@@ -4829,7 +4829,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#platform-support-matrix",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/",
       "title": "Platform Support Matrix",
       "quote": "While MongoDB supports a variety of platforms, the following operating systems are recommended for production use on x86_64 architecture: Amazon Linux, Debian, RHEL, SLES, Ubuntu LTS, Windows Server.",
       "accessed": "2026-04-25"
@@ -4852,7 +4852,7 @@
     "fix_cost": "restart_engine",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#use-trusted-networking-environments",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/",
       "title": "Write Concern",
       "quote": "By default, authorization is not enabled, and mongod assumes a trusted environment. Enable authorization mode as needed.",
       "accessed": "2026-04-25"
@@ -4875,7 +4875,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#manage-connection-pool-sizes",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/",
       "title": "Manage Connection Pool Sizes",
       "quote": "Avoid overloading the connection resources of a mongod or mongos instance by adjusting the connection pool size to suit your use case. Start at 110-115% of the typical number of current database requests, and modify the connection pool size as needed.",
       "accessed": "2026-04-25"
@@ -4898,7 +4898,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#adjust-tcp_keepalive_time",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/",
       "title": "Adjust tcp_keepalive_time",
       "quote": "To reduce this risk, set tcp_keepalive_time to 120.",
       "accessed": "2026-04-25"
@@ -4921,7 +4921,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#wiredtiger-1",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/",
       "title": "WiredTiger",
       "quote": "The default WiredTiger internal cache size is the larger of either: 50% of (RAM - 1GB), or 0.256 GB. Avoid increasing the WiredTiger internal cache size above its default value. If your case requires to do so, you can use --wiredTigerCacheSizePct to account for changes in memory due to vertical.",
       "accessed": "2026-04-25"
@@ -4944,7 +4944,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/#mongodb-setting-storage.wiredTiger.engineConfig.cacheSizeGB",
+      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/",
       "title": "MongoDB Configuration Options",
       "quote": "To accommodate the additional consumers of RAM, you may have to decrease WiredTiger internal cache size. The default WiredTiger internal cache size value assumes that there is a single mongod instance per machine. If a single machine contains multiple MongoDB instances, decrease the setting to accommodate the other mongod instances.",
       "accessed": "2026-04-25"
@@ -4967,7 +4967,7 @@
     "fix_cost": "restart_engine",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#mongodb-and-numa-hardware",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/",
       "title": "MongoDB and NUMA Hardware",
       "quote": "When running MongoDB servers and clients on NUMA hardware, you should configure a memory interleave policy so that the host behaves in a non-NUMA fashion. MongoDB checks NUMA settings on start up when deployed on Linux (since version 2.0) and Windows (since version 2.6) machines.",
       "accessed": "2026-04-25"
@@ -4992,7 +4992,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#mongodb-and-numa-hardware",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/",
       "title": "MongoDB and NUMA Hardware",
       "quote": "The numad daemon process can also reduce mongod performance. You should ensure numad is not enabled on MongoDB servers.",
       "accessed": "2026-04-25"
@@ -5017,7 +5017,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#configuring-numa-on-linux",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/",
       "title": "Configuring NUMA on Linux",
       "quote": "On Linux, you must disable zone reclaim... Disable zone reclaim with one of the following commands: echo 0 | sudo tee /proc/sys/vm/zone_reclaim_mode",
       "accessed": "2026-04-25"
@@ -5040,7 +5040,7 @@
     "fix_cost": "restart_engine",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#configuring-numa-on-linux",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/",
       "title": "Configuring NUMA on Linux",
       "quote": "Ensure that mongod and mongos instances are started by numactl... You must use numactl to start each of your mongod instances...",
       "accessed": "2026-04-25"
@@ -5063,7 +5063,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#recommended-configuration",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/",
       "title": "Tip",
       "quote": "Copy the default MongoDB service file: sudo cp /lib/systemd/system/mongod.service /etc/systemd/system/",
       "accessed": "2026-04-25"
@@ -5087,7 +5087,7 @@
     "fix_cost": "restart_engine",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#recommended-configuration",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/",
       "title": "Tip",
       "quote": "Edit the /etc/systemd/system/mongod.service file, and update the ExecStart statement to begin with: /usr/bin/numactl --interleave=all",
       "accessed": "2026-04-25"
@@ -5111,7 +5111,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#swapSwap",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/",
       "title": "Swap",
       "quote": "MongoDB performs best where swapping can be avoided or kept to a minimum, as retrieving data from swap will always be slower than accessing data in RAM.",
       "accessed": "2026-04-25"
@@ -5134,7 +5134,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#remote-filesystems--nfs-",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/",
       "title": "Remote Filesystems (NFS)",
       "quote": "If you decide to use NFS, add the following NFS options to your /etc/fstab file: bg, hard, nolock, noatime, nointr.",
       "accessed": "2026-04-25"
@@ -5157,7 +5157,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#separate-components-onto-different-storage-devices",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/",
       "title": "Separate Components onto Different Storage Devices",
       "quote": "For improved performance, consider separating your database's data, journal, and logs onto different storage devices, based on your application's access and write pattern.",
       "accessed": "2026-04-25"
@@ -5180,7 +5180,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#scheduling-for-virtual-or-cloud-hosted-devicesScheduling",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/",
       "title": "Scheduling for Virtual or Cloud Hosted Devices",
       "quote": "For local block devices attached to a virtual machine instance via the hypervisor or hosted by a cloud hosting provider, the guest operating system should use the none scheduler for best performance.",
       "accessed": "2026-04-25"
@@ -5203,7 +5203,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#scheduling-for-physical-servers",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/",
       "title": "Scheduling for Physical Servers",
       "quote": "For physical servers using spinning disks, the operating system should use the mq-deadline scheduler.",
       "accessed": "2026-04-25"
@@ -5226,7 +5226,7 @@
     "fix_cost": "restart_engine",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#compressionCompression",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/",
       "title": "Compression",
       "quote": "By default, WiredTiger uses snappy compression library. To change the compression setting, see storage.wiredTiger.collectionConfig.blockCompressor.",
       "accessed": "2026-04-25"
@@ -5249,7 +5249,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#compressionCompression",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/",
       "title": "Compression",
       "quote": "Clusters with a lower value of maxAcceptableLogicalClockDriftSecs have a correspondingly lower tolerance for clock drift.",
       "accessed": "2026-04-25"
@@ -5274,7 +5274,7 @@
     "fix_cost": "restart_engine",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#kernel-and-file-systems",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/",
       "title": "Kernel and File Systems",
       "quote": "When running MongoDB in production on Linux, you should use Linux kernel version 2.6.36 or later, with either the XFS or EXT4 filesystem.",
       "accessed": "2026-04-25"
@@ -5297,7 +5297,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#kernel-and-file-systems",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/",
       "title": "Kernel and File Systems",
       "quote": "If possible, use XFS as it generally performs better with MongoDB.",
       "accessed": "2026-04-25"
@@ -5320,7 +5320,7 @@
     "fix_cost": "restart_engine",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#kernel-and-file-systems",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/",
       "title": "Kernel and File Systems",
       "quote": "If you use the EXT4 file system, use at least version 2.6.28 of the Linux Kernel.",
       "accessed": "2026-04-25"
@@ -5343,7 +5343,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#system-c-library",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/",
       "title": "System C Library",
       "quote": "For best results, use the latest update available for this system-provided version. You can check whether you have the latest version installed by using your system's package manager.",
       "accessed": "2026-04-25"
@@ -5366,7 +5366,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#set-vm.swappiness-to-1-or-0",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/",
       "title": "Set vm.swappiness to 1 or 0",
       "quote": "MongoDB performs best where swapping can be avoided or kept to a minimum. As such you should set vm.swappiness to either 1 or 0 depending on your application needs and cluster configuration.",
       "accessed": "2026-04-25"
@@ -5389,7 +5389,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#set-vm.swappiness-to-1-or-0",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/",
       "title": "MongoDB Production Notes",
       "quote": "If your MongoDB instance is hosted on a system that also runs other software, such as a webserver, you should set vm.swappiness to 1.",
       "accessed": "2026-04-25"
@@ -5412,7 +5412,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#recommended-configuration",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/",
       "title": "Recommended Configuration",
       "quote": "Use the Network Time Protocol (NTP) to synchronize time among your hosts. This is especially important in sharded clusters.",
       "accessed": "2026-04-25"
@@ -5435,7 +5435,7 @@
     "fix_cost": "restart_engine",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#recommended-configuration",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/",
       "title": "Recommended Configuration",
       "quote": "If the ulimit value for number of open files is under 64000, MongoDB generates a startup warning.",
       "accessed": "2026-04-25"
@@ -5458,7 +5458,7 @@
     "fix_cost": "restart_engine",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#recommended-configuration",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/",
       "title": "Recommended Configuration",
       "quote": "If you are running MongoDB 8.0, enable Transparent Hugepages. If you are running MongoDB 7.0 or earlier, disable Transparent Hugepages.",
       "accessed": "2026-04-25"
@@ -5481,7 +5481,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#recommended-configuration",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/",
       "title": "MongoDB Production Notes",
       "quote": "If the ulimit value for number of open files is under 64000, MongoDB generates a startup warning.",
       "accessed": "2026-04-25"
@@ -5504,7 +5504,7 @@
     "fix_cost": "restart_engine",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#recommended-configuration",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/",
       "title": "MongoDB Production Notes",
       "quote": "If you are running MongoDB 8.0, enable Transparent Hugepages. If you are running MongoDB 7.0 or earlier, disable Transparent Hugepages.",
       "accessed": "2026-04-25"
@@ -5527,7 +5527,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#recommended-configuration",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/",
       "title": "MongoDB Production Notes",
       "quote": "Set the readahead setting between 8 and 32 regardless of storage media type (spinning disk, SSD, etc.).",
       "accessed": "2026-04-25"
@@ -5550,7 +5550,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#mongodb-on-virtual-environments",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/",
       "title": "MongoDB on Virtual Environments",
       "quote": "Disable DVFS and CPU power saving modes.",
       "accessed": "2026-04-25"
@@ -5573,7 +5573,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#mongodb-on-virtual-environments",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/",
       "title": "MongoDB on Virtual Environments",
       "quote": "Use numactl to bind memory locality to a single socket.",
       "accessed": "2026-04-25"
@@ -5596,7 +5596,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#vmware",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/",
       "title": "MongoDB on Virtual Environments",
       "quote": "To prevent negative performance impact from the balloon driver and memory overcommitment features, reserve the full amount of memory for the virtual machine running MongoDB.",
       "accessed": "2026-04-25"
@@ -5619,7 +5619,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#mongodb-on-virtual-environments",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/",
       "title": "MongoDB on Virtual Environments",
       "quote": "To prevent negative performance impact from the balloon driver and memory overcommitment features, reserve the full amount of memory for the virtual machine running MongoDB.",
       "accessed": "2026-04-25"
@@ -5642,7 +5642,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#iostatiostat",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/",
       "title": "Production Notes",
       "quote": "On Linux, use the iostat command to check if disk I/O is a bottleneck for your database. Specify a number of seconds when running iostat to avoid displaying stats covering the time since server boot.",
       "accessed": "2026-04-25"
@@ -5691,7 +5691,7 @@
     "fix_cost": "restart_engine",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#configuring-numa-on-linux",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/",
       "title": "Configuring NUMA on Linux · MongoDB Production Notes",
       "quote": "You must use `numactl` to start each of your `mongod` instances, including all config servers, `mongos` instances, and clients. Edit the default systemd service file for each as follows: ... ExecStart=/usr/bin/numactl --interleave=all /usr/bin/mongod --config /etc/mongod.conf",
       "accessed": "2026-04-25"
@@ -5716,7 +5716,7 @@
     "fix_cost": "restart_engine",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#configuring-numa-on-linux",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/",
       "title": "Configuring NUMA on Linux · MongoDB Production Notes",
       "quote": "Configure each of your custom init scripts to start each MongoDB instance via `numactl`: numactl --interleave=all <path> <options>",
       "accessed": "2026-04-25"
@@ -5741,7 +5741,7 @@
     "fix_cost": "restart_engine",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/#expansion-directives-and---configexpand",
+      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/",
       "title": "Expansion Directives and --configExpand",
       "quote": "If the configuration file includes an expansion directive and you start the mongod/mongos without specifying that directive in the --configExpand option, the mongod/mongos fails to start.",
       "accessed": "2026-04-25"
@@ -5764,7 +5764,7 @@
     "fix_cost": "restart_engine",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/#mongodb-setting-systemLog.destination",
+      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/",
       "title": "MongoDB Configuration Reference",
       "quote": "We recommend using the file option for production systems to ensure accurate timestamps.",
       "accessed": "2026-04-25"
@@ -5787,7 +5787,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/#systemlog.component-options",
+      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/",
       "title": "System Log Component Options",
       "quote": "The verbosity level can range from 0 to 5: 0 is the MongoDB's default log verbosity level, to include Informational messages. 1 to 5 increases the verbosity level to include Debug messages.",
       "accessed": "2026-04-25"
@@ -5810,7 +5810,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/#systemlog.component-options",
+      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/",
       "title": "System Log Component Options",
       "quote": "The verbosity level can range from 0 to 5: 0 is the MongoDB's default log verbosity level, to include Informational messages. 1 to 5 increases the verbosity level to include Debug messages.",
       "accessed": "2026-04-25"
@@ -5833,7 +5833,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/#systemlog.component-options",
+      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/",
       "title": "System Log Component Options",
       "quote": "The verbosity level can range from 0 to 5: 0 is the MongoDB's default log verbosity level, to include Informational messages. 1 to 5 increases the verbosity level to include Debug messages.",
       "accessed": "2026-04-25"
@@ -5856,7 +5856,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/#mongodb-setting-processManagement.timeZoneInfo",
+      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/",
       "title": "macOS",
       "quote": "The configuration file included with Linux and macOS packages sets the time zone database path to /usr/share/zoneinfo by default.",
       "accessed": "2026-04-25"
@@ -5879,7 +5879,7 @@
     "fix_cost": "restart_engine",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/#mongodb-setting-net.ipv6",
+      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/",
       "title": "MongoDB Configuration Reference",
       "quote": "If specifying an IPv6 address or a hostname that resolves to an IPv6 address to net.bindIp, you must start mongos or mongod with net.ipv6 : true to enable IPv6 support.",
       "accessed": "2026-04-25"
@@ -5902,7 +5902,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/#mongodb-setting-net.bindIp",
+      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/",
       "title": "Important",
       "quote": "Use DNS hostnames instead of IP addresses. It is particularly important to use a DNS hostname instead of an IP address when configuring replica set members or sharded cluster members. Starting in MongoDB 5.0, nodes that are only configured with an IP address fail startup validation and do not start.",
       "accessed": "2026-04-25"
@@ -5926,7 +5926,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/security-checklist/#std-label-checklist-auth",
+      "url": "https://www.mongodb.com/docs/manual/administration/security-checklist/",
       "title": "Security Checklist for Self-Managed Deployments",
       "quote": "At minimum, consider enabling authentication and hardening network infrastructure.",
       "accessed": "2026-04-25"
@@ -5949,7 +5949,7 @@
     "fix_cost": "restart_engine",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/#mongodb-setting-net.bindIpAll",
+      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/",
       "title": "MongoDB Configuration Options",
       "quote": "If true, the mongos or mongod instance binds to all IPv4 addresses (i.e. 0.0.0.0).",
       "accessed": "2026-04-25"
@@ -5972,7 +5972,7 @@
     "fix_cost": "restart_engine",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/reference/command/replSetInitiate/#mongodb-dbcommand-dbcmd.replSetInitiate",
+      "url": "https://www.mongodb.com/docs/manual/reference/command/replsetinitiate/",
       "title": "Replica Set Initiate",
       "quote": "Starting in MongoDB v5.0, replSetInitiate and replSetReconfig reject configurations that use IP addresses instead of hostnames.",
       "accessed": "2026-04-25"
@@ -6018,7 +6018,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/#mongodb-setting-net.maxIncomingConnections",
+      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/",
       "title": "MongoDB Configuration Options",
       "quote": "On Linux, net.maxIncomingConnections must be less than or equal to the value of (RLIMIT_NOFILE / 2) * 0.8. If you try to set a larger value, MongoDB automatically uses the default.",
       "accessed": "2026-04-25"
@@ -6043,7 +6043,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/#mongodb-setting-net.wireObjectCheck",
+      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/",
       "title": "MongoDB Configuration Options",
       "quote": "When true, the mongod or mongos instance validates all requests from clients upon receipt to prevent clients from inserting malformed or invalid BSON into a MongoDB database.",
       "accessed": "2026-04-25"
@@ -6066,7 +6066,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/#mongodb-setting-net.ipv6",
+      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/",
       "title": "MongoDB Configuration Options",
       "quote": "Set net.ipv6 to true to enable IPv6 support. mongos/mongod disables IPv6 support by default.",
       "accessed": "2026-04-25"
@@ -6089,7 +6089,7 @@
     "fix_cost": "restart_engine",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/#mongodb-setting-net.unixDomainSocket.enabled",
+      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/",
       "title": "net.unixDomainSocket",
       "quote": "Enable or disable listening on the UNIX domain socket. net.unixDomainSocket.enabled applies only to Unix-based systems.",
       "accessed": "2026-04-25"
@@ -6112,7 +6112,7 @@
     "fix_cost": "restart_engine",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/#mongodb-setting-net.unixDomainSocket.pathPrefix",
+      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/",
       "title": "net.unixDomainSocket",
       "quote": "The path for the UNIX socket. net.unixDomainSocket.pathPrefix applies only to Unix-based systems.",
       "accessed": "2026-04-25"
@@ -6135,7 +6135,7 @@
     "fix_cost": "restart_engine",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/#mongodb-setting-net.tls.mode",
+      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/",
       "title": "TLS Options",
       "quote": "The server uses and accepts only TLS encrypted connections.",
       "accessed": "2026-04-25"
@@ -6158,7 +6158,7 @@
     "fix_cost": "restart_engine",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/#mongodb-setting-net.tls.certificateKeyFile",
+      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/",
       "title": "TLS Options",
       "quote": "On Linux/BSD, you must specify net.tls.certificateKeyFile when TLS is enabled.",
       "accessed": "2026-04-25"
@@ -6181,7 +6181,7 @@
     "fix_cost": "restart_engine",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/#mongodb-setting-net.tls.certificateSelector",
+      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/",
       "title": "TLS Options",
       "quote": "On Windows only, MongoDB does not support encrypted PEM files.",
       "accessed": "2026-04-25"
@@ -6204,7 +6204,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/#net.tls-options",
+      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/",
       "title": "MongoDB Configuration Reference",
       "quote": "If you use net.tls.certificateSelector and/or net.tls.clusterCertificateSelector, we do not recommend using net.tls.CAFile or net.tls.clusterCAFile to specify the root and intermediate CA certificate.",
       "accessed": "2026-04-25"
@@ -6227,7 +6227,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/#net.tls-options",
+      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/",
       "title": "Example",
       "quote": "To instruct mongos or mongod to log a message when a client connects using either TLS 1.2 or TLS 1.3, set net.tls.logVersions to 'TLS1_2,TLS1_3'.",
       "accessed": "2026-04-25"
@@ -6250,7 +6250,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/#net.compression-option",
+      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/",
       "title": "Configuration Options",
       "quote": "Default: snappy,zstd,zlib Specifies the default compressor(s) to use for communication between this mongod or mongos instance and other members of the deployment if the instance is part of a replica set or a sharded cluster.",
       "accessed": "2026-04-25"
@@ -6273,7 +6273,7 @@
     "fix_cost": "restart_engine",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/#key-management-configuration-options",
+      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/",
       "title": "Key Management Configuration Options",
       "quote": "Enables encryption for the WiredTiger storage engine. You must set to true to pass in encryption keys and configurations.",
       "accessed": "2026-04-25"
@@ -6296,7 +6296,7 @@
     "fix_cost": "restart_engine",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/#mongodb-setting-security.encryptionCipherMode",
+      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/",
       "title": "Example > Enterprise Feature",
       "quote": "Available only on Linux. MongoDB Enterprise on Windows no longer supports AES256-GCM as a block cipher for encryption at rest. This usage is only supported on Linux.",
       "accessed": "2026-04-25"
@@ -6319,7 +6319,7 @@
     "fix_cost": "restart_engine",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/#mongodb-setting-security.enableEncryption",
+      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/",
       "title": "MongoDB Configuration Reference",
       "quote": "Requires security.enableEncryption to be true.",
       "accessed": "2026-04-25"
@@ -6344,7 +6344,7 @@
     "fix_cost": "restart_engine",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/#mongodb-setting-security.encryptionKeyFile",
+      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/",
       "title": "MongoDB Configuration Reference",
       "quote": "The path to the local keyfile when managing keys through a process other than KMIP.",
       "accessed": "2026-04-25"
@@ -6369,7 +6369,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/#mongodb-setting-security.kmip.serverName",
+      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/",
       "title": "MongoDB Configuration Reference",
       "quote": "The server name specified in security.kmip.serverName must match either the Subject Alternative Name SAN or the Common Name CN on the certificate presented by the KMIP server.",
       "accessed": "2026-04-25"
@@ -6393,7 +6393,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/#mongodb-setting-security.kmip.connectTimeoutMS",
+      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/",
       "title": "MongoDB Configuration Reference",
       "quote": "Timeout in milliseconds to wait for a response from the KMIP server. If the connectRetries setting is specified, the mongod waits up to the value specified with connectTimeoutMS for each retry.",
       "accessed": "2026-04-25"
@@ -6416,7 +6416,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/#mongodb-setting-security.kmip.activateKeys",
+      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/",
       "title": "MongoDB Configuration Reference",
       "quote": "Activates all newly created KMIP keys upon creation and then periodically checks those keys are in an active state.",
       "accessed": "2026-04-25"
@@ -6439,7 +6439,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/#mongodb-setting-security.kmip.keyStatePollingSeconds",
+      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/",
       "title": "MongoDB Configuration Reference",
       "quote": "Frequency in seconds at which mongod polls the KMIP server for active keys. To disable polling, set the value to -1.",
       "accessed": "2026-04-25"
@@ -6462,7 +6462,7 @@
     "fix_cost": "restart_engine",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/#security.sasl-options",
+      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/",
       "title": "SASL Options",
       "quote": "A fully qualified server domain name for the purpose of configuring SASL and Kerberos authentication. The SASL hostname overrides the hostname only for the configuration of SASL and Kerberos.",
       "accessed": "2026-04-25"
@@ -6487,7 +6487,7 @@
     "fix_cost": "restart_engine",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/#security.sasl-options",
+      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/",
       "title": "SASL Options",
       "quote": "Registered name of the service using SASL. This option allows you to override the default service name component of the Kerberos principal name, on a per-instance basis.",
       "accessed": "2026-04-25"
@@ -6512,7 +6512,7 @@
     "fix_cost": "restart_engine",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/#security.sasl-options",
+      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/",
       "title": "SASL Options",
       "quote": "The path to the UNIX domain socket file for saslauthd.",
       "accessed": "2026-04-25"
@@ -6537,7 +6537,7 @@
     "fix_cost": "restart_engine",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/#setparameter-ldap-options",
+      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/",
       "title": "MongoDB Configuration Reference",
       "quote": "By default, mongod or mongos creates a TLS/SSL secured connection to the LDAP server.",
       "accessed": "2026-04-25"
@@ -6560,7 +6560,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/#setparameter-ldap-options",
+      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/",
       "title": "MongoDB Configuration Reference",
       "quote": "The amount of time in milliseconds mongod or mongos should wait for an LDAP server to respond to a request.",
       "accessed": "2026-04-25"
@@ -6583,7 +6583,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/#setparameter-ldap-options",
+      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/",
       "title": "MongoDB Configuration Reference",
       "quote": "Number of operation retries by the server LDAP manager after a network error.",
       "accessed": "2026-04-25"
@@ -6607,7 +6607,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/#setparameter-ldap-options",
+      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/",
       "title": "MongoDB Configuration Reference",
       "quote": "Starting in MongoDB 5.0, userToDNMapping accepts an empty string \"\" or empty array [ ] in place of a mapping document. If providing an empty string or empty array to userToDNMapping, MongoDB maps the authenticated username as the LDAP DN.",
       "accessed": "2026-04-25"
@@ -6630,7 +6630,7 @@
     "fix_cost": "restart_engine",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/reference/program/mongod/#mongodb-binary-bin.mongod",
+      "url": "https://www.mongodb.com/docs/manual/reference/program/mongod/",
       "title": "MongoDB Configuration Reference",
       "quote": "If unset, mongod cannot authorize users using LDAP.",
       "accessed": "2026-04-25"
@@ -6655,7 +6655,7 @@
     "fix_cost": "restart_engine",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/reference/program/mongod/#mongodb-binary-bin.mongod",
+      "url": "https://www.mongodb.com/docs/manual/reference/program/mongod/",
       "title": "MongoDB Configuration Reference",
       "quote": "A flag that determines if the mongod or mongos instance checks the availability of the LDAP server(s) as part of its startup.",
       "accessed": "2026-04-25"
@@ -6680,7 +6680,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/#setparameter-ldap-options",
+      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/",
       "title": "setParameter LDAP Options",
       "quote": "The interval (in seconds) mongod waits between external user cache flushes. After mongod flushes the external user cache, MongoDB reacquires authorization data from the LDAP server the next time an LDAP-authorized user issues an operation.",
       "accessed": "2026-04-25"
@@ -6703,7 +6703,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/#setparameter-option",
+      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/",
       "title": "Example",
       "quote": "setParameter: searchIndexManagementHostAndPort: localhost:27028",
       "accessed": "2026-04-25"
@@ -6726,7 +6726,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/#setparameter-option",
+      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/",
       "title": "MongoDB Configuration Reference",
       "quote": "As a security best practice, we recommend setting this parameter to false.",
       "accessed": "2026-04-25"
@@ -6749,7 +6749,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/#mongodb-setting-storage.dbPath",
+      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/",
       "title": "MongoDB Configuration Reference",
       "quote": "The default mongod.conf configuration file included with package manager installations uses the following platform-specific default values for storage.dbPath: /data/db on Linux and macOS, \\data\\db on Windows.",
       "accessed": "2026-04-25"
@@ -6772,7 +6772,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/#mongodb-setting-storage.journal.commitIntervalMs",
+      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/",
       "title": "MongoDB Configuration Reference",
       "quote": "The maximum amount of time in milliseconds that the mongod process allows between journal operations is 100 milliseconds by default. Lower values increase the durability of the journal, at the expense of disk performance.",
       "accessed": "2026-04-25"
@@ -6795,7 +6795,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/#storage.wiredTiger-options",
+      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/",
       "title": "WiredTiger Options",
       "quote": "The default WiredTiger internal cache size is the larger of either: 50% of (RAM - 1GB), or 0.256 GB. Avoid increasing the WiredTiger internal cache size above its default value.",
       "accessed": "2026-04-25"
@@ -6818,7 +6818,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/#storage.wiredTiger-options",
+      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/",
       "title": "WiredTiger Options",
       "quote": "If your use case requires to do so, you can use storage.wiredTiger.engineConfig.cacheSizePct to specify a percentage of up to 80% of available memory.",
       "accessed": "2026-04-25"
@@ -6841,7 +6841,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/#storage.inmemory-options",
+      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/",
       "title": "MongoDB Configuration Options",
       "quote": "Maximum amount of memory to allocate for in-memory storage engine data, including indexes, oplog if the mongod is part of replica set, replica set or sharded cluster metadata, etc.",
       "accessed": "2026-04-25"
@@ -6864,7 +6864,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/#operationprofiling-options",
+      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/",
       "title": "Operation Profiling Options",
       "quote": "The slow operation time threshold, in milliseconds. Operations that run for longer than this threshold are considered slow. The default is 100 milliseconds.",
       "accessed": "2026-04-25"
@@ -6887,7 +6887,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/#operationprofiling-options",
+      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/",
       "title": "Operation Profiling Options",
       "quote": "The fraction of slow operations that should be profiled or logged. operationProfiling.slowOpSampleRate accepts values between 0 and 1, inclusive.",
       "accessed": "2026-04-25"
@@ -6910,7 +6910,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/#mongodb-setting-auditLog.compressionMode",
+      "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/",
       "title": "MongoDB Configuration Reference",
       "quote": "Specifies the compression mode for audit log encryption. You must also enable audit log encryption using either auditLog.auditEncryptionKeyIdentifier or auditLog.localAuditKeyFile.",
       "accessed": "2026-04-25"
@@ -7056,7 +7056,7 @@
     "fix_cost": "restart_engine",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#platform-support-notes",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/",
       "title": "Production Notes for Self-Managed Deployments",
       "quote": "MongoDB 8.0 Incompatible with Kernel 6.19 Due to an incompatibility between a new kernel release and the currently vendored version of TCMalloc, running MongoDB 8.0 or newer with Linux kernel version 6.19 can cause MongoDB to crash on startup.",
       "accessed": "2026-04-25"
@@ -7081,7 +7081,7 @@
     "fix_cost": "restart_engine",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#platform-support-matrix",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/",
       "title": "Platform Support Matrix",
       "quote": "Starting in MongoDB 8.0, new MongoDB Server versions (major and minor) support the minimum operating system (OS) minor version defined by the OS vendor.",
       "accessed": "2026-04-25"
@@ -7104,7 +7104,7 @@
     "fix_cost": "trivial",
     "source": {
       "tier": "official",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#manage-connection-pool-sizes",
+      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/",
       "title": "Production Notes",
       "quote": "Avoid overloading the connection resources of a mongod or mongos instance by adjusting the connection pool size to suit your use case. Start at 110-115% of the typical number of current database requests, and modify the connection pool size as needed.",
       "accessed": "2026-04-25"

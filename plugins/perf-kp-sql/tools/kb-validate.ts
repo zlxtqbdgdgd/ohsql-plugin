@@ -686,6 +686,90 @@ async function runSchema(opts: SchemaOpts): Promise<number> {
 
 // ============================================================================
 // ============================================================================
+// SECTION 4: urldrift (source JSON ↔ KB source_url / source_title 漂移检查)
+// ============================================================================
+// 守 Phase B 引入的反向同步:扫 data/**/*.json 顶层数组里所有含 id 字段的对象 ·
+// 在 KB 查同 rule_id · source.url / source.title 任一与 KB 不一致即视为漂移。
+// 用于防止 kb-build 重建后 source_url 被旧 source JSON 覆盖回去。
+// ============================================================================
+// ============================================================================
+
+interface UrlDriftOpts {
+  dbPath: string;
+  dataDir: string;
+}
+
+function walkJsonFiles(dir: string): string[] {
+  if (!existsSync(dir)) return [];
+  const out: string[] = [];
+  for (const e of readdirSync(dir)) {
+    const p = join(dir, e);
+    const st = statSync(p);
+    if (st.isDirectory()) out.push(...walkJsonFiles(p));
+    else if (e.endsWith(".json")) out.push(p);
+  }
+  return out;
+}
+
+async function runUrlDrift(opts: UrlDriftOpts): Promise<number> {
+  if (!existsSync(opts.dbPath)) throw new Error(`KB not found: ${opts.dbPath}`);
+  if (!existsSync(opts.dataDir)) throw new Error(`data dir not found: ${opts.dataDir}`);
+
+  const db = new Database(opts.dbPath, { readonly: true });
+  const kb = new Map<string, { url: string | null; title: string | null }>(
+    (db.prepare("SELECT rule_id, source_url, source_title FROM rules").all() as Array<{ rule_id: string; source_url: string | null; source_title: string | null }>)
+      .map((r) => [r.rule_id, { url: r.source_url, title: r.source_title }])
+  );
+  db.close();
+
+  let urlDrift = 0, titleDrift = 0, scanned = 0, notInKb = 0;
+  const samples: Array<{ rid: string; field: string; src: string | null; kb: string | null; file: string }> = [];
+
+  for (const f of walkJsonFiles(opts.dataDir)) {
+    let arr: unknown;
+    try { arr = JSON.parse(readFileSync(f, "utf8")); } catch { continue; }
+    if (!Array.isArray(arr)) continue;
+    for (const obj of arr as Array<Record<string, unknown>>) {
+      if (!obj || typeof obj !== "object") continue;
+      const rid = obj.id as string | undefined;
+      if (!rid) continue;
+      const want = kb.get(rid);
+      if (!want) { notInKb++; continue; }
+      scanned++;
+      const src = (obj.source as Record<string, unknown> | undefined) ?? {};
+      const srcUrl = (src.url as string | undefined) ?? null;
+      const srcTitle = (src.title as string | undefined) ?? null;
+      if (want.url != null && srcUrl !== want.url) {
+        urlDrift++;
+        if (samples.length < 10) samples.push({ rid, field: "source.url", src: srcUrl, kb: want.url, file: f });
+      }
+      if (want.title != null && srcTitle !== want.title) {
+        titleDrift++;
+        if (samples.length < 10) samples.push({ rid, field: "source.title", src: srcTitle, kb: want.title, file: f });
+      }
+    }
+  }
+
+  console.log(`urldrift: scanned ${scanned} source JSON rules · ${notInKb} ids not in KB (skipped)`);
+  console.log(`  url   drift: ${urlDrift}`);
+  console.log(`  title drift: ${titleDrift}`);
+
+  if (samples.length > 0) {
+    console.error(`\n--- drift samples (first ${samples.length}) ---`);
+    for (const s of samples) {
+      console.error(`  · ${s.rid} (${s.field})`);
+      console.error(`    file: ${s.file}`);
+      console.error(`    src : ${s.src ?? "(null)"}`);
+      console.error(`    kb  : ${s.kb ?? "(null)"}`);
+    }
+    console.error(`\n→ run \`node tools/sync-source-json-from-kb.mjs\` to write KB values back into source JSON`);
+  }
+
+  return (urlDrift + titleDrift) > 0 ? 1 : 0;
+}
+
+// ============================================================================
+// ============================================================================
 // TOP-LEVEL DISPATCHER
 // ============================================================================
 // ============================================================================
@@ -698,6 +782,7 @@ Subcommands:
   --op grounding   反向审计 LLM 报告 .md 每条 claim 是否锚在 KB
   --op simulate    拟人 DBA 追问验证 (60+ 条典型 query · KB 命中率)
   --op schema      cli-diagnose JSON results[] schema 校验
+  --op urldrift    source JSON 与 KB source_url / source_title 一致性检查
 
 grounding 选项:
   --report <path>          .md 报告(LLM 输出)
@@ -720,11 +805,16 @@ simulate 选项:
 schema 选项:
   --file <path.json>       cli-diagnose 输出 JSON (或 stdin 管道)
 
+urldrift 选项:
+  --db <path>              KB sqlite (默认 data/knowledge.sqlite)
+  --data-dir <path>        source JSON 根目录 (默认 data/)
+
 Examples:
   node kb-validate.js --op grounding --report ~/.ohsql/reports/foo.md
   node kb-validate.js --op simulate
   node kb-validate.js --op schema --file /tmp/diag-output.json
   cli-diagnose --engine mongo | node kb-validate.js --op schema
+  node kb-validate.js --op urldrift
 `,
   );
 }
@@ -749,6 +839,8 @@ async function main(): Promise<void> {
       "verbose":           { type: "boolean", default: false },
       // schema
       "file":              { type: "string" },
+      // urldrift
+      "data-dir":          { type: "string" },
       // common
       "help":              { type: "boolean", short: "h", default: false },
     },
@@ -796,6 +888,12 @@ async function main(): Promise<void> {
     }
     case "schema": {
       const exitCode = await runSchema({ filePath: values.file ?? null });
+      process.exit(exitCode);
+    }
+    case "urldrift": {
+      const dbPath = values.db ?? join(skillDir(), "data", "knowledge.sqlite");
+      const dataDir = values["data-dir"] ?? join(skillDir(), "data");
+      const exitCode = await runUrlDrift({ dbPath, dataDir });
       process.exit(exitCode);
     }
     default:
