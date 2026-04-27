@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import { describe, it } from "node:test";
+import assert from "node:assert/strict";
 import { interpretHotspot } from "../src/interpretHotspot.js";
 
 describe("interpretHotspot", () => {
@@ -8,18 +9,18 @@ describe("interpretHotspot", () => {
       "mongosh",
       false,
     );
-    expect(text).toContain("客户端异步开销");
-    expect(text).toContain("mongod 核心执行路径");
+    assert.ok(text.includes("客户端异步开销"), text);
+    assert.ok(text.includes("mongod 核心执行路径"), text);
   });
 
   it("off-cpu + futex → 锁等待", () => {
     const text = interpretHotspot("__futex_wait", "libpthread.so.0", true);
-    expect(text).toContain("锁等待");
+    assert.ok(text.includes("锁等待"), text);
   });
 
   it("off-cpu + epoll → IO 等待", () => {
     const text = interpretHotspot("epoll_wait", "libc.so.6", true);
-    expect(text).toContain("IO");
+    assert.ok(text.includes("IO"), text);
   });
 
   it("on-cpu + 引擎符号 → 引擎侧热点", () => {
@@ -28,19 +29,19 @@ describe("interpretHotspot", () => {
       "mongod",
       false,
     );
-    expect(text).toContain("数据库引擎侧");
+    assert.ok(text.includes("数据库引擎侧"), text);
   });
 
   it("on-cpu + idle 类符号 → 整机闲", () => {
     const text = interpretHotspot("default_idle_call", "[kernel.kallsyms]", false);
-    expect(text).toContain("调度");
+    assert.ok(text.includes("调度"), text);
   });
 
   it("空热点 (off-cpu)", () => {
-    expect(interpretHotspot(null, null, true)).toContain("等待热点");
+    assert.ok(interpretHotspot(null, null, true).includes("等待热点"));
   });
 
   it("空热点 (on-cpu)", () => {
-    expect(interpretHotspot(null, null, false)).toContain("CPU 热点");
+    assert.ok(interpretHotspot(null, null, false).includes("CPU 热点"));
   });
 });
