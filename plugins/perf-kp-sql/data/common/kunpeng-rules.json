@@ -6,7 +6,7 @@
     "source": {
       "tier": "vendor-primary",
       "url": "https://docs.kernel.org/arch/arm64/elf_hwcaps.html",
-      "title": "鲲鹏代码移植指南 · ARM64 原子指令与编译",
+      "title": "arm64.lse.cpu_flag 特性检测",
       "quote": "Functionality implied by ID_AA64ISAR0_EL1.Atomic == 0b0010.",
       "fetched_at": "2026-04-26"
     },
@@ -153,7 +153,7 @@
     "source": {
       "tier": "vendor-primary",
       "url": "https://docs.openeuler.org/en/docs/22.09/docs/SystemOptimization/mysql-performance-tuning.html",
-      "title": "mongo SMMU 禁用",
+      "title": "mongo 禁用 SMMU 特性",
       "quote": "You can configure advanced BIOS settings for different server hardware to improve server performance.",
       "fetched_at": "2026-04-26"
     },
@@ -174,7 +174,7 @@
     "source": {
       "tier": "vendor-primary",
       "url": "https://www.kernel.org/doc/Documentation/networking/ip-sysctl.txt",
-      "title": "调优指南",
+      "title": "tcp_max_syn_backlog 调优",
       "quote": "tcp_max_syn_backlog for additional tuning for TCP sockets.",
       "fetched_at": "2026-04-26"
     },
@@ -195,7 +195,7 @@
     "source": {
       "tier": "vendor-primary",
       "url": "https://www.kernel.org/doc/Documentation/networking/ip-sysctl.txt",
-      "title": "调优指南",
+      "title": "mongo somaxconn 调整",
       "quote": "Limit of socket listen() backlog, known in userspace as SOMAXCONN.",
       "fetched_at": "2026-04-26"
     },
@@ -237,7 +237,7 @@
     "source": {
       "tier": "vendor-primary",
       "url": "https://www.kernel.org/doc/Documentation/networking/ip-sysctl.txt",
-      "title": "MongoDB Tuning Guide",
+      "title": "TCP发送缓冲区调优",
       "quote": "tcp_wmem - vector of 3 INTEGERs: min, default, max",
       "fetched_at": "2026-04-26"
     },
@@ -279,7 +279,7 @@
     "source": {
       "tier": "vendor-primary",
       "url": "https://www.kernel.org/doc/Documentation/sysctl/vm.txt",
-      "title": "MongoDB Tuning Guide",
+      "title": "调整 swappiness 以优化内存",
       "quote": "This control is used to define how aggressive the kernel will swap memory pages.",
       "fetched_at": "2026-04-26"
     },
@@ -321,7 +321,7 @@
     "source": {
       "tier": "vendor-primary",
       "url": "https://www.kernel.org/doc/Documentation/networking/ip-sysctl.txt",
-      "title": "MongoDB 本地端口范围配置",
+      "title": "mongo-network-local-port范围调整",
       "quote": "Defines the local port range that is used by TCP and UDP to choose the local port.",
       "fetched_at": "2026-04-26"
     },
@@ -468,7 +468,7 @@
     "source": {
       "tier": "vendor-primary",
       "url": "https://www.mongodb.com/docs/manual/administration/production-notes/",
-      "title": "MongoDB 通用 sysctl(官方要求)",
+      "title": "MongoDB readahead 优化",
       "quote": "Set the readahead setting between 8 and 32 regardless of storage media type (spinning disk, SSD, etc.).",
       "fetched_at": "2026-04-26"
     },
@@ -510,7 +510,7 @@
     "source": {
       "tier": "vendor-primary",
       "url": "https://www.kernel.org/doc/Documentation/sysctl/vm.txt",
-      "title": "mongo 内存 slab 压力",
+      "title": "mongo slab 缓存压力优化",
       "quote": "This percentage value controls the tendency of the kernel to reclaim the memory which is used for caching of directory and inode objects.",
       "fetched_at": "2026-04-26"
     },
