@@ -267,11 +267,6 @@ Stop and wait for the next turn。
 
 **禁止**:Step 2 整段不许出现 `command -v perf` / `pgrep` / `ss -lntp` 等探测性 SSH,所有探测在本步完成。
 
-打 1 行活动行(banner 之后,task list 之前):
-```
-  · 环境探测 · 引擎进程 / 实例 bind+port / 火焰图工具
-```
-
 读 probe 命令:
 ```
 Read(file_path="${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/data/collect-cmds.json")
@@ -715,8 +710,17 @@ Mark phase 4 as completed and phase 5 (`报告渲染`) as in_progress.
 node ${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/scripts/render-html-report.mjs \
      /Users/<yourlogin>/.perf-kp-sql/reports/perf-kp-sql-<engine>-<TS>.html \
      --from-diagnose <diag-json-path> \
-     --from-flame-json /Users/<yourlogin>/.perf-kp-sql/tmp/flame-json-<TS>.json
+     --from-flame-json /Users/<yourlogin>/.perf-kp-sql/tmp/flame-json-<TS>.json \
+     --ssh-user <你 Step 1 用的 SSH user> \
+     --ssh-host <你 Step 1 用的 SSH host / IP> \
+     --ssh-port <你 Step 1 用的 SSH 端口 · 默认 22> \
+     --os-collect-path /Users/<yourlogin>/.perf-kp-sql/tmp/perf-kp-sql-os-<TS>.txt \
+     --db-collect-path /Users/<yourlogin>/.perf-kp-sql/tmp/perf-kp-sql-<engine>-db-<TS>.txt
 ```
+
+> ⚠️ **`--ssh-user / --ssh-host / --ssh-port` 必填。** 远端 mongod 监听的 bind=127.0.0.1 是远端进程视角的本地 IP · 用户视角下毫无意义。报告"目标主机 / 数据库地址"列必须用 LLM 在 Step 1 实际 SSH 连接的 user@host:port · 否则报告里全是 127.0.0.1 看不出在诊断哪台机器。
+>
+> ⚠️ **`--os-collect-path / --db-collect-path` 必填。** 路径直接复用 Step 2 osStdout / dbStdout Write 落盘的实际路径,给报告"采集与产物"段用。不传会导致用户看到的路径栏显示"(未传入)"占位符,且无法点开对应文件。
 
 After the shell returns ok, mark phase 5 as completed (final state: all 5 ✔).
 

@@ -15,22 +15,10 @@
 
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 
-const args = process.argv.slice(2);
-const mdPath = args[0];
-if (!mdPath) {
-  console.error("usage: render-report.mjs <md-path>  (pipe diagnose.mjs JSON on stdin · or use --from-diagnose <file>)");
-  process.exit(1);
-}
-
-let diagnoseJson;
-const fromIdx = args.indexOf("--from-diagnose");
-if (fromIdx >= 0 && args[fromIdx + 1]) {
-  diagnoseJson = readFileSync(args[fromIdx + 1], "utf8");
-} else {
-  diagnoseJson = readFileSync(0, "utf8");  // stdin
-}
-
 // 如果直接 CLI 跑 · 落盘 md · 否则 export renderReport / renderReportFromDiagnoseJson 给其他脚本用
+// v0.23.1 · 撤模块顶层的 args / process.exit / readFileSync(stdin) 三件套 ·
+//          以前 import 这个模块就会顺带跑 CLI 解析,vitest/单测一 import 就 process.exit(1)。
+//          CLI 解析全部下放到末尾 `if (_isMain)` 块。
 import { pathToFileURL } from "node:url";
 import { realpathSync } from "node:fs";
 const _isMain = import.meta.url === (() => { try { return pathToFileURL(realpathSync(process.argv[1])).href; } catch { return ""; } })();
@@ -50,8 +38,17 @@ export function renderReportFromDiagnoseJson(jsonString, opts = {}) {
 // ============================================================================
 
 export function renderReport(input, data, _mdPath = "") {
+  // v0.23.0 · 旧 diagnose JSON 的 metadata 不带 cpu_model / total_mem_mb / os_id ·
+  // 用 baseline.os_metrics + discovered 兜底 · 让历史 JSON 也能渲出完整 CPU/内存行
+  const baselineOs = data?.baseline?.os_metrics ?? {};
+  const meta = { ...input.metadata };
+  if (meta.cpu_model == null) meta.cpu_model = baselineOs.cpu_model;
+  if (meta.total_mem_mb == null) meta.total_mem_mb = baselineOs.total_mem_mb;
+  if (meta.os_id == null) meta.os_id = baselineOs.os_id;
+  if (meta.db_bind == null) meta.db_bind = data?.discovered?.bind;
+  if (meta.db_port == null) meta.db_port = data?.discovered?.port;
   const lines = [];
-  lines.push(renderMetadata(input.metadata, input.summary));
+  lines.push(renderMetadata(meta, input.summary));
   lines.push("");
 
   // v0.4.4 · 全报告共享一个 FootnoteRegistry · 双表推荐 cell + 末尾参考段共号
@@ -60,7 +57,7 @@ export function renderReport(input, data, _mdPath = "") {
   // v0.4.3 · 报告开头先出双表(需要调优 + 已通过)· 按 wait_class 分组合并 · 给读者一眼摸底
   lines.push("## 需要调优");
   lines.push("");
-  lines.push(renderActionableTable(input.top_issues ?? [], input.evidence_trail ?? [], data.check_catalog, registry));
+  lines.push(renderActionableTable(input.top_issues ?? [], input.evidence_trail ?? [], registry));
   lines.push("");
   lines.push("## 关键指标");
   lines.push("");
@@ -69,21 +66,22 @@ export function renderReport(input, data, _mdPath = "") {
   lines.push(renderHealthyTable([...(input.full_findings ?? []), ...(input.ok_findings ?? [])], input.evidence_trail ?? [], data.check_catalog, registry));
   lines.push("");
 
-  lines.push("## Top Issues");
+  // v0.23.1 · MAJOR review 反馈 · 全段中文化 · 撤 "Top Issues" / "Full findings" 英文孤岛
+  lines.push("## 优先调优项");
   lines.push("");
   for (let i = 0; i < (input.top_issues ?? []).length; i++) {
     lines.push(renderTopIssue(input.top_issues[i], i + 1));
     lines.push("");
   }
-  lines.push("## Full findings");
+  lines.push("## 完整诊断结果");
   lines.push("");
   lines.push(renderFullFindings(input.full_findings ?? [], input.ok_findings ?? []));
   lines.push("");
-  lines.push("## 验证命令(待 --with-verify)");
+  lines.push("## 验证命令");
   lines.push("");
   lines.push(renderVerifyCommands(input.top_issues ?? []));
   lines.push("");
-  lines.push("## Artifacts");
+  lines.push("## 采集与产物");
   lines.push("");
   lines.push(renderArtifacts(data, _mdPath));
   lines.push("");
@@ -92,10 +90,7 @@ export function renderReport(input, data, _mdPath = "") {
   // v0.4.4 · 切换为统一的 registry.render() 以包含双表(需要调优/关键指标)动态插入的所有脚注
   lines.push(registry.render());
   lines.push("");
-  lines.push("## Report Changelog");
-  lines.push("");
-  lines.push("- v0.3.8 · 2026-04-23 · LLM 不再 Write md/html · 全脚本渲染 · 零幻觉硬约束(每条 Why/机制/代价/例外 带 [参考N] · 参考段自动生成)");
-  lines.push("");
+  // v0.23.0 · 用户反馈 · "Report Changelog" 不应给最终用户看 · 删
   // v0.5.10 · 2026-04-25 · 用户反馈 · 报告里 [参考N] 序号经常跳号(1, 3, 4, 6, 10, 12)
   // —— 因为 evidence_trail 预分配了全局编号,但只有部分被实际引用,留空号。
   // 这里在最后做一次重编号:按 body 中首次出现顺序重排为 1..K,并重写 ## 参考 段。
@@ -177,23 +172,55 @@ export function renumberFootnotesContiguous(md) {
   );
 }
 
-function renderMetadata(meta = {}, summary = {}) {
+export function renderMetadata(meta = {}, summary = {}) {
   // v0.5.10 · 2026-04-25 · 用户反馈 · 撤 ASCII box-drawing(`╭─` `│` `╰─`)
   // 在 HTML(非等宽字体)下完全错位 · 改 markdown 2 列 KV 表 · 终端/HTML 都对齐
+  // v0.23.0 · 2026-04-26 · 用户反馈 ·
+  //   1. SSH user / host / port 通过 render-html-report.mjs CLI flag 注入 ·
+  //      不再用远端 mongod bind=127.0.0.1 当 Target / DB endpoint
+  //   2. DB version 字段名 detected_version → db_version(对齐 diagnose.mjs)
+  //   3. arch=aarch64 → 直接秀 CPU 型号(cpu_model · 例 Kunpeng-920)
+  //   4. CPU 行右侧补 内存 行(total_mem_mb)
+  //   5. Generated 改本地时间 yyyy-mm-dd HH:MM:SS · ISO 给机器看的
+  //   6. summary 把"跳过"改"信息"(用户视角:info ≠ skipped)
   const s = summary;
-  const target = `${meta.user ?? "root"}@${meta.host ?? "-"}:${meta.ssh_port ?? 22}`;
-  const dbEndpoint = `${meta.db_bind ?? meta.host ?? "-"}:${meta.db_port ?? "-"}`;
-  const summaryStr = `严重 ${s.critical ?? 0} · 告警 ${s.warning ?? 0} · 跳过 ${s.info ?? 0} · 已通过 ${s.ok ?? 0}`;
+  // SSH 实参优先;diagnose.mjs 没注入(老路径)再退回到远端 bind
+  const sshHost = meta.ssh_host || meta.host || "-";
+  const sshUser = meta.ssh_user || "-";
+  // v0.23.1 · ssh-port 经 CLI 注入是字符串("22") · 强制 Number 化 ·
+  // 防未来消费者做数值比较时静默失效(Sonnet review 反馈)
+  const sshPortRaw = meta.ssh_port != null ? Number(meta.ssh_port) : NaN;
+  const sshPort = Number.isFinite(sshPortRaw) && sshPortRaw > 0 ? sshPortRaw : 22;
+  // 包 backtick 防 marked 把 user@host 自动 linkify 成 mailto:
+  const target = sshUser !== "-"
+    ? `\`${sshUser}@${sshHost}:${sshPort}\``
+    : `\`${sshHost}:${sshPort}\``;
+  // DB endpoint:走 SSH host:db_port · 远端 mongod 的 bind=127.0.0.1 是
+  // 本地监听 IP · 用户视角下毫无意义。fallback 到 db_bind 仅当 SSH host 缺
+  const dbHost = meta.ssh_host || meta.db_bind || meta.host || "-";
+  const dbPort = meta.db_port ?? meta.port ?? "-";
+  const dbEndpoint = `\`${dbHost}:${dbPort}\``;
+  const dbVersionRaw = meta.db_version ?? meta.detected_version ?? "";
+  const dbVersion = dbVersionRaw
+    ? `${meta.engine ?? ""} ${dbVersionRaw}`.trim()
+    : "-";
+  const cpu = meta.cpu_model || meta.arch || "-";
+  const memMb = meta.total_mem_mb ?? 0;
+  const memStr = memMb > 0 ? `${(memMb / 1024).toFixed(1)} GB` : "-";
+  const summaryStr = `严重 ${s.critical ?? 0} · 告警 ${s.warning ?? 0} · 信息 ${s.info ?? 0} · 已通过 ${s.ok ?? 0}`;
   const rows = [
-    ["Engine", meta.engine ?? "-"],
-    ["Target", target],
-    ["DB endpoint", dbEndpoint],
-    ["DB version", meta.detected_version ?? "-"],
-    ["Arch", meta.arch ?? "-"],
+    ["数据库", `${meta.engine ?? "-"}${dbVersionRaw ? " " + dbVersionRaw : ""}`.trim()],
+    ["目标主机", target],
+    ["数据库地址", dbEndpoint],
+    ["CPU", cpu],
+    ["内存", memStr],
   ];
-  if (meta.os_id) rows.push(["OS", `${meta.os_id} ${meta.os_version ?? ""}`.trim()]);
-  rows.push(["Generated", new Date().toISOString()]);
-  rows.push(["Summary", summaryStr]);
+  if (meta.os_id) rows.push(["操作系统", `${meta.os_id} ${meta.os_version ?? ""}`.trim()]);
+  // v0.23.1 · 用 diagnose 落盘的 generated_at(采集时间) · 不用 render-time clock ·
+  // 否则 LLM 串行分钟级延迟会让"生成时间"看起来比实际采集时间晚(Sonnet review 反馈)
+  const genDate = meta.generated_at ? new Date(meta.generated_at) : new Date();
+  rows.push(["生成时间", fmtLocalTime(Number.isFinite(genDate.getTime()) ? genDate : new Date())]);
+  rows.push(["诊断结果", summaryStr]);
   const lines = [
     "## 报告信息",
     "",
@@ -202,6 +229,25 @@ function renderMetadata(meta = {}, summary = {}) {
     ...rows.map(([k, v]) => `| ${k} | ${v} |`),
   ];
   return lines.join("\n");
+}
+
+/** 本地时区 yyyy-mm-dd HH:MM:SS · 给人看 · 替代 ISO Z 串 */
+export function fmtLocalTime(d) {
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+
+/** 清理 finding summary 里冗余于"严重度"/"推荐值"列的尾巴 ·
+ * - ` 不符合 X 期望` / ` 不符合期望`
+ * - ` 偏离推荐值 X`(末尾段落)
+ * v0.23.1 · MINOR review 反馈 · 提取共享 helper · 撤双份 inline 实现
+ */
+export function cleanSummary(s) {
+  if (s == null) return "";
+  return String(s)
+    .replace(/\s*不符合[^·]*?期望\s*$/u, "")
+    .replace(/\s*偏离推荐值[^·]*$/u, "")
+    .trim();
 }
 
 function impactLine(r) {
@@ -314,15 +360,8 @@ function mergeThemes(ranked) {
       return (b.impact_score ?? 0) - (a.impact_score ?? 0);
     });
     const primary = sorted[0];
-    // v1.0 红线收紧:current 取 evidence(CheckFn 真机当前值) · 不取 summary(KB 文档字面)
-    // recommend 优先 threshold_display(KB threshold fact) · 兜底 recommendations[0].action(KB remediation)
-    // 注意 nullish 保护:threshold_display 可能是 null/undefined · 不能让它进字符串拼接
-    const currentParts = sorted
-      .map((r) => r.evidence?.[0]?.value || r.summary || "")
-      .filter((s) => s && s.trim());
-    const recommendParts = sorted
-      .map((r) => (r.threshold_display && r.threshold_display.trim()) || r.recommendations?.[0]?.action || "")
-      .filter((s) => s && s.trim());
+    const currentParts = sorted.map((r) => r.summary).filter(Boolean);
+    const recommendParts = sorted.map((r) => r.recommendations?.[0]?.action).filter(Boolean);
     const citationsMerged = dedupBy(sorted.flatMap((r) => r.citations ?? []), (c) => c.url);
     const recommendationsMerged = dedupBy(sorted.flatMap((r) => r.recommendations ?? []), (rec) => rec.action);
     themeCondensed.set(theme.key, {
@@ -362,7 +401,7 @@ function mergeThemes(ranked) {
 const HEALTHY_WHITELIST = [
   { id: "mongo.config.wt_block_compressor",  wait_class: "CPU",   title: "压缩算法" },
   { id: "os.iosched.device_scheduler",       wait_class: "I/O",   title: "IO scheduler" },
-  { id: "mongo.config.wt_cache_size_advisory", wait_class: "内存", title: "WT cache 大小配置" },
+  { id: "mongo.runtime.wt_cache_hit_rate",   wait_class: "I/O",   title: "WT cache 命中率" },
   { id: "os.io.disk_await_ms",               wait_class: "I/O",   title: "磁盘 await" },
   { id: "os.io.disk_usage_pct",              wait_class: "I/O",   title: "磁盘使用" },
   { id: "mongo.config.wt_cache_vs_memory",   wait_class: "内存",  title: "WT cache 用量" },
@@ -371,9 +410,14 @@ const HEALTHY_WHITELIST = [
   { id: "os.net.somaxconn",                  wait_class: "网络",  title: "somaxconn" },
 ];
 
-/** v1.0 红线收紧:"当前值"取 evidence(CheckFn 写的真机值) · 不取 summary(KB 文档字面) */
-function extractCurrent(r) {
-  return (r.evidence?.[0]?.value ?? "").replace(/^[^=]*=/, "");
+/** 从单条 finding 解析展示用的"当前值"字符串
+ * - 去 label 前缀 `prefix=` (如 `THP=always` → `always`)
+ * - 调 cleanSummary 去 "不符合 X 期望" / "偏离推荐值" 等冗余尾巴
+ * v0.23.0 · 用户反馈 · "always 不符合 mongo 7.0.31 期望"看不懂
+ */
+export function extractCurrent(r) {
+  const s = (r?.summary ?? "").replace(/^[^=]*=/, "");
+  return cleanSummary(s);
 }
 
 /** v0.4.4 · FootnoteRegistry · 推荐 cell URL → footnote 编号映射器
@@ -496,8 +540,9 @@ function renderHealthyTable(allFindings, evidenceTrail = [], checkCatalog = null
   });
 
   // v0.5.6 · 关键指标固定 10 项白名单(rows.length === HEALTHY_WHITELIST.length)
+  // v0.23.0 · 撤"业界常驻 N 项 · 不论 severity 全量列出"工程腔 · 改人话
   const lines = [
-    `**关键指标 · 业界常驻 ${rows.length} 项 · 不论 severity 全量列出**`,
+    `**关键指标 · 共 ${rows.length} 项 · 含通过、告警、严重**`,
     "",
     "| 模块 | 诊断项 | 当前值 | 推荐值 |",
     "|---|---|---|---|",
@@ -514,10 +559,10 @@ function renderHealthyTable(allFindings, evidenceTrail = [], checkCatalog = null
 
 /**
  * v0.4.3 新增 · 需要调优表 · 按 wait_class 分组合并单元格
- * 从 report_input.top_issues(impact-ranked critical + warning)渲染 ·
- * 头部附 X/Y 总数(X = 触发条数 · Y = 总规则数)
+ * 从 report_input.top_issues(impact-ranked critical + warning)渲染。
+ * v0.23.1 · 删未用的 checkCatalog 参数(原算 X/Y 总数 · v0.23.0 已撤分母逻辑)
  */
-function renderActionableTable(topIssues, evidenceTrail = [], checkCatalog = null, registry = null) {
+function renderActionableTable(topIssues, evidenceTrail = [], registry = null) {
   if (!topIssues || topIssues.length === 0) return "**需要调优 · 无异常**";
 
   // v0.4.4 · 合并主题(UI 层) · 输入 top_issues 原始粒度不动 · 输出用合并后视图
@@ -552,15 +597,12 @@ function renderActionableTable(topIssues, evidenceTrail = [], checkCatalog = nul
 
   // v0.4.3 · 分母 = 评估指标池(运行时实装 CheckFn 总数) · 不用采集总数(后者含环境情境)
   // v0.4.4 · 分子 = 合并后主题数(mergedIssues.length) · 注记原始 knob 数 · 对齐领导要求
-  const evalTotal = checkCatalog?.total ?? 54;
+  // v0.23.0 · 用户反馈 · 用人话:"X/Y 偏离推荐值" / "已合并 N → M 组"全撤
   const crit = mergedIssues.filter((r) => r.severity === "critical").length;
   const warn = mergedIssues.filter((r) => r.severity === "warning").length;
 
-  const originalCount = topIssues.length;
-  const mergedCount = mergedIssues.length;
-  const mergedNote = originalCount > mergedCount ? ` · 已合并 ${originalCount} 条 → ${mergedCount} 组` : "";
   const lines = [
-    `**需要调优 · ${rows.length}/${evalTotal} 项偏离推荐值 · 严重 ${crit} · 告警 ${warn}${mergedNote}**`,
+    `**共发现 ${rows.length} 项需要调优 · 严重 ${crit} · 告警 ${warn}**`,
     "",
     "| 模块 | 诊断项 | 当前值 | 推荐值 | 严重度 |",
     "|---|---|---|---|---|",
@@ -629,7 +671,9 @@ function renderFullFindings(actionable, ok) {
     out.push(`<summary>Bucket ${b} · ${BUCKET_NAMES[b] ?? "Other"} (${rs.length} rules)</summary>`);
     out.push(``);
     for (const r of rs) {
-      out.push(`- [${r.severity}] ${r.id} — ${r.summary ?? "-"}`);
+      // v0.23.1 · 复用 cleanSummary helper · 撤双份 inline 实现(Sonnet review)
+      const txt = cleanSummary(r.summary) || "-";
+      out.push(`- [${r.severity}] ${r.id} — ${txt}`);
     }
     out.push(``);
     out.push(`</details>`);
@@ -683,13 +727,24 @@ function renderVerifyCommands(topIssues) {
   return lines.join("\n");
 }
 
-function renderArtifacts(data, _mdPath) {
-  const m = data.report_input?.metadata ?? {};
-  const ts = data.discovered?.ts ?? new Date().toISOString().slice(0, 10).replace(/-/g, "") + "-000001";
+export function renderArtifacts(data, _mdPath) {
+  // v0.23.0 · 用户反馈 · 列表 → 表格 + 加 perf 火焰图 + 报告路径
+  // v0.23.1 · MAJOR review 反馈 · 撤"按 ts 猜默认路径"逻辑 ·
+  // discovered.ts 不存在 + fallback 前缀和顺序与 SKILL.md 实际命名不一致 ·
+  // 改为:未注入 → 显示 "(未传入)" · 强迫 SKILL.md 4.2 通过 CLI flag 显式传
+  const m = data?.report_input?.metadata ?? {};
+  const placeholder = "(未传入 · render-html-report.mjs 需补 --os-collect-path 等 flag)";
+  const fmt = (p) => (p ? `\`${p}\`` : placeholder);
+  const rows = [
+    ["OS 采集", fmt(m.os_collect_path)],
+    ["DB 采集", fmt(m.db_collect_path)],
+    ["perf 火焰图", fmt(m.flame_path)],
+    ["诊断报告", fmt(m.report_path ?? _mdPath)],
+  ];
   const lines = [
-    `- OS 采集: \`~/.perf-kp-sql/tmp/perf-kp-sql-os-${ts}.txt\``,
-    `- DB 采集: \`~/.perf-kp-sql/tmp/perf-kp-sql-${m.engine ?? "mongo"}-db-${ts}.txt\``,
-    `- 报告: \`${_mdPath}\``,
+    "| 类型 | 路径 |",
+    "|---|---|",
+    ...rows.map(([k, v]) => `| ${k} | ${v} |`),
   ];
   return lines.join("\n");
 }
@@ -702,6 +757,19 @@ function renderArtifacts(data, _mdPath) {
 // ============================================================================
 
 if (_isMain) {
+  const args = process.argv.slice(2);
+  const mdPath = args[0];
+  if (!mdPath) {
+    console.error("usage: render-report.mjs <md-path>  (pipe diagnose.mjs JSON on stdin · or use --from-diagnose <file>)");
+    process.exit(1);
+  }
+  let diagnoseJson;
+  const fromIdx = args.indexOf("--from-diagnose");
+  if (fromIdx >= 0 && args[fromIdx + 1]) {
+    diagnoseJson = readFileSync(args[fromIdx + 1], "utf8");
+  } else {
+    diagnoseJson = readFileSync(0, "utf8");  // stdin
+  }
   const data = JSON.parse(diagnoseJson);
   const input = data.report_input ?? data;
   const md = renderReport(input, data, mdPath);

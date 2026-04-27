@@ -1022,7 +1022,7 @@ var check_thp = (ctx) => {
     severity: expected === "always" ? "warning" : "critical",
     bucket: 1,
     scope,
-    summary: `THP=${mode} \u4E0D\u7B26\u5408 mongo${scope.engine_version ? ` ${scope.engine_version}` : ""} \u671F\u671B`,
+    summary: `THP=${mode}`,
     description: `mongo \u671F\u671B THP=${expected}\u3002` + (rationaleWhyBad ? ` ${rationaleWhyBad}\u3002` : ""),
     reason: `\u5F53\u524D THP=${mode} \xB7 \u671F\u671B ${expected} \xB7 ${rationaleWhyBad}`,
     evidence: [
@@ -3794,8 +3794,15 @@ async function main() {
       engine: inputs.engine,
       host: String(discovered.bind ?? "?"),
       port: numOrUndef(discovered.port),
+      // db_port 给 render-report.mjs::renderMetadata 用 · 区别于 SSH port
+      db_port: numOrUndef(discovered.port),
+      db_bind: String(discovered.bind ?? ""),
       db_version: pickDbVersion(ctx, inputs.engine),
       arch: String(ctx.os_metrics.arch ?? "?"),
+      // 透出 CPU 型号 + 总内存 · render 报告信息表用
+      cpu_model: ctx.os_metrics.cpu_model ? String(ctx.os_metrics.cpu_model) : void 0,
+      total_mem_mb: ctx.os_metrics.total_mem_mb,
+      os_id: ctx.os_metrics.os_id,
       scanned_kb_docs: 0,
       generated_at: (/* @__PURE__ */ new Date()).toISOString(),
       ascii_fallback: inputs.ascii

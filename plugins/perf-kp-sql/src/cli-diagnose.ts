@@ -152,8 +152,17 @@ async function main(): Promise<void> {
       engine: inputs.engine,
       host: String(discovered.bind ?? "?"),
       port: numOrUndef(discovered.port),
+      // db_port 给 render-report.mjs::renderMetadata 用 · 区别于 SSH port
+      db_port: numOrUndef(discovered.port),
+      db_bind: String(discovered.bind ?? ""),
       db_version: pickDbVersion(ctx, inputs.engine),
       arch: String((ctx.os_metrics as Record<string, unknown>).arch ?? "?"),
+      // 透出 CPU 型号 + 总内存 · render 报告信息表用
+      cpu_model: (ctx.os_metrics as Record<string, unknown>).cpu_model
+        ? String((ctx.os_metrics as Record<string, unknown>).cpu_model)
+        : undefined,
+      total_mem_mb: (ctx.os_metrics as Record<string, unknown>).total_mem_mb as number | undefined,
+      os_id: (ctx.os_metrics as Record<string, unknown>).os_id as string | undefined,
       scanned_kb_docs: 0,
       generated_at: new Date().toISOString(),
       ascii_fallback: inputs.ascii,
