@@ -1,19 +1,19 @@
 /**
- * captureRunner 单测——用 vi.mock 拦截 child_process.spawn，验证 ssh argv 拼接
+ * captureRunner 单测——通过 _setSpawnImpl 注入 spawn mock，验证 ssh argv 拼接
  * 正确（端口、BatchMode、user@host、cmd）。不触真实 ssh 连接。
+ *
+ * 历史上用 vitest + vi.mock("node:child_process") 做模块级 mock;
+ * 0.21.0 起改用 node:test + 模块级 spawn 注入点(_setSpawnImpl),不再依赖
+ * vitest npm 包,统一与本仓 cli-ssh.test.ts 风格。
  */
 
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { describe, it, beforeEach, afterEach, mock } from "node:test";
+import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
 import { Readable, Writable } from "node:stream";
+import type { ChildProcess } from "node:child_process";
 
-// vi.mock 必须在 import 被测代码前定义
-const spawnMock = vi.fn();
-vi.mock("node:child_process", () => ({
-  spawn: (cmd: string, args: string[], opts: unknown) => spawnMock(cmd, args, opts),
-}));
-
-const { openRemoteSession, shellEscape } = await import("../src/captureRunner.js");
+import { _setSpawnImpl, openRemoteSession, shellEscape } from "../src/captureRunner.js";
 
 interface FakeChild extends EventEmitter {
   stdout: Readable;
@@ -38,7 +38,7 @@ function makeFakeChild(opts: {
       cb();
     },
   });
-  child.kill = vi.fn();
+  child.kill = mock.fn();
   setTimeout(() => {
     child.emit("close", opts.exitCode ?? 0);
   }, opts.exitDelayMs ?? 0);
@@ -46,106 +46,134 @@ function makeFakeChild(opts: {
 }
 
 describe("captureRunner.openRemoteSession", () => {
-  beforeEach(() => spawnMock.mockReset());
+  // 每个 case 独立的 spawn mock,避免互相污染
+  let spawnMock: ReturnType<typeof mock.fn>;
+
+  beforeEach(() => {
+    spawnMock = mock.fn();
+    _setSpawnImpl(spawnMock as unknown as typeof import("node:child_process").spawn);
+  });
+  afterEach(() => {
+    _setSpawnImpl();
+  });
 
   it("exec 拼接正确的 ssh argv（端口/BatchMode/target/cmd）", async () => {
-    spawnMock.mockImplementation(() => makeFakeChild({ stdout: "hello\n", exitCode: 0 }));
+    spawnMock.mock.mockImplementation(
+      () => makeFakeChild({ stdout: "hello\n", exitCode: 0 }) as unknown as ChildProcess,
+    );
     const sess = openRemoteSession({ host: "1.2.3.4", user: "root", port: 2222 });
     const res = await sess.exec("echo hello");
-    expect(res.exitCode).toBe(0);
-    expect(res.stdout).toBe("hello\n");
+    assert.equal(res.exitCode, 0);
+    assert.equal(res.stdout, "hello\n");
 
-    expect(spawnMock).toHaveBeenCalledOnce();
-    const [cmd, args] = spawnMock.mock.calls[0]!;
-    expect(cmd).toBe("ssh");
-    expect(args).toContain("-p");
-    expect(args).toContain("2222");
-    expect(args).toContain("-o");
-    expect(args).toContain("BatchMode=yes");
-    expect(args).toContain("root@1.2.3.4");
-    expect(args[args.length - 1]).toBe("echo hello");
+    assert.equal(spawnMock.mock.callCount(), 1);
+    const [cmd, args] = spawnMock.mock.calls[0]!.arguments as [string, string[], unknown];
+    assert.equal(cmd, "ssh");
+    assert.ok(args.includes("-p"), "args should include -p");
+    assert.ok(args.includes("2222"), "args should include port 2222");
+    assert.ok(args.includes("-o"), "args should include -o");
+    assert.ok(args.includes("BatchMode=yes"), "args should include BatchMode=yes");
+    assert.ok(args.includes("root@1.2.3.4"), "args should include target");
+    assert.equal(args[args.length - 1], "echo hello");
   });
 
   it("默认端口 22", async () => {
-    spawnMock.mockImplementation(() => makeFakeChild({ exitCode: 0 }));
+    spawnMock.mock.mockImplementation(
+      () => makeFakeChild({ exitCode: 0 }) as unknown as ChildProcess,
+    );
     const sess = openRemoteSession({ host: "h", user: "u" });
     await sess.exec("true");
-    const args: string[] = spawnMock.mock.calls[0]![1];
+    const args = spawnMock.mock.calls[0]!.arguments[1] as string[];
     const portIdx = args.indexOf("-p");
-    expect(args[portIdx + 1]).toBe("22");
+    assert.equal(args[portIdx + 1], "22");
   });
 
   it("privateKeyPath 通过 -i 传入", async () => {
-    spawnMock.mockImplementation(() => makeFakeChild({ exitCode: 0 }));
+    spawnMock.mock.mockImplementation(
+      () => makeFakeChild({ exitCode: 0 }) as unknown as ChildProcess,
+    );
     const sess = openRemoteSession({ host: "h", user: "u", privateKeyPath: "/tmp/id_rsa" });
     await sess.exec("true");
-    const args: string[] = spawnMock.mock.calls[0]![1];
+    const args = spawnMock.mock.calls[0]!.arguments[1] as string[];
     const iIdx = args.indexOf("-i");
-    expect(iIdx).toBeGreaterThan(-1);
-    expect(args[iIdx + 1]).toBe("/tmp/id_rsa");
+    assert.ok(iIdx > -1, "-i flag should be present");
+    assert.equal(args[iIdx + 1], "/tmp/id_rsa");
   });
 
   it("ssh exitCode=255 → err 字段被填充", async () => {
-    spawnMock.mockImplementation(() =>
-      makeFakeChild({ stderr: "ssh: connect to host: Connection refused\n", exitCode: 255 }),
+    spawnMock.mock.mockImplementation(
+      () =>
+        makeFakeChild({
+          stderr: "ssh: connect to host: Connection refused\n",
+          exitCode: 255,
+        }) as unknown as ChildProcess,
     );
     const sess = openRemoteSession({ host: "h", user: "u" });
     const res = await sess.exec("true");
-    expect(res.exitCode).toBe(255);
-    expect(res.err).toMatch(/SSH connection failed \(255\)/);
-    expect(res.err).toContain("Connection refused");
+    assert.equal(res.exitCode, 255);
+    assert.match(res.err ?? "", /SSH connection failed \(255\)/);
+    assert.ok(res.err?.includes("Connection refused"), `err should mention Connection refused: ${res.err}`);
   });
 
   it("远端命令非零退出码 ≠ ssh 通道错误（无 err 字段）", async () => {
-    spawnMock.mockImplementation(() => makeFakeChild({ exitCode: 1 }));
+    spawnMock.mock.mockImplementation(
+      () => makeFakeChild({ exitCode: 1 }) as unknown as ChildProcess,
+    );
     const sess = openRemoteSession({ host: "h", user: "u" });
     const res = await sess.exec("false");
-    expect(res.exitCode).toBe(1);
-    expect(res.err).toBeUndefined();
+    assert.equal(res.exitCode, 1);
+    assert.equal(res.err, undefined);
   });
 
   it("uploadFile 走 ssh + cat heredoc", async () => {
-    spawnMock.mockImplementation(() => makeFakeChild({ exitCode: 0 }));
+    spawnMock.mock.mockImplementation(
+      () => makeFakeChild({ exitCode: 0 }) as unknown as ChildProcess,
+    );
     const sess = openRemoteSession({ host: "h", user: "u" });
     await sess.uploadFile("/tmp/foo.txt", "hello world");
-    expect(spawnMock).toHaveBeenCalledOnce();
-    const [cmd, args] = spawnMock.mock.calls[0]!;
-    expect(cmd).toBe("ssh");
+    assert.equal(spawnMock.mock.callCount(), 1);
+    const [cmd, args] = spawnMock.mock.calls[0]!.arguments as [string, string[], unknown];
+    assert.equal(cmd, "ssh");
     // 最后一个 argv 元素是远端命令
-    const remoteCmd = args[args.length - 1];
-    expect(remoteCmd).toMatch(/^cat > /);
-    expect(remoteCmd).toContain("/tmp/foo.txt");
+    const remoteCmd = args[args.length - 1]!;
+    assert.match(remoteCmd, /^cat > /);
+    assert.ok(remoteCmd.includes("/tmp/foo.txt"), `remote cmd should reference target: ${remoteCmd}`);
   });
 
   it("uploadFile 失败抛错（exitCode != 0）", async () => {
-    spawnMock.mockImplementation(() =>
-      makeFakeChild({ stderr: "Permission denied\n", exitCode: 1 }),
+    spawnMock.mock.mockImplementation(
+      () =>
+        makeFakeChild({
+          stderr: "Permission denied\n",
+          exitCode: 1,
+        }) as unknown as ChildProcess,
     );
     const sess = openRemoteSession({ host: "h", user: "u" });
-    await expect(sess.uploadFile("/etc/passwd", "x")).rejects.toThrow(/Permission denied/);
+    await assert.rejects(sess.uploadFile("/etc/passwd", "x"), /Permission denied/);
   });
 
   it("超时杀进程并返回 err", async () => {
-    spawnMock.mockImplementation(() =>
-      makeFakeChild({ exitCode: 0, exitDelayMs: 200 }),
+    spawnMock.mock.mockImplementation(
+      () => makeFakeChild({ exitCode: 0, exitDelayMs: 200 }) as unknown as ChildProcess,
     );
     const sess = openRemoteSession({ host: "h", user: "u" });
     const res = await sess.exec("sleep 5", { timeoutMs: 50 });
-    expect(res.err).toMatch(/timed out/);
+    assert.match(res.err ?? "", /timed out/);
   });
 });
 
 describe("shellEscape", () => {
   it("alphanumeric 不加引号", () => {
-    expect(shellEscape("mongod")).toBe("mongod");
-    expect(shellEscape("/tmp/foo.txt")).toBe("/tmp/foo.txt");
+    assert.equal(shellEscape("mongod"), "mongod");
+    assert.equal(shellEscape("/tmp/foo.txt"), "/tmp/foo.txt");
   });
 
   it("含空格加引号", () => {
-    expect(shellEscape("hello world")).toBe("'hello world'");
+    assert.equal(shellEscape("hello world"), "'hello world'");
   });
 
   it("含单引号要转义", () => {
-    expect(shellEscape("a'b")).toBe("'a'\\''b'");
+    assert.equal(shellEscape("a'b"), "'a'\\''b'");
   });
 });
+

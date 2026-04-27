@@ -425,18 +425,62 @@ function runSshExec(plan, timeoutMs, outputFile) {
     });
   });
 }
+async function readCommandFileWithDiag(commandFile) {
+  let lastErr = null;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      return await readFile(commandFile, "utf8");
+    } catch (e) {
+      lastErr = e;
+      const code = e?.code;
+      if (code !== "ENOENT") break;
+      if (attempt < 2) await new Promise((r) => setTimeout(r, 100));
+    }
+  }
+  const errMsg = lastErr instanceof Error ? lastErr.message : String(lastErr);
+  const path = await import("node:path");
+  const fs = await import("node:fs");
+  const diag = {
+    commandFile_argv_raw: commandFile,
+    commandFile_byteLength: Buffer.byteLength(commandFile, "utf8"),
+    commandFile_codepoints: Array.from(commandFile).map((c) => c.codePointAt(0)),
+    isAbsolute: path.isAbsolute(commandFile),
+    cwd: process.cwd(),
+    HOME: process.env.HOME ?? "",
+    full_argv: process.argv
+  };
+  try {
+    const dir = path.dirname(commandFile);
+    const targetBase = path.basename(commandFile);
+    diag.dirname = dir;
+    diag.basename = targetBase;
+    const entries = fs.readdirSync(dir);
+    diag.dirEntries = entries;
+    diag.exactMatch = entries.includes(targetBase);
+    diag.candidateNeighbours = entries
+      .filter(
+        (n) => n.includes(targetBase.slice(0, 25)) || targetBase.includes(n.slice(0, 25))
+      )
+      .map((n) => ({
+        name: n,
+        nameByteLen: Buffer.byteLength(n, "utf8"),
+        sameAsTarget: n === targetBase,
+        codepoints: Array.from(n).map((c) => c.codePointAt(0))
+      }));
+  } catch (dirErr) {
+    diag.dirReadError = dirErr instanceof Error ? dirErr.message : String(dirErr);
+  }
+  execDie(
+    `\u8BFB\u53D6 --command-file \u5931\u8D25: ${errMsg} \xB7 diag=${JSON.stringify(diag)}`
+  );
+}
 async function runExec(argv) {
   const args = parseExecArgs(argv);
   if (args.command && args.commandFile) {
     execDie("--command \u4E0E --command-file \u4E0D\u80FD\u540C\u65F6\u63D0\u4F9B");
   }
   if (args.commandFile) {
-    try {
-      const buf = await readFile(args.commandFile, "utf8");
-      args.command = buf;
-    } catch (e) {
-      execDie(`\u8BFB\u53D6 --command-file \u5931\u8D25: ${e instanceof Error ? e.message : String(e)}`);
-    }
+    args.command = await readCommandFileWithDiag(args.commandFile);
   }
   if (!args.command) {
     execDie("\u5FC5\u987B\u63D0\u4F9B --command \u6216 --command-file");

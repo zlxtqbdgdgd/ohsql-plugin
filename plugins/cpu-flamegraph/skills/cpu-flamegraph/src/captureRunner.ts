@@ -26,8 +26,26 @@
  * 每次 ~500ms TCP 握手开销可接受）。
  */
 
-import { spawn } from "node:child_process";
+import { spawn as defaultSpawn } from "node:child_process";
 import type { ChildProcess } from "node:child_process";
+
+/**
+ * Module-level spawn reference. Production code uses node:child_process.spawn;
+ * tests override via {@link _setSpawnImpl} to inject a mock and avoid a real
+ * ssh child process. Module-level variable (not DI per-call) keeps the public
+ * `openRemoteSession(conn)` signature unchanged so plugin runtime callers
+ * don't need to know about the test seam.
+ */
+let spawn: typeof defaultSpawn = defaultSpawn;
+
+/**
+ * **Test-only.** Override spawn implementation for unit tests; pass `undefined`
+ * to reset to the real `node:child_process.spawn`. Underscore prefix marks
+ * it as internal — production code must not call this.
+ */
+export function _setSpawnImpl(fn?: typeof defaultSpawn): void {
+  spawn = fn ?? defaultSpawn;
+}
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";

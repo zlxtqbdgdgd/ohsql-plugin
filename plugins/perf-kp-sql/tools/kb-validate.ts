@@ -721,7 +721,7 @@ schema 选项:
   --file <path.json>       cli-diagnose 输出 JSON (或 stdin 管道)
 
 Examples:
-  node kb-validate.js --op grounding --report ~/.ohsql/reports/foo.md
+  node kb-validate.js --op grounding --report ~/.perf-kp-sql/reports/foo.md
   node kb-validate.js --op simulate
   node kb-validate.js --op schema --file /tmp/diag-output.json
   cli-diagnose --engine mongo | node kb-validate.js --op schema

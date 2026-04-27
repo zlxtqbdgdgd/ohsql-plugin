@@ -1,6 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { describe, it } from "node:test";
+import assert from "node:assert/strict";
 import { __perfKpSqlCollectorTestables } from "../src/engines/mongo/collector.js";
-
 
 describe("perf-kp-sql collector helpers", () => {
   it("extracts the trailing JSON object from noisy mongosh output", () => {
@@ -10,7 +10,8 @@ describe("perf-kp-sql collector helpers", () => {
       '{"serverStatus":{"connections":{"current":12}},"currentOp":{"inprog":[]},"oplog":null,"blockCompressor":"snappy"}',
     ].join("\n");
 
-    expect(__perfKpSqlCollectorTestables.extractJsonObject(stdout)).toBe(
+    assert.equal(
+      __perfKpSqlCollectorTestables.extractJsonObject(stdout),
       '{"serverStatus":{"connections":{"current":12}},"currentOp":{"inprog":[]},"oplog":null,"blockCompressor":"snappy"}',
     );
   });
@@ -22,7 +23,7 @@ describe("perf-kp-sql collector helpers", () => {
       c: [{ $numberInt: "7" }],
     }) as { a: number; b: number; c: number[] };
 
-    expect(value).toEqual({
+    assert.deepEqual(value, {
       a: 42,
       b: 4294967296,
       c: [7],
@@ -35,7 +36,10 @@ describe("perf-kp-sql collector helpers", () => {
       "27017",
     );
 
-    expect(cmd).toContain("--host '127.0.0.1; touch /tmp/pwned'");
-    expect(cmd).toContain("--port '27017'");
+    assert.ok(
+      cmd.includes("--host '127.0.0.1; touch /tmp/pwned'"),
+      `cmd should contain shell-escaped host: ${cmd}`,
+    );
+    assert.ok(cmd.includes("--port '27017'"), `cmd should contain shell-escaped port: ${cmd}`);
   });
 });
