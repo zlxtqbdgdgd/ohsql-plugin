@@ -21,7 +21,8 @@
     "refs": [
       "doc-refman-8-0-en-innodb-buffer-pool.md"
     ],
-    "needs_human_review": false
+    "needs_human_review": false,
+    "provenance": "verified"
   },
   {
     "id": "mysql-query-buffer-pool-scan-thrashing",
@@ -45,7 +46,8 @@
     "refs": [
       "doc-refman-8-0-en-innodb-buffer-pool.md"
     ],
-    "needs_human_review": false
+    "needs_human_review": false,
+    "provenance": "verified"
   },
   {
     "id": "mysql-config-innodb-old-sublist-youngs-low",
@@ -69,7 +71,8 @@
     "refs": [
       "doc-refman-8-0-en-innodb-buffer-pool.md"
     ],
-    "needs_human_review": false
+    "needs_human_review": false,
+    "provenance": "verified"
   },
   {
     "id": "mysql-config-innodb-old-sublist-delay-too-low",
@@ -93,7 +96,8 @@
     "refs": [
       "doc-refman-8-0-en-innodb-buffer-pool.md"
     ],
-    "needs_human_review": false
+    "needs_human_review": false,
+    "provenance": "verified"
   },
   {
     "id": "mysql-config-innodb-buffer-pool-instances-contention",
@@ -117,7 +121,8 @@
     "refs": [
       "doc-refman-8-0-en-innodb-buffer-pool.md"
     ],
-    "needs_human_review": false
+    "needs_human_review": false,
+    "provenance": "verified"
   },
   {
     "id": "mysql-config-innodb-doublewrite-disabled",
@@ -141,7 +146,8 @@
     "refs": [
       "doc-refman-8-0-en-innodb-disk-io.md"
     ],
-    "needs_human_review": false
+    "needs_human_review": false,
+    "provenance": "verified"
   },
   {
     "id": "mysql-runtime-innodb-read-ahead-ineffective",
@@ -165,7 +171,8 @@
     "refs": [
       "doc-refman-8-0-en-innodb-disk-io.md"
     ],
-    "needs_human_review": false
+    "needs_human_review": false,
+    "provenance": "verified"
   },
   {
     "id": "mysql-query-random-io-fragmented-access",
@@ -189,7 +196,8 @@
     "refs": [
       "doc-refman-8-0-en-innodb-disk-io.md"
     ],
-    "needs_human_review": false
+    "needs_human_review": false,
+    "provenance": "verified"
   },
   {
     "id": "mysql-design-missing-where-index",
@@ -213,7 +221,8 @@
     "refs": [
       "doc-refman-8-0-en-optimization-indexes.md"
     ],
-    "needs_human_review": false
+    "needs_human_review": false,
+    "provenance": "verified"
   },
   {
     "id": "mysql-design-overindexed-write-cost",
@@ -237,7 +246,8 @@
     "refs": [
       "doc-refman-8-0-en-optimization-indexes.md"
     ],
-    "needs_human_review": false
+    "needs_human_review": false,
+    "provenance": "verified"
   },
   {
     "id": "mysql-design-excess-index-count",
@@ -261,7 +271,8 @@
     "refs": [
       "doc-refman-8-0-en-optimization-indexes.md"
     ],
-    "needs_human_review": false
+    "needs_human_review": false,
+    "provenance": "verified"
   },
   {
     "id": "mysql-runtime-long-trx-stale-snapshot",
@@ -285,7 +296,8 @@
     "refs": [
       "doc-refman-8-0-en-innodb-consistent-read.md"
     ],
-    "needs_human_review": false
+    "needs_human_review": false,
+    "provenance": "verified"
   },
   {
     "id": "mysql-config-isolation-repeatable-read-stale-read-sensitive",
@@ -309,7 +321,8 @@
     "refs": [
       "doc-refman-8-0-en-innodb-consistent-read.md"
     ],
-    "needs_human_review": false
+    "needs_human_review": false,
+    "provenance": "verified"
   },
   {
     "id": "mysql-query-locking-read-for-freshest-state",
@@ -333,7 +346,8 @@
     "refs": [
       "doc-refman-8-0-en-innodb-consistent-read.md"
     ],
-    "needs_human_review": false
+    "needs_human_review": false,
+    "provenance": "verified"
   },
   {
     "id": "mysql-runtime-table-def-changed-ddl-during-consistent-read",
@@ -357,7 +371,8 @@
     "refs": [
       "doc-refman-8-0-en-innodb-consistent-read.md"
     ],
-    "needs_human_review": false
+    "needs_human_review": false,
+    "provenance": "verified"
   },
   {
     "id": "mysql-config-performance-schema-disabled",
@@ -381,7 +396,8 @@
     "refs": [
       "doc-refman-8-0-en-performance-schema.md"
     ],
-    "needs_human_review": false
+    "needs_human_review": false,
+    "provenance": "verified"
   },
   {
     "id": "mysql-runtime-performance-schema-consumers-not-collecting-history",
@@ -405,7 +421,8 @@
     "refs": [
       "doc-refman-8-0-en-performance-schema.md"
     ],
-    "needs_human_review": false
+    "needs_human_review": false,
+    "provenance": "verified"
   },
   {
     "id": "mysql-runtime-performance-schema-instruments-disabled",
@@ -429,7 +446,8 @@
     "refs": [
       "doc-refman-8-0-en-performance-schema.md"
     ],
-    "needs_human_review": false
+    "needs_human_review": false,
+    "provenance": "verified"
   },
   {
     "id": "mysql-query-performance-schema-full-scan-risk",
@@ -453,7 +471,8 @@
     "refs": [
       "doc-refman-8-0-en-performance-schema.md"
     ],
-    "needs_human_review": false
+    "needs_human_review": false,
+    "provenance": "verified"
   },
   {
     "id": "mysql-query-slow-query-log-disabled",
@@ -477,7 +496,8 @@
     "refs": [
       "doc-refman-8-0-en-slow-query-log.md"
     ],
-    "needs_human_review": false
+    "needs_human_review": false,
+    "provenance": "verified"
   },
   {
     "id": "mysql-query-slow-log-output-none",
@@ -501,7 +521,8 @@
     "refs": [
       "doc-refman-8-0-en-slow-query-log.md"
     ],
-    "needs_human_review": false
+    "needs_human_review": false,
+    "provenance": "verified"
   },
   {
     "id": "mysql-query-long-query-time-default-high",
@@ -525,7 +546,8 @@
     "refs": [
       "doc-refman-8-0-en-slow-query-log.md"
     ],
-    "needs_human_review": false
+    "needs_human_review": false,
+    "provenance": "verified"
   },
   {
     "id": "mysql-query-log-queries-not-using-indexes-unthrottled",
@@ -549,6 +571,7 @@
     "refs": [
       "doc-refman-8-0-en-slow-query-log.md"
     ],
-    "needs_human_review": false
+    "needs_human_review": false,
+    "provenance": "verified"
   }
 ]

@@ -21,7 +21,8 @@
     "refs": [
       "docs-latest-operate-oss-and-stack-management-optimization-la.md"
     ],
-    "needs_human_review": false
+    "needs_human_review": false,
+    "provenance": "verified"
   },
   {
     "id": "redis-resources-thp-enabled",
@@ -45,7 +46,8 @@
     "refs": [
       "docs-latest-operate-oss-and-stack-management-optimization-la.md"
     ],
-    "needs_human_review": false
+    "needs_human_review": false,
+    "provenance": "verified"
   },
   {
     "id": "redis-config-aof-fsync-always-latency",
@@ -69,7 +71,8 @@
     "refs": [
       "docs-latest-operate-oss-and-stack-management-optimization-la.md"
     ],
-    "needs_human_review": false
+    "needs_human_review": false,
+    "provenance": "verified"
   },
   {
     "id": "redis-query-keys-in-production",
@@ -93,7 +96,8 @@
     "refs": [
       "docs-latest-operate-oss-and-stack-management-optimization-la.md"
     ],
-    "needs_human_review": false
+    "needs_human_review": false,
+    "provenance": "verified"
   },
   {
     "id": "redis-config-maxmemory-unset",
@@ -117,7 +121,8 @@
     "refs": [
       "docs-latest-operate-oss-and-stack-management-optimization-me.md"
     ],
-    "needs_human_review": false
+    "needs_human_review": false,
+    "provenance": "verified"
   },
   {
     "id": "redis-config-maxmemory-policy-noeviction",
@@ -141,7 +146,8 @@
     "refs": [
       "docs-latest-operate-oss-and-stack-management-optimization-me.md"
     ],
-    "needs_human_review": false
+    "needs_human_review": false,
+    "provenance": "verified"
   },
   {
     "id": "redis-design-small-objects-use-hashes",
@@ -165,7 +171,8 @@
     "refs": [
       "docs-latest-operate-oss-and-stack-management-optimization-me.md"
     ],
-    "needs_human_review": false
+    "needs_human_review": false,
+    "provenance": "verified"
   },
   {
     "id": "redis-config-hash-listpack-threshold-too-low",
@@ -189,7 +196,8 @@
     "refs": [
       "docs-latest-operate-oss-and-stack-management-optimization-me.md"
     ],
-    "needs_human_review": false
+    "needs_human_review": false,
+    "provenance": "verified"
   },
   {
     "id": "redis-runtime-rss-fragmentation-after-free",
@@ -213,7 +221,8 @@
     "refs": [
       "docs-latest-operate-oss-and-stack-management-optimization-me.md"
     ],
-    "needs_human_review": false
+    "needs_human_review": false,
+    "provenance": "verified"
   },
   {
     "id": "redis-config-persistence-no-persistence-risk",
@@ -237,7 +246,8 @@
     "refs": [
       "docs-latest-operate-oss-and-stack-management-persistence.md"
     ],
-    "needs_human_review": false
+    "needs_human_review": false,
+    "provenance": "verified"
   },
   {
     "id": "redis-config-aof-fsync-no",
@@ -261,7 +271,8 @@
     "refs": [
       "docs-latest-operate-oss-and-stack-management-persistence.md"
     ],
-    "needs_human_review": false
+    "needs_human_review": false,
+    "provenance": "verified"
   },
   {
     "id": "redis-config-rdb-only-high-durability-gap",
@@ -285,7 +296,8 @@
     "refs": [
       "docs-latest-operate-oss-and-stack-management-persistence.md"
     ],
-    "needs_human_review": false
+    "needs_human_review": false,
+    "provenance": "verified"
   },
   {
     "id": "redis-runtime-aof-rewrite-not-running",
@@ -309,7 +321,8 @@
     "refs": [
       "docs-latest-operate-oss-and-stack-management-persistence.md"
     ],
-    "needs_human_review": false
+    "needs_human_review": false,
+    "provenance": "verified"
   },
   {
     "id": "redis-resources-overcommit-memory-disabled",
@@ -333,7 +346,8 @@
     "refs": [
       "docs-latest-operate-oss-and-stack-management-admin.md"
     ],
-    "needs_human_review": false
+    "needs_human_review": false,
+    "provenance": "verified"
   },
   {
     "id": "redis-config-maxmemory-headroom-too-low-write-heavy",
@@ -357,7 +371,8 @@
     "refs": [
       "docs-latest-operate-oss-and-stack-management-admin.md"
     ],
-    "needs_human_review": false
+    "needs_human_review": false,
+    "provenance": "verified"
   },
   {
     "id": "redis-config-repl-backlog-too-small",
@@ -381,7 +396,8 @@
     "refs": [
       "docs-latest-operate-oss-and-stack-management-admin.md"
     ],
-    "needs_human_review": false
+    "needs_human_review": false,
+    "provenance": "verified"
   },
   {
     "id": "redis-config-master-persistence-disabled",
@@ -405,7 +421,8 @@
     "refs": [
       "docs-latest-operate-oss-and-stack-management-replication.md"
     ],
-    "needs_human_review": false
+    "needs_human_review": false,
+    "provenance": "verified"
   },
   {
     "id": "redis-runtime-master-no-persistence-auto-restart",
@@ -429,7 +446,8 @@
     "refs": [
       "docs-latest-operate-oss-and-stack-management-replication.md"
     ],
-    "needs_human_review": false
+    "needs_human_review": false,
+    "provenance": "verified"
   },
   {
     "id": "redis-resources-diskless-replication-slow-disks",
@@ -453,7 +471,8 @@
     "refs": [
       "docs-latest-operate-oss-and-stack-management-replication.md"
     ],
-    "needs_human_review": false
+    "needs_human_review": false,
+    "provenance": "verified"
   },
   {
     "id": "redis-query-offload-slow-read-ops-to-replicas",
@@ -477,7 +496,8 @@
     "refs": [
       "docs-latest-operate-oss-and-stack-management-replication.md"
     ],
-    "needs_human_review": false
+    "needs_human_review": false,
+    "provenance": "verified"
   },
   {
     "id": "redis-runtime-full-resync-frequency",
@@ -501,7 +521,8 @@
     "refs": [
       "docs-latest-operate-oss-and-stack-management-replication.md"
     ],
-    "needs_human_review": false
+    "needs_human_review": false,
+    "provenance": "verified"
   },
   {
     "id": "redis-config-maxmemory-too-high-for-replication-persistence",
@@ -525,7 +546,8 @@
     "refs": [
       "docs-latest-develop-reference-eviction.md"
     ],
-    "needs_human_review": false
+    "needs_human_review": false,
+    "provenance": "verified"
   },
   {
     "id": "redis-query-cache-hit-rate-low",
@@ -549,7 +571,8 @@
     "refs": [
       "docs-latest-develop-reference-eviction.md"
     ],
-    "needs_human_review": false
+    "needs_human_review": false,
+    "provenance": "verified"
   },
   {
     "id": "redis-config-volatile-policy-without-ttl",
@@ -573,7 +596,8 @@
     "refs": [
       "docs-latest-develop-reference-eviction.md"
     ],
-    "needs_human_review": false
+    "needs_human_review": false,
+    "provenance": "verified"
   },
   {
     "id": "redis-config-lru-samples-too-low",
@@ -597,7 +621,8 @@
     "refs": [
       "docs-latest-develop-reference-eviction.md"
     ],
-    "needs_human_review": false
+    "needs_human_review": false,
+    "provenance": "verified"
   },
   {
     "id": "redis-config-no-config-file-production",
@@ -621,7 +646,8 @@
     "refs": [
       "docs-latest-operate-oss-and-stack-management-config.md"
     ],
-    "needs_human_review": false
+    "needs_human_review": false,
+    "provenance": "verified"
   },
   {
     "id": "redis-config-runtime-config-not-rewritten",
@@ -645,7 +671,8 @@
     "refs": [
       "docs-latest-operate-oss-and-stack-management-config.md"
     ],
-    "needs_human_review": false
+    "needs_human_review": false,
+    "provenance": "verified"
   },
   {
     "id": "redis-config-cache-maxmemory-unset",
@@ -669,7 +696,8 @@
     "refs": [
       "docs-latest-operate-oss-and-stack-management-config.md"
     ],
-    "needs_human_review": false
+    "needs_human_review": false,
+    "provenance": "verified"
   },
   {
     "id": "redis-config-cache-policy-not-allkeys-lru",
@@ -693,7 +721,8 @@
     "refs": [
       "docs-latest-operate-oss-and-stack-management-config.md"
     ],
-    "needs_human_review": false
+    "needs_human_review": false,
+    "provenance": "verified"
   },
   {
     "id": "redis-resources-public-bind-exposed",
@@ -717,7 +746,8 @@
     "refs": [
       "docs-latest-operate-oss-and-stack-management-security.md"
     ],
-    "needs_human_review": false
+    "needs_human_review": false,
+    "provenance": "verified"
   },
   {
     "id": "redis-config-protected-mode-disabled-no-auth",
@@ -741,7 +771,8 @@
     "refs": [
       "docs-latest-operate-oss-and-stack-management-security.md"
     ],
-    "needs_human_review": false
+    "needs_human_review": false,
+    "provenance": "verified"
   },
   {
     "id": "redis-config-auth-missing",
@@ -765,7 +796,8 @@
     "refs": [
       "docs-latest-operate-oss-and-stack-management-security.md"
     ],
-    "needs_human_review": false
+    "needs_human_review": false,
+    "provenance": "verified"
   },
   {
     "id": "redis-config-tls-disabled",
@@ -789,7 +821,8 @@
     "refs": [
       "docs-latest-operate-oss-and-stack-management-security.md"
     ],
-    "needs_human_review": false
+    "needs_human_review": false,
+    "provenance": "verified"
   },
   {
     "id": "redis-config-dangerous-command-not-restricted",
@@ -813,7 +846,8 @@
     "refs": [
       "docs-latest-operate-oss-and-stack-management-security.md"
     ],
-    "needs_human_review": false
+    "needs_human_review": false,
+    "provenance": "verified"
   },
   {
     "id": "redis-runtime-latency-monitor-disabled",
@@ -837,7 +871,8 @@
     "refs": [
       "docs-latest-operate-oss-and-stack-management-optimization-la.md"
     ],
-    "needs_human_review": false
+    "needs_human_review": false,
+    "provenance": "verified"
   },
   {
     "id": "redis-runtime-latency-threshold-too-high",
@@ -861,7 +896,8 @@
     "refs": [
       "docs-latest-operate-oss-and-stack-management-optimization-la.md"
     ],
-    "needs_human_review": false
+    "needs_human_review": false,
+    "provenance": "verified"
   },
   {
     "id": "redis-query-slow-command-latency-spikes",
@@ -885,7 +921,8 @@
     "refs": [
       "docs-latest-operate-oss-and-stack-management-optimization-la.md"
     ],
-    "needs_human_review": false
+    "needs_human_review": false,
+    "provenance": "verified"
   },
   {
     "id": "redis-query-fast-command-latency-spikes",
@@ -909,7 +946,8 @@
     "refs": [
       "docs-latest-operate-oss-and-stack-management-optimization-la.md"
     ],
-    "needs_human_review": false
+    "needs_human_review": false,
+    "provenance": "verified"
   },
   {
     "id": "redis-resources-fork-latency-spikes",
@@ -933,6 +971,7 @@
     "refs": [
       "docs-latest-operate-oss-and-stack-management-optimization-la.md"
     ],
-    "needs_human_review": false
+    "needs_human_review": false,
+    "provenance": "verified"
   }
 ]

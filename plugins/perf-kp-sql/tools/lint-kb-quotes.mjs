@@ -115,7 +115,9 @@ const issues = {
   SHORT_QUOTE: [],
   CACHE_MISS: [],
   EMPTY_URL: [],
+  BAD_PROVENANCE: [],   // 军规 1 · provenance 必须 ∈ {verified|inferred|model-generated}
 };
+const VALID_PROVENANCE = new Set(["verified", "inferred", "model-generated"]);
 let total = 0, passed = 0;
 
 // ---------- rules.json files ----------
@@ -129,6 +131,15 @@ for (const path of jsonFiles) {
     const quote = rule.source?.quote;
     const file = path.replace(PLUGIN_ROOT + "/", "");
 
+    // 军规 1 · provenance 必须合法 (rules.json 层)
+    const prov = rule.provenance;
+    if (prov && !VALID_PROVENANCE.has(prov)) {
+      issues.BAD_PROVENANCE.push({ file, id, provenance: prov });
+    }
+    // 'model-generated' 不许带 quote (因为 quote 字段意味着引文校验)
+    if (prov === "model-generated" && rule.source?.quote) {
+      issues.BAD_PROVENANCE.push({ file, id, reason: "model-generated 不许有 source.quote (quote=有出处)" });
+    }
     if (!url) { issues.EMPTY_URL.push({ file, id, where: "rules.json" }); continue; }
     if (!quote) { continue; }  // 没 quote 不强制
     if (canonical(quote).length < MIN_QUOTE_LEN) {
@@ -171,6 +182,7 @@ console.log(`✗ QUOTE_FALSE (quote 不在 URL 字面 → 幻觉): ${issues.QUOT
 console.log(`⚠ SHORT_QUOTE (quote < ${MIN_QUOTE_LEN} 字,军规 2 违反): ${issues.SHORT_QUOTE.length}`);
 console.log(`⊘ CACHE_MISS (URL 缓存缺失,无法校验): ${issues.CACHE_MISS.length}`);
 console.log(`⚠ EMPTY_URL  (有 quote 但无 source.url): ${issues.EMPTY_URL.length}`);
+console.log(`✗ BAD_PROVENANCE (军规 1 · provenance 非法 / model-generated 带 quote): ${issues.BAD_PROVENANCE.length}`);
 
 for (const [k, list] of Object.entries(issues)) {
   if (list.length === 0) continue;
@@ -187,7 +199,7 @@ if (args.json) {
 }
 
 // ---------- baseline 处理 ----------
-const fatalCategories = ["QUOTE_FALSE", "SHORT_QUOTE", "EMPTY_URL"];
+const fatalCategories = ["QUOTE_FALSE", "SHORT_QUOTE", "EMPTY_URL", "BAD_PROVENANCE"];
 const allFatal = fatalCategories.flatMap(k => issues[k].map(it => ({ ...it, _cat: k, _key: violationKey(it) })));
 
 if (args["update-baseline"]) {

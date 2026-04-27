@@ -17,7 +17,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-config-http-interface-enabled",
@@ -37,7 +38,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-config-weak-write-concern",
@@ -57,7 +59,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-config-wt-cache-oversize",
@@ -86,7 +89,8 @@
           "unit": "ratio"
         }
       ]
-    }
+    },
+    "provenance": "verified"
   },
   {
     "id": "mongo-resources-wt-cache-container-limit",
@@ -106,7 +110,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-resources-wt-cache-multi-instance-host",
@@ -126,7 +131,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-runtime-ticket-queue-overload",
@@ -146,7 +152,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-config-auth-failed-delay-high",
@@ -166,7 +173,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-config-ldap-multithread-disabled",
@@ -186,7 +194,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-resources-thp-tuned-overrides",
@@ -206,7 +215,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-config-tcmalloc-percpu-caches-disabled",
@@ -226,7 +236,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-runtime-tcmalloc-cpu-free-zero",
@@ -246,7 +257,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-design-missing-index-slow-queries",
@@ -266,7 +278,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-query-in-memory-sort-index",
@@ -286,7 +299,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-design-too-many-indexes-write-cost",
@@ -306,7 +320,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-query-large-lookup-slow-query",
@@ -326,7 +341,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-design-lookup-overuse-embed-related-data",
@@ -346,7 +362,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-design-unbounded-arrays-large-array-fields",
@@ -366,7 +383,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-design-unnecessary-indexes-write-overhead",
@@ -386,7 +404,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-design-large-documents-frequent-query-penalty",
@@ -406,7 +425,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-query-regex-use-search-instead",
@@ -426,7 +446,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-config-log-quiet-enabled",
@@ -446,7 +467,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-config-logrotate-reopen-without-append",
@@ -466,7 +488,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-config-log-verbosity-high",
@@ -486,7 +509,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-config-journaling-enabled-for-durability",
@@ -506,7 +530,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-runtime-journal-commit-window-write-loss",
@@ -526,7 +551,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-runtime-monitor-journal-status",
@@ -546,7 +572,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-config-journal-compressor-change-requires-clean-restart",
@@ -566,7 +593,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-design-voting-members-odd-number",
@@ -586,7 +614,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-runtime-multiple-arbiters-avoid",
@@ -606,7 +635,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-query-secondary-reads-read-heavy",
@@ -626,7 +656,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-config-journaling-enabled",
@@ -662,7 +693,8 @@
           "unit": "boolean"
         }
       ]
-    }
+    },
+    "provenance": "verified"
   },
   {
     "id": "mongo-config-hostnames-not-ip",
@@ -682,7 +714,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-runtime-index-build-commit-quorum-hang",
@@ -702,7 +735,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-config-index-build-disk-space-guard",
@@ -722,7 +756,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-config-max-active-user-index-builds-limit",
@@ -742,7 +777,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-config-index-build-memory-limit-spill",
@@ -762,7 +798,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-runtime-index-build-write-heavy-window",
@@ -782,7 +819,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-design-drop-index-hide-first",
@@ -802,7 +840,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-design-index-modify-use-temporary-redundant-index",
@@ -822,7 +861,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-runtime-sharded-index-consistency-detected",
@@ -842,7 +882,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-design-sharded-index-inconsistency-rebuild-from-mongos",
@@ -862,7 +903,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-config-quiet-production-disabled",
@@ -882,7 +924,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-config-log-verbosity-elevated",
@@ -902,7 +945,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-resources-multiple-mongod-same-host",
@@ -922,7 +966,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-wiredtiger-concurrent-transactions-max",
@@ -942,7 +987,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-wiredtiger-checkpoint-interval",
@@ -963,7 +1009,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-performance-thp-enable",
@@ -984,7 +1031,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-tuning-transparent-huge-pages-start",
@@ -1004,7 +1052,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-tuning-transparent-huge-pages-config",
@@ -1024,7 +1073,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-tuning-glibc-rseq-disable",
@@ -1045,7 +1095,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-resources-glibc-rseq-check",
@@ -1065,7 +1116,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-arm64-requirement",
@@ -1085,7 +1137,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-recommended-platforms",
@@ -1105,7 +1158,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-networking-enable-authorization",
@@ -1127,7 +1181,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-resources-ram-cpu-requirements",
@@ -1147,7 +1202,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-storage-wiredtiger-concurrency",
@@ -1167,7 +1223,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-storage-ssd-recommendation",
@@ -1187,7 +1244,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-numa-configuration",
@@ -1207,7 +1265,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-performance-disable-numad",
@@ -1227,7 +1286,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-linux-disable-zone-reclaim",
@@ -1247,7 +1307,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-linux-start-with-numactl",
@@ -1267,7 +1328,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-swap-vm-swappiness",
@@ -1287,7 +1349,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-storage-raid",
@@ -1307,7 +1370,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-scheduling-deadline-scheduler",
@@ -1329,7 +1393,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-compression-wiredtiger-default-snappy",
@@ -1351,7 +1416,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-clock-synchronization-ntp",
@@ -1373,7 +1439,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-linux-swappiness-setting",
@@ -1395,7 +1462,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-ulimit-settings",
@@ -1415,7 +1483,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-performance-disable-thp",
@@ -1436,7 +1505,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-performance-disable-numa",
@@ -1456,7 +1526,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-2-ec2-disable-dvfs",
@@ -1478,7 +1549,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-performance-iostat-disk-usage",
@@ -1499,7 +1571,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-thp-enable-systemd-start",
@@ -1521,7 +1594,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-thp-verify-settings",
@@ -1543,7 +1617,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-tuning-transparent-hugepages-init-script",
@@ -1563,7 +1638,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-systemd-enable-thp",
@@ -1583,7 +1659,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-tcmalloc-cpu-free-check",
@@ -1603,7 +1680,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-tuning-kernel-version-check",
@@ -1623,7 +1701,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-concurrency-storage-engine-transaction-limits",
@@ -1643,7 +1722,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-compression-wiredtiger-block-compressor",
@@ -1663,7 +1743,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-replica-set-voting-members",
@@ -1683,7 +1764,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-replica-set-hostnames",
@@ -1703,7 +1785,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-sharding-dedicated-hardware-config-servers",
@@ -1723,7 +1806,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-sharding-ntp-synchronize-clocks",
@@ -1743,7 +1827,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-sharding-network-connectivity",
@@ -1763,7 +1848,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-storage-journaling-requirement",
@@ -1783,7 +1869,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-storage-journal-disk-placement",
@@ -1803,7 +1890,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-hardware-raid10-ssd",
@@ -1823,7 +1911,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-hardware-provisioned-iops",
@@ -1843,7 +1932,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-hardware-avoid-memory-ballooning",
@@ -1863,7 +1953,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-hardware-replica-set-same-san",
@@ -1883,7 +1974,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-cloud-tcp-keepalive",
@@ -1903,7 +1995,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-cloud-mongodb-version",
@@ -1923,7 +2016,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-cloud-readahead-settings",
@@ -1943,7 +2037,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-network-tcp-keepalive",
@@ -1963,7 +2058,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-monitoring-disk-space-dummy-file",
@@ -1983,7 +2079,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-monitoring-disk-space-alerts",
@@ -2003,7 +2100,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-load-balancing-sticky-sessions",
@@ -2023,7 +2121,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-storage-concurrent-read-transactions-limit",
@@ -2043,7 +2142,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-storage-concurrent-write-transactions-limit",
@@ -2072,7 +2172,8 @@
           "unit": "ratio"
         }
       ]
-    }
+    },
+    "provenance": "verified"
   },
   {
     "id": "mongo-storage-checkpoint-interval",
@@ -2093,7 +2194,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-storage-wiredtiger-journal-compressor",
@@ -2113,7 +2215,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-storage-compression-time-series",
@@ -2133,7 +2236,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-storage-compression-indexes",
@@ -2153,7 +2257,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-memory-wiredtiger-cache-default",
@@ -2173,7 +2278,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-memory-wiredtiger-cache-percentage",
@@ -2193,7 +2299,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-storage-tcmalloc-legacy-thp-disable",
@@ -2215,7 +2322,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-performance-transparent-huge-pages-status",
@@ -2235,7 +2343,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-systemd-enable-transparent-hugepages",
@@ -2255,7 +2364,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-storage-tcmalloc-glibc-rseq-disable",
@@ -2275,7 +2385,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-performance-tcmalloc-percpu-require-rseq",
@@ -2295,7 +2406,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-storage-kernel-version-check",
@@ -2315,7 +2427,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-database-profiler-operationProfiling-mode",
@@ -2335,7 +2448,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-database-profiler-slowms-threshold",
@@ -2355,7 +2469,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-database-profiler-sampleRate",
@@ -2375,7 +2490,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-database-profiler-system-profile-size",
@@ -2395,7 +2511,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-index-builds-validate-no-duplicates",
@@ -2415,7 +2532,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-index-builds-max-index-build-memory-usage",
@@ -2435,7 +2553,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-index-builds-commit-quorum",
@@ -2455,7 +2574,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-index-builds-commit-quorum-recovery",
@@ -2475,7 +2595,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-index-builds-checkpointing",
@@ -2496,7 +2617,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-query-optimization-selective-queries",
@@ -2516,7 +2638,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-query-optimization-projections",
@@ -2536,7 +2659,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-query-optimization-esr-rule",
@@ -2556,7 +2680,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-query-optimization-use-index-hints",
@@ -2576,7 +2701,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-query-optimization-covered-query-index",
@@ -2596,7 +2722,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-query-optimization-embedded-documents-indexing",
@@ -2616,7 +2743,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-query-optimization-covered-queries-shard-key",
@@ -2636,7 +2764,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-production-notes-x86_64-min-microarchitecture",
@@ -2656,7 +2785,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-sharding-config-servers-dedicated-hardware",
@@ -2676,7 +2806,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-memory-swap-space-configure",
@@ -2696,7 +2827,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-network-tcp-keepalive-configure",
@@ -2716,7 +2848,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-ulimit-soft-hard-settings",
@@ -2736,7 +2869,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-ulimit-nproc-rhel-centos-6-7",
@@ -2758,7 +2892,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-ulimit-nproc-rhel-centos-6",
@@ -2780,7 +2915,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-ulimit-settings-recommended",
@@ -2802,7 +2938,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-ulimit-macos-process-limit",
@@ -2822,7 +2959,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-ulimit-recommended-settings",
@@ -2842,7 +2980,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-ulimit-systemd-settings",
@@ -2862,7 +3001,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-query-selectivity-less-selective",
@@ -2882,7 +3022,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-query-optimization-limit-results",
@@ -2902,7 +3043,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-index-builds-stop-writes",
@@ -2922,7 +3064,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-index-commit-quorum-default",
@@ -2942,7 +3085,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-index-recovery-commit-quorum",
@@ -2963,7 +3107,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-index-build-standalone-restart",
@@ -2983,7 +3128,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-indexing-enable-sharded-index-consistency-check",
@@ -3003,7 +3149,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-indexing-sharded-index-consistency-check-interval",
@@ -3023,7 +3170,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-query-slowms-threshold",
@@ -3043,7 +3191,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-database-profiler-disable",
@@ -3063,7 +3212,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-database-profiler-enable",
@@ -3083,7 +3233,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-profiler-system-profile-size",
@@ -3103,7 +3254,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-platform-support-kernel-6-19-incompatibility",
@@ -3123,7 +3275,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-platform-support-intel-requirements",
@@ -3143,7 +3296,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-platform-support-amd-requirements",
@@ -3163,7 +3317,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-platform-support-avx-requirements",
@@ -3183,7 +3338,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-platform-support-recommended-os",
@@ -3203,7 +3359,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-security-enable-authorization",
@@ -3232,7 +3389,8 @@
           "unit": "string"
         }
       ]
-    }
+    },
+    "provenance": "verified"
   },
   {
     "id": "mongo-2-connection-pool-size-adjustment",
@@ -3252,7 +3410,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-network-tcp-keepalive-time",
@@ -3272,7 +3431,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-wiredtiger-cache-default-size",
@@ -3292,7 +3452,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-cache-wiredtiger-size",
@@ -3312,7 +3473,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-performance-numad-disabled",
@@ -3334,7 +3496,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-numa-disable-zone-reclaim",
@@ -3354,7 +3517,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-systemd-mongod-service-copy",
@@ -3375,7 +3539,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-systemd-mongod-service-edit-execstart",
@@ -3396,7 +3561,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-swap-swappiness-configure",
@@ -3416,7 +3582,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-3-nfs-options",
@@ -3436,7 +3603,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-storage-separate-components",
@@ -3456,7 +3624,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-scheduling-none-scheduler",
@@ -3476,7 +3645,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-scheduling-mq-deadline-scheduler",
@@ -3496,7 +3666,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-compression-default-snappy",
@@ -3516,7 +3687,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-clock-drift-max-acceptable",
@@ -3536,7 +3708,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-filesystem-xfs-recommended",
@@ -3556,7 +3729,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-filesystem-xfs-preferred",
@@ -3576,7 +3750,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-filesystem-ext4-kernel-requirement",
@@ -3596,7 +3771,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-systemc-library-glibc-update",
@@ -3616,7 +3792,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-memory-swappiness-setting",
@@ -3636,7 +3813,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-memory-vm-swappiness-set-1",
@@ -3656,7 +3834,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-performance-ntp-sync",
@@ -3676,7 +3855,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-performance-ulimit-settings",
@@ -3696,7 +3876,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-performance-thp-settings",
@@ -3716,7 +3897,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-performance-readahead-setting",
@@ -3736,7 +3918,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-performance-use-numactl",
@@ -3756,7 +3939,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-vmware-memory-reserve",
@@ -3776,7 +3960,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-2-kvm-memory-reserve",
@@ -3796,7 +3981,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-iostat-disk-io-check",
@@ -3817,7 +4003,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-numa-disable-numa-balancing",
@@ -3837,7 +4024,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-numa-bind-cpu-node",
@@ -3857,7 +4045,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-numa-interleave-mode",
@@ -3877,7 +4066,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-config-expansion-require-configexpand",
@@ -3897,7 +4087,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-logging-accurate-timestamps",
@@ -3926,7 +4117,8 @@
           "unit": "string"
         }
       ]
-    }
+    },
+    "provenance": "verified"
   },
   {
     "id": "mongo-log-verbosity-access-control",
@@ -3946,7 +4138,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-macos-timezoneinfo-path",
@@ -3966,7 +4159,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-net-ipv6-support",
@@ -3986,7 +4180,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-3-use-dns-hostnames",
@@ -4007,7 +4202,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-security-enable-authentication",
@@ -4027,7 +4223,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-network-bind-ip-all",
@@ -4047,7 +4244,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-replset-use-hostnames",
@@ -4067,7 +4265,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-security-ip-binding",
@@ -4087,7 +4286,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-net-maxincomingconnections-recommendation",
@@ -4109,7 +4309,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-net-wireobjectcheck-default",
@@ -4129,7 +4330,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-net-ipv6-recommendation",
@@ -4149,7 +4351,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-net-unixdomainsocket-enabled",
@@ -4169,7 +4372,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-net-unixdomainsocket-pathprefix",
@@ -4189,7 +4393,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-net-tls-mode-require",
@@ -4209,7 +4414,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-net-tls-certificateKeyFile-required",
@@ -4229,7 +4435,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-net-tls-certificateSelector-windows",
@@ -4249,7 +4456,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-warning-tls-certificate-selector-recommendation",
@@ -4269,7 +4477,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-example-tls-logversions",
@@ -4289,7 +4498,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-net-compression-default-compressors",
@@ -4309,7 +4519,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-security-enable-encryption",
@@ -4329,7 +4540,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-security-encryption-cipher-mode",
@@ -4349,7 +4561,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-security-encryption-enable",
@@ -4371,7 +4584,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-security-encryption-keyfile",
@@ -4393,7 +4607,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-security-kmip-servername-requirement",
@@ -4414,7 +4629,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-enterprise-kmip-connecttimeoutms",
@@ -4434,7 +4650,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-enterprise-kmip-activatekeys",
@@ -4454,7 +4671,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-enterprise-kmip-keystatepollingseconds",
@@ -4474,7 +4692,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-security-sasl-hostname-config",
@@ -4496,7 +4715,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-security-sasl-saslauthd-socketpath-config",
@@ -4518,7 +4738,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-ldap-transport-security-tls",
@@ -4538,7 +4759,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-ldap-timeoutms-default",
@@ -4558,7 +4780,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-ldap-retry-count-new-6-1",
@@ -4579,7 +4802,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-ldap-userToDNMapping-empty",
@@ -4599,7 +4823,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-ldap-configuration-ldapAuthzQueryTemplate-required",
@@ -4619,7 +4844,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-ldap-configuration-validateLDAPServerConfig-true",
@@ -4639,7 +4865,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-3-ldap-user-cache-invalidation-interval",
@@ -4659,7 +4886,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-configuration-search-index-management-host",
@@ -4679,7 +4907,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-security-skip-authentication-to-search-index-management-server",
@@ -4699,7 +4928,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-storage-dbpath-default",
@@ -4719,7 +4949,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-storage-journal-commitinterval-default",
@@ -4739,7 +4970,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-storage-wiredtiger-cache-size-gb",
@@ -4759,7 +4991,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-storage-wiredtiger-cache-size-pct",
@@ -4779,7 +5012,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-storage-inmemory-max-size",
@@ -4799,7 +5033,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-operationprofiling-slowopthresholdms",
@@ -4819,7 +5054,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-operationprofiling-slowopsamplerate",
@@ -4839,7 +5075,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-auditlog-compressionmode-zstd",
@@ -4859,7 +5096,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-performance-slow-query-threshold",
@@ -4881,7 +5119,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-replication-replsetname-consistency",
@@ -4903,7 +5142,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-replication-enable-authentication-keyfile",
@@ -4925,7 +5165,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-sharding-config-server-replica-set",
@@ -4947,7 +5188,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-diagnostics-operation-profiling-slowopthresholdms",
@@ -4967,7 +5209,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-production-kernel-compatibility",
@@ -4989,7 +5232,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-platform-support-min-os-version",
@@ -5009,7 +5253,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-index-creation-max-index-build-memory-usage",
@@ -5031,7 +5276,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-index-creation-maintenance-window",
@@ -5053,7 +5299,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-index-builds-feature-compatibility-4.4",
@@ -5074,7 +5321,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-authentication-failure-wait-time",
@@ -5096,7 +5344,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-2-ldap-connection-pool-max-connections-per-host",
@@ -5118,7 +5367,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-2-ldap-connection-pool-idle-timeout",
@@ -5138,7 +5388,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-2-ldap-connection-pool-min-connections",
@@ -5158,7 +5409,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-3-ldap-retry-count",
@@ -5179,7 +5431,8 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   },
   {
     "id": "mongo-3-ldap-user-cache-interval",
@@ -5199,6 +5452,7 @@
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "provenance": "verified"
   }
 ]
