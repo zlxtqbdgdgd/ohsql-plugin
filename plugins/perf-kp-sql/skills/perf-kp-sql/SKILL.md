@@ -32,32 +32,47 @@ argument-hint: "host=<ip> user=<user> (privateKeyPath=<path>|password=<pw>) [eng
 
 # Architecture
 
-- **Collect** — local shell + `node ${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/scripts/ssh.mjs --op exec` (内部 spawn 本地 OpenSSH `ssh` · ControlMaster 多路复用 · 密码走 SSH_ASKPASS · key 走 -i)运行 per-engine batch commands on the remote host
+- **Collect** — local shell + `node ${OHSQL_PLUGIN_ROOT}${CLAUDE_PLUGIN_ROOT}/scripts/ssh.mjs --op exec` (内部 spawn 本地 OpenSSH `ssh` · ControlMaster 多路复用 · 密码走 SSH_ASKPASS · key 走 -i)运行 per-engine batch commands on the remote host
 - **Persist** — write stdout to `~/.perf-kp-sql/tmp/perf-kp-sql-<engine>-{os,db}-<ts>.txt`
   - 不用 `/tmp/`(sandboxes vary)
   - 不用 `~/.ohsql/tmp/`(在 OH-SQL 0.36.x 上**实测观察到** Write tool 报 success 但紧接的 Bash 子进程 read 同路径立即 ENOENT 的失配现象;OH-SQL 0.51.0 源码读了 `FileWriteTool` 是直 `writeFileSync` · **真因未确认** · 可能与 agent 实际传入的 path 与 Write 报告值字面差异 / 未做的 mkdir 先决条件 / 截断显示掩盖的 typo 有关。无论根因为何,挪出 `~/.ohsql/` 命名空间是防御性正确的)
   - 用 plugin-自有 namespace `~/.perf-kp-sql/`(没有任何 harness 声明拥有这个目录,跨 Claude Code / Codex CLI / OH-SQL 三家都不会被劫持)
-- **Analyze** — local shell: `node ${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/scripts/diagnose.mjs --os-file ... --db-file ... --engine <name>`
-- **Knowledge base** — read / grep over `${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/data/<engine>/` + `data/common/`
-- **Flamegraph** — local shell: `node ${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/scripts/capture-flamegraph.mjs ...` (内部自定位 cpu-flamegraph 插件,跨 harness 兼容)
+- **Analyze** — local shell: `node ${OHSQL_PLUGIN_ROOT}${CLAUDE_PLUGIN_ROOT}/scripts/diagnose.mjs --os-file ... --db-file ... --engine <name>`
+- **Knowledge base** — read / grep over `${OHSQL_PLUGIN_ROOT}${CLAUDE_PLUGIN_ROOT}/data/<engine>/` + `data/common/`
+- **Flamegraph** — local shell: `node ${OHSQL_PLUGIN_ROOT}${CLAUDE_PLUGIN_ROOT}/scripts/capture-flamegraph.mjs ...` (内部自定位 cpu-flamegraph 插件,跨 harness 兼容)
 - **Report** — local shell: `node .../scripts/render-html-report.mjs` + `render-screen-footer.mjs`
 
-## Path placeholders · 必须替换为字面绝对路径
+## Path placeholders · 双变量并写 · 由 harness 自动替换
 
-下文所有 `${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}` 都是**占位符**,**不是 shell 表达式**——OH-SQL Bash 内核会以 `Command contains ${} parameter substitution` 拒掉。本会话开始时,agent 必须先解析出 PLUGIN_ROOT 的字面绝对路径(尝试顺序:`$CLAUDE_PLUGIN_ROOT` → `$OHSQL_PLUGIN_ROOT` → 从本 SKILL.md 加载路径反推 `dirname^3`),后续每条 Bash 命令直接把占位符替换成那个绝对路径再发出。
+下文所有 `${OHSQL_PLUGIN_ROOT}${CLAUDE_PLUGIN_ROOT}` 都是**双变量占位符**,设计成两边 harness 各自识别自家:
+
+- **ohsql** 加载 SKILL.md 时(loader-time)把 `${OHSQL_PLUGIN_ROOT}` 替换为 ohsql cache 绝对路径,`${CLAUDE_PLUGIN_ROOT}` 留字面 → shell 扩展未设 env 为空 → 最终拼出 ohsql 路径
+- **Claude Code** 把 `${CLAUDE_PLUGIN_ROOT}` 替换为 CC cache 绝对路径,`${OHSQL_PLUGIN_ROOT}` 留字面 → shell 扩展为空 → 最终拼出 CC 路径
+- agent 不需要手动解析路径 · 直接用占位符发命令 · harness 已经替换好了
+- 注意 `${VAR-}` / `${VAR:-X}` 等 Bash parameter expansion 形态 harness regex **不识别** · 必须严格用 `${VAR}` 形态
+
+**故障识别(若命令报错)**
+
+| 报错样式 | 含义 | 对策 |
+|---|---|---|
+| `bash: OHSQL_PLUGIN_ROOT: unbound variable` 或 `CLAUDE_PLUGIN_ROOT: unbound variable` | harness 未替换占位符 + shell 开了 `set -u`(nounset) | 走 `perf-kp-sql-setup` Step 1 的 fallback 扫位拿绝对路径,后续命令手动展开占位符 |
+| `node: <path>/scripts/foo.mjs: No such file or directory`(路径前缀少了 plugin 根) | harness 未替换占位符,shell 也未扩展(env 都没设) | 同上,走 fallback 扫位 |
+| `node: /a/b/0.24.0/x/y/z/scripts/foo.mjs: No such file`(路径双写,中间有意外的 home/cache 段) | 用户自己 `export` 了对方变量(比如 ohsql 用户在 .zshrc export 了 `CLAUDE_PLUGIN_ROOT`) | `unset` 那个变量;两个变量都不应由用户手动 export |
+
+万一 harness 不替换(Codex CLI / 旧版 ohsql · 第一次跑命令 ENOENT 报错才会暴露),走 `perf-kp-sql-setup` Step 1 的 fallback:`for d in ~/.ohsql/plugins/cache/perf-kp-sql@* ...; do test -d "$d"; done | sort -V -r | head -1`。
 
 同理:`/Users/<yourlogin>/...` 必须替换为真实 home 绝对路径(可用 `echo $HOME` 一次拿到);`<TS>` 必须替换为本轮统一的 `YYYYMMDD-HHMMSS`;`<ip>` / `<user>` / `<engine>` 必须替换为参数集里的真值。
 
-> ⚠️ Some agent shell sandboxes reject heredoc / `>` / `<` / `|` / `${}` / `$'...'` / `` ` `` / 3+ consecutive quotes. Strictly use **write-file → shell (no redirection) → write-file** for the collection chain.
+> ⚠️ Some agent shell sandboxes reject heredoc / `>` / `<` / `|` / `$'...'` / `` ` `` / 3+ consecutive quotes. Strictly use **write-file → shell (no redirection) → write-file** for the collection chain.(注意:`${VAR}` 这种规范形态 harness 已替换,sandbox 不再拦)
 
 ## SSH execution pattern
 
-This skill SSHs to the target host multiple times — **统一走** `node ${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/scripts/ssh.mjs --op exec`,key auth 与 password auth 共用同一 wrapper · 输出同一 JSON 结构。
+This skill SSHs to the target host multiple times — **统一走** `node ${OHSQL_PLUGIN_ROOT}${CLAUDE_PLUGIN_ROOT}/scripts/ssh.mjs --op exec`,key auth 与 password auth 共用同一 wrapper · 输出同一 JSON 结构。
 
 ### 调用模板(命令字面短且不含 `'` / `"` / `$`)
 
 ```
-Bash(command="node ${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/scripts/ssh.mjs --op exec \
+Bash(command="node ${OHSQL_PLUGIN_ROOT}${CLAUDE_PLUGIN_ROOT}/scripts/ssh.mjs --op exec \
        --host <ip> --user <user> [--privateKeyPath <path> | --password '<pw>'] [--port <n>] \
        --command '<command>'")
 ```
@@ -68,7 +83,7 @@ Bash(command="node ${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/scripts/ssh.mjs --o
 
 ```
 Write(file_path="/Users/<yourlogin>/.perf-kp-sql/tmp/perf-kp-sql-cmd-<TS>.txt", content="<command 字面>")
-Bash(command="node ${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/scripts/ssh.mjs --op exec \
+Bash(command="node ${OHSQL_PLUGIN_ROOT}${CLAUDE_PLUGIN_ROOT}/scripts/ssh.mjs --op exec \
        --host <ip> --user <user> [--privateKeyPath <path> | --password '<pw>'] [--port <n>] \
        --command-file /Users/<yourlogin>/.perf-kp-sql/tmp/perf-kp-sql-cmd-<TS>.txt")
 ```
@@ -94,7 +109,7 @@ ssh.mjs 自带 `ControlMaster=auto` + 稳定 hash ControlPath(`/tmp/perf-kp-sql-
 Step 2 收尾(2.9)显式调一次 `--op session-close` 收掉 master:
 
 ```
-Bash(command="node ${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/scripts/ssh.mjs --op session-close \
+Bash(command="node ${OHSQL_PLUGIN_ROOT}${CLAUDE_PLUGIN_ROOT}/scripts/ssh.mjs --op session-close \
        --host <ip> --user <user> [--port <n>]")
 ```
 
@@ -148,7 +163,7 @@ Bash(command="mkdir -p ~/.perf-kp-sql/tmp ~/.perf-kp-sql/reports ~/.perf-kp-sql/
 触发:slash args 缺 host 时。
 
 ```
-Bash(command="node ${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/scripts/history.mjs --op load --max 5")
+Bash(command="node ${OHSQL_PLUGIN_ROOT}${CLAUDE_PLUGIN_ROOT}/scripts/history.mjs --op load --max 5")
 ```
 
 hosts 非空 → ask the user to pick one (even if there's only 1 entry — explicit confirmation):
@@ -269,7 +284,7 @@ Stop and wait for the next turn。
 
 读 probe 命令:
 ```
-Read(file_path="${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/data/collect-cmds.json")
+Read(file_path="${OHSQL_PLUGIN_ROOT}${CLAUDE_PLUGIN_ROOT}/data/collect-cmds.json")
 ```
 
 按 SSH execution pattern 跑(见 Architecture · 统一走 `ssh.mjs --op exec`);timeout ≈ 15s。`<command>` = literal `probeCmd` string。
@@ -278,7 +293,7 @@ probeCmd 含 `'` / `"` / `$` 混杂 → **必须**走 `--command-file`(见 Archi
 
 ```
 Write(file_path="/Users/<yourlogin>/.perf-kp-sql/tmp/perf-kp-sql-cmd-probe-<TS>.txt", content="<probeCmd 字面 · 即 collect-cmds.json 里 probeCmd 字段的字符串值>")
-Bash(command="node ${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/scripts/ssh.mjs --op exec --host <ip> --user <user> [--privateKeyPath <path> | --password '<pw>'] --port <n> --command-file /Users/<yourlogin>/.perf-kp-sql/tmp/perf-kp-sql-cmd-probe-<TS>.txt --timeout 15000")
+Bash(command="node ${OHSQL_PLUGIN_ROOT}${CLAUDE_PLUGIN_ROOT}/scripts/ssh.mjs --op exec --host <ip> --user <user> [--privateKeyPath <path> | --password '<pw>'] --port <n> --command-file /Users/<yourlogin>/.perf-kp-sql/tmp/perf-kp-sql-cmd-probe-<TS>.txt --timeout 15000")
 ```
 
 `ssh.mjs --op exec` 返回的 JSON 里取 `stdout` 字段(probe 文本),Write 落盘:
@@ -291,7 +306,7 @@ Write(
 
 调 probe-parse 解析:
 ```
-Bash(command="node ${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/scripts/ssh.mjs --op probe-parse --probe-file /Users/<yourlogin>/.perf-kp-sql/tmp/perf-kp-sql-probe-<TS>.txt --hint-engine <engine|skipped>")
+Bash(command="node ${OHSQL_PLUGIN_ROOT}${CLAUDE_PLUGIN_ROOT}/scripts/ssh.mjs --op probe-parse --probe-file /Users/<yourlogin>/.perf-kp-sql/tmp/perf-kp-sql-probe-<TS>.txt --hint-engine <engine|skipped>")
 ```
 
 返回 JSON:
@@ -423,7 +438,7 @@ Mark phase 1 (`OS/硬件采集 (50 项)`) as in_progress。Do not print a litera
 ### 2.1 · 读采集模板(若 Step 1.3 已 Read 过则跳过)
 
 ```
-Read(file_path="${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/data/collect-cmds.json")
+Read(file_path="${OHSQL_PLUGIN_ROOT}${CLAUDE_PLUGIN_ROOT}/data/collect-cmds.json")
 ```
 
 ### 2.2 · 临时文件路径
@@ -446,7 +461,7 @@ Read(file_path="${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/data/collect-cmds.json
 osBatchCmd 含 `'` / `"` / `$` 混杂 → 走 `--command-file`(见 Architecture):
 ```
 Write(file_path="/Users/<yourlogin>/.perf-kp-sql/tmp/perf-kp-sql-cmd-os-<TS>.txt", content="<osBatchCmd 字面>")
-Bash("node ${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/scripts/ssh.mjs --op exec --host <ip> --user <user> [--privateKeyPath <path> | --password '<pw>'] --port <n> --command-file /Users/<yourlogin>/.perf-kp-sql/tmp/perf-kp-sql-cmd-os-<TS>.txt")
+Bash("node ${OHSQL_PLUGIN_ROOT}${CLAUDE_PLUGIN_ROOT}/scripts/ssh.mjs --op exec --host <ip> --user <user> [--privateKeyPath <path> | --password '<pw>'] --port <n> --command-file /Users/<yourlogin>/.perf-kp-sql/tmp/perf-kp-sql-cmd-os-<TS>.txt")
 ```
 
 Set timeout ≈ 60 seconds。
@@ -509,7 +524,7 @@ Write(
 
 调 capture-flamegraph.mjs(凭据用真实未脱敏密码,单引号包裹;wrapper 内部自定位 cpu-flamegraph 插件):
 ```
-Bash(command="node ${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/scripts/capture-flamegraph.mjs \
+Bash(command="node ${OHSQL_PLUGIN_ROOT}${CLAUDE_PLUGIN_ROOT}/scripts/capture-flamegraph.mjs \
        --host=<ip> --user=<user> --password='<真实pw>' [--port=<n>] \
        --process=<engine 进程名> --type=oncpu --duration=3 --engine=<engine>")
 ```
@@ -530,7 +545,7 @@ Write(file_path="/Users/<yourlogin>/.perf-kp-sql/tmp/flame-json-<TS>.json", cont
 
 记录 `artifacts.serverSvgPath`,拉 SVG:
 ```
-Bash(command="node ${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/scripts/ssh.mjs --op exec \
+Bash(command="node ${OHSQL_PLUGIN_ROOT}${CLAUDE_PLUGIN_ROOT}/scripts/ssh.mjs --op exec \
        --host <ip> --user <user> --password <pw> [--port <n>] \
        --command 'cat <artifacts.serverSvgPath>' \
        --output-file /Users/<yourlogin>/.perf-kp-sql/flame/<TS>-oncpu.svg")
@@ -547,7 +562,7 @@ Bash(command="node ${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/scripts/ssh.mjs --o
 #### 2.6.1 · 解析 OS 文件拿硬件元数据
 
 ```
-Bash(command="node ${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/scripts/ssh.mjs --op discover --os-file /Users/<yourlogin>/.perf-kp-sql/tmp/perf-kp-sql-os-<TS>.txt --hint-engine <engine>")
+Bash(command="node ${OHSQL_PLUGIN_ROOT}${CLAUDE_PLUGIN_ROOT}/scripts/ssh.mjs --op discover --os-file /Users/<yourlogin>/.perf-kp-sql/tmp/perf-kp-sql-os-<TS>.txt --hint-engine <engine>")
 ```
 
 > ⚠️ 此处调 `--op discover` **只为拿 os hw 字段**(cpu_model / kernel_version / os_id / total_mem_mb / virt / ...)。返回的 `instances` 字段**忽略不读** — 实例信息 Step 1.3 已经锁定,不重新读。`osBatchCmd` 已经移除 `###DISCOVERY###`,所以 instances 字段会是空数组或 fallback 默认推断,不可信。
@@ -585,7 +600,7 @@ Bash(command="node ${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/scripts/ssh.mjs --o
 模板(dbBatchCmd 含 ' / " / $ 混杂 → 走 --command-file):
 ```
 Write(file_path="/Users/<yourlogin>/.perf-kp-sql/tmp/perf-kp-sql-cmd-db-<engine>-<TS>.txt", content="<dbBatchCmd 替换占位符后>")
-Bash(command="node ${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/scripts/ssh.mjs --op exec \
+Bash(command="node ${OHSQL_PLUGIN_ROOT}${CLAUDE_PLUGIN_ROOT}/scripts/ssh.mjs --op exec \
        --host <ip> --user <user> [--privateKeyPath <path> | --password '<ssh_pw>'] --port <n> \
        --command-file /Users/<yourlogin>/.perf-kp-sql/tmp/perf-kp-sql-cmd-db-<engine>-<TS>.txt")
 ```
@@ -625,7 +640,7 @@ mark phase 2 as completed。
 
 SSH + DB 都成功后静默调:
 ```
-Bash(command="node ${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/scripts/history.mjs --op save --host <host> --user <user> --port <ssh_port> --engine <engine>")
+Bash(command="node ${OHSQL_PLUGIN_ROOT}${CLAUDE_PLUGIN_ROOT}/scripts/history.mjs --op save --host <host> --user <user> --port <ssh_port> --engine <engine>")
 ```
 
 失败静默忽略,不打屏。
@@ -635,7 +650,7 @@ Bash(command="node ${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/scripts/history.mjs
 Step 2 是本 skill 唯一的 SSH 阶段(Step 3-5 都是本地分析)。这里显式收 ControlMaster · 立即释放远端 socket · 不等 ControlPersist=600 自然到期:
 
 ```
-Bash(command="node ${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/scripts/ssh.mjs --op session-close --host <ip> --user <user> --port <n>")
+Bash(command="node ${OHSQL_PLUGIN_ROOT}${CLAUDE_PLUGIN_ROOT}/scripts/ssh.mjs --op session-close --host <ip> --user <user> --port <n>")
 ```
 
 返回 `{"ok":true,"controlPath":"..."}` 即正常收尾(socket 不存在或 master 已退出也算 ok)。**失败静默忽略**:即使没收成功,master 也会到期自动退,不影响诊断结果。
@@ -667,7 +682,7 @@ Mark phase 3 (`规则诊断 (<R> 条)`) as in_progress in the task list.
 ### 3.1 · Bash 调 diagnose.mjs
 
 ```
-Bash(command="node ${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/scripts/diagnose.mjs --engine <engine> --summary-only --os-file <os-path> --db-file <db-path> --out-json <diag-json-path>")
+Bash(command="node ${OHSQL_PLUGIN_ROOT}${CLAUDE_PLUGIN_ROOT}/scripts/diagnose.mjs --engine <engine> --summary-only --os-file <os-path> --db-file <db-path> --out-json <diag-json-path>")
 ```
 
 `--summary-only` 避免 LLM 上下文爆炸。返回 summary JSON < 2KB。完整 JSON 写到 `--out-json` 供后续脚本消费。
@@ -680,8 +695,8 @@ Mark phase 3 as completed and phase 4 (`知识库检索 (54 篇)`) as in_progres
 
 首选 read 目录 + INDEX.md:
 ```
-Read(file_path="${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/data/<engine>/INDEX.md")
-Read(file_path="${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/data/<engine>/<file>.md")
+Read(file_path="${OHSQL_PLUGIN_ROOT}${CLAUDE_PLUGIN_ROOT}/data/<engine>/INDEX.md")
+Read(file_path="${OHSQL_PLUGIN_ROOT}${CLAUDE_PLUGIN_ROOT}/data/<engine>/<file>.md")
 ```
 
 可选 Grep(报 rg 未安装则回退 Read)。
@@ -695,7 +710,7 @@ Read(file_path="${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/data/<engine>/<file>.m
 ### 4.0 · kb-stats
 
 ```
-Bash(command="node ${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/scripts/kb.mjs --op stats --engine <engine>")
+Bash(command="node ${OHSQL_PLUGIN_ROOT}${CLAUDE_PLUGIN_ROOT}/scripts/kb.mjs --op stats --engine <engine>")
 ```
 
 返回 `subtitle` 字段存入报告 metadata。
@@ -707,7 +722,7 @@ Bash(command="node ${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/scripts/kb.mjs --op
 Mark phase 4 as completed and phase 5 (`报告渲染`) as in_progress.
 
 ```
-node ${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/scripts/render-html-report.mjs \
+node ${OHSQL_PLUGIN_ROOT}${CLAUDE_PLUGIN_ROOT}/scripts/render-html-report.mjs \
      /Users/<yourlogin>/.perf-kp-sql/reports/perf-kp-sql-<engine>-<TS>.html \
      --from-diagnose <diag-json-path> \
      --from-flame-json /Users/<yourlogin>/.perf-kp-sql/tmp/flame-json-<TS>.json \
@@ -728,7 +743,7 @@ After the shell returns ok, mark phase 5 as completed (final state: all 5 ✔).
 
 对每条 critical/warning rule:
 ```
-Bash(node ${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/scripts/kb.mjs --op query --rule-id <rule_id> --engine <engine> --top-k 3)
+Bash(node ${OHSQL_PLUGIN_ROOT}${CLAUDE_PLUGIN_ROOT}/scripts/kb.mjs --op query --rule-id <rule_id> --engine <engine> --top-k 3)
 ```
 
 query-kb 失败 → 跳过,不影响主体。
@@ -736,7 +751,7 @@ query-kb 失败 → 跳过,不影响主体。
 ### 4.3 · 屏幕 footer
 
 ```
-Bash(command="node ${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/scripts/render-screen-footer.mjs \
+Bash(command="node ${OHSQL_PLUGIN_ROOT}${CLAUDE_PLUGIN_ROOT}/scripts/render-screen-footer.mjs \
        --from-diagnose <diag-json-path> \
        --report-path <html-报告绝对路径> \
        [--from-flame-json <flame-json-path>] \
@@ -814,7 +829,7 @@ Bash(command="node ${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/scripts/render-scre
 skill 加载后,任何非 `/` 命令的自然语言输入一律走 query-kb:
 
 ```
-Bash(node ${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/scripts/kb.mjs --op query --q "<原话>" --engine <engine> --top-k 5)
+Bash(node ${OHSQL_PLUGIN_ROOT}${CLAUDE_PLUGIN_ROOT}/scripts/kb.mjs --op query --q "<原话>" --engine <engine> --top-k 5)
 ```
 
 results 非空 → 模板 A(从 content_zh 提炼,句末 `[参考N]`,末尾列 URL)。
