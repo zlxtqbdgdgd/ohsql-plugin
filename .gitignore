@@ -9,3 +9,12 @@ dist/
 *.sqlite-wal
 *.sqlite-shm
 *.sqlite-journal
+
+# 历次审计的 sqlite 备份
+*.sqlite.bak-*
+
+# lint-kb-quotes 用的 URL 文本缓存 (CI 跑 refresh-url-cache 重建,不入仓)
+plugins/perf-kp-sql/tools/url-cache/
+
+# rules.json 备份 (audit 修复时手动产生 · 不入仓)
+*.json.bak-*
