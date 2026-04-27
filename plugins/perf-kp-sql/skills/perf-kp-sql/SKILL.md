@@ -1,6 +1,6 @@
 ---
 name: perf-kp-sql
-description: Kunpeng ARM64 + MongoDB joint performance diagnosis. Runs SSH-based remote collection (50 OS metrics + 18 mongo runtime), evaluates 44 audited baseline rules from a sqlite knowledge base (FTS5 trigram + sqlite-vec 384-dim semantic search · 全部规则点开 [参考N] 字面命中权威文档), and emits an impact-ranked HTML report. Use when users report MongoDB slowness, CPU spikes, latency jitter, or are doing Kunpeng migration / config audit. Triggers include '数据库慢' / 'CPU 高' / '抖动' / 'mongo perf' / 'Kunpeng 性能' / similar phrases. **MySQL / Redis 暂不支持(0.9.2 砍掉,待重新审计上线)**. First-time use:run `/perf-kp-sql-setup` to install native deps.
+description: Kunpeng ARM64 + MongoDB joint performance diagnosis. Runs SSH-based remote collection (50 OS metrics + 18 mongo runtime), evaluates 44 audited baseline rules from a sqlite knowledge base (FTS5 trigram + sqlite-vec 384-dim semantic search · 全部规则点开 [参考N] 字面命中权威文档), and emits an impact-ranked HTML report. Use when users report MongoDB slowness, CPU spikes, latency jitter, or are doing Kunpeng migration / config audit. Triggers include '数据库慢' / 'CPU 高' / '抖动' / 'mongo perf' / 'Kunpeng 性能' / similar phrases. First-time use:run `/perf-kp-sql-setup` to install native deps.
 compatibility: |
   Requires SSH access to the target host + local OpenSSH `ssh` CLI (Linux/macOS
   自带 · Windows 走 WSL 或 OpenSSH-Win)。两种认证方式都通过 `node ssh.mjs`
@@ -13,8 +13,7 @@ compatibility: |
   faillock / fail2ban / sshd MaxStartups 限速。
   Native deps installed via `/perf-kp-sql-setup`: better-sqlite3, sqlite-vec,
   ssh2, @xenova/transformers (~30MB total + 25MB MiniLM model).
-  Supported database engine: mongo (MongoDB 3.6-7.x) only. MySQL / Redis
-  暂不支持(0.9.2 砍掉,等通过同样的"字面 100% 命中"审计后再上线).
+  Supported database engine: mongo (MongoDB 3.6-7.x).
   Knowledge base: 44 audited baseline rules + 54 distinct authoritative
   documents (MongoDB official + WiredTiger + Ampere + Kunpeng + ...).
 metadata:
@@ -189,7 +188,7 @@ Stop here and wait for the user's selection in the next turn. Once selected, ful
 > ```
 > Stop and wait for the next turn.
 
-**Class 2 格式非法** — host 非合法 IP/FQDN、port 非 1-65535、engine 不在支持集合(**当前只支持 `mongo`** · mysql / redis 在 0.9.2 已砍掉,显式传会被拒):
+**Class 2 格式非法** — host 非合法 IP/FQDN、port 非 1-65535、engine 不在支持集合(当前 `engine` 仅接受 `mongo`):
 
 > Ask the user (with the bad field name as the topic):
 > ```

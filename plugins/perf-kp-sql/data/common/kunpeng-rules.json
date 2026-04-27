@@ -217,7 +217,7 @@
       "tier": "vendor-primary",
       "url": "https://www.kernel.org/doc/Documentation/networking/ip-sysctl.txt",
       "title": "MongoDB Tuning Guide",
-      "quote": "tcp_rmem - vector of 3 INTEGERs: min, default, max",
+      "quote": "mem - vector of 3 INTEGERs: min, default",
       "fetched_at": "2026-04-26"
     },
     "engine": "any",

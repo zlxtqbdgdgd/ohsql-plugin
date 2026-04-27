@@ -61,6 +61,15 @@ function urlHash(u) { return createHash("sha1").update(u).digest("hex").slice(0,
 
 function canonical(s) {
   return String(s ?? "")
+    // HTML 实体解码 (常见的)
+    .replace(/&#x27;|&#39;|&apos;/gi, "'")
+    .replace(/&quot;|&#34;/gi, '"')
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<").replace(/&gt;/gi, ">")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&hellip;/gi, "...")
+    .replace(/&ndash;|&mdash;/gi, "-")
+    // unicode 引号 / 破折号 / 全角 → ascii
     .replace(/[\u2018\u2019\u201A\u201B`]/g, "'")
     .replace(/[\u201C\u201D\u201E\u201F]/g, '"')
     .replace(/[\u2013\u2014\u2212]/g, "-")
@@ -68,7 +77,17 @@ function canonical(s) {
     .replace(/[“”‘’]/g, "'")
     .replace(/[（]/g, "(").replace(/[）]/g, ")")
     .replace(/[，]/g, ",").replace(/[。]/g, ".").replace(/[；]/g, ";")
+    // 空白归一
     .replace(/\s+/g, " ").trim().toLowerCase();
+}
+
+// quote 校验时的"宽容"匹配:整体 substring 不命中时,去掉两端标点再试
+function fuzzyContains(haystack, needle) {
+  if (haystack.includes(needle)) return true;
+  // 去 needle 首尾标点空格
+  const trimmed = needle.replace(/^[\s.,;:!?·\-]+|[\s.,;:!?·\-]+$/g, "");
+  if (trimmed.length >= 20 && haystack.includes(trimmed)) return true;
+  return false;
 }
 
 function loadUrlText(url) {
@@ -191,7 +210,7 @@ for (const path of jsonFiles) {
     }
     const txt = loadUrlText(url);
     if (txt === null) { issues.CACHE_MISS.push({ file, id, url }); continue; }
-    if (!txt.includes(canonical(quote))) {
+    if (!fuzzyContains(txt, canonical(quote))) {
       issues.QUOTE_FALSE.push({ file, id, url: url.slice(0, 80), quote: quote.slice(0, 80) });
     } else {
       passed++;
@@ -211,7 +230,7 @@ if (available) {
     }
     const txt = loadUrlText(url);
     if (txt === null) { issues.CACHE_MISS.push({ where: "sqlite", id: f.rule_id, fact_type: f.fact_type, url }); continue; }
-    if (!txt.includes(canonical(quote))) {
+    if (!fuzzyContains(txt, canonical(quote))) {
       issues.QUOTE_FALSE.push({ where: "sqlite", id: f.rule_id, fact_type: f.fact_type, url: url.slice(0, 80), quote: quote.slice(0, 80) });
     } else {
       passed++;

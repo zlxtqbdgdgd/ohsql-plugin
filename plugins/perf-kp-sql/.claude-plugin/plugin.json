@@ -1,7 +1,7 @@
 {
   "name": "perf-kp-sql",
   "version": "0.9.2",
-  "description": "Kunpeng + MongoDB joint perf diagnosis. SSH-based collection + 44 audited baseline rules + sqlite RAG knowledge base + flamegraph integration. Harness-agnostic (Anthropic Agent Skills standard). MySQL / Redis support removed in 0.9.2 pending re-audit.",
+  "description": "Kunpeng + MongoDB joint perf diagnosis. SSH-based collection + 44 audited baseline rules + sqlite RAG knowledge base + flamegraph integration. Harness-agnostic (Anthropic Agent Skills standard).",
   "author": {
     "name": "zlxtqbdgdgd",
     "url": "https://github.com/zlxtqbdgdgd"

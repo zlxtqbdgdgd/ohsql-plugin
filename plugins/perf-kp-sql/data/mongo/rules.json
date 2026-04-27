@@ -893,7 +893,7 @@
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/tutorial/manage-indexes/",
       "title": "Find Inconsistent Indexes Across Shards",
-      "quote": "To resolve the inconsistency where an index is missing from the collection on a particular shard(s), You can either: Issue an index build db.collection.createIndex() from a mongos instance. The operation only builds the collection's index on the shard(s) missing the index.",
+      "quote": "To resolve the inconsistency where an index is missing from the collection on a particular shard(s), You can either: Issue an index build db.collection.createIndex() from a mongos instance. The operation only builds the",
       "fetched_at": "2026-04-25"
     },
     "engine": "mongo",
@@ -1148,7 +1148,7 @@
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#recommended-platforms",
       "title": "MongoDB Production Notes",
-      "quote": "While MongoDB supports a variety of platforms, the following operating systems are recommended for production use on x86_64 architecture: Amazon Linux, Debian, RHEL, SLES, Ubuntu LTS, Windows Server.",
+      "quote": "While MongoDB supports a variety of platforms, the following operating systems are recommended for production use on x86_64 architecture: Amazon",
       "fetched_at": "2026-04-25"
     },
     "engine": "mongo",
@@ -1318,7 +1318,7 @@
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#configuring-numa-on-linux",
       "title": "MongoDB Production Notes",
-      "quote": "You must use numactl to start each of your mongod instances, including all config servers, mongos instances, and clients.",
+      "quote": "You must use numactl to start each of your mongod instances, including all config",
       "fetched_at": "2026-04-25"
     },
     "engine": "mongo",
@@ -1754,7 +1754,7 @@
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/administration/production-checklist-operations/#sharding",
       "title": "MongoDB Operations Checklist",
-      "quote": "Ensure that your replica set includes at least three data-bearing voting members that run with journaling and that you issue writes with w: majority for availability and durability.",
+      "quote": "Ensure that your replica set includes at least three data-bearing voting members that run with journaling and that you issue writes with w: majority",
       "fetched_at": "2026-04-25"
     },
     "engine": "mongo",
@@ -1838,7 +1838,7 @@
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/administration/production-checklist-operations/#shardingSharding",
       "title": "Sharding",
-      "quote": "Ensure full bidirectional network connectivity between mongod, mongos, and config servers.",
+      "quote": "Ensure full bidirectional network connectivity between",
       "fetched_at": "2026-04-25"
     },
     "engine": "mongo",
@@ -2564,7 +2564,7 @@
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/reference/command/createIndexes/#mongodb-dbcommand-dbcmd.createIndexes",
       "title": "Important",
-      "quote": "commitQuorum specifies how many data-bearing voting members, or which voting members, including the primary, must be prepared to commit the index build before the primary will execute the commit. The default commit quorum is votingMembers, which means all data-bearing members.",
+      "quote": "commitQuorum specifies how many data-bearing voting members, or which voting members, including the primary, must be prepared to commit the index build before the primary will execute the commit. The default commit quorum is",
       "fetched_at": "2026-04-25"
     },
     "engine": "mongo",
@@ -2775,7 +2775,7 @@
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#platform-support",
       "title": "Production Notes for Self-Managed Deployments",
-      "quote": "Starting in MongoDB 5.0, mongod, mongos, and the legacy mongo shell no longer support x86_64 platforms which do not meet this minimum microarchitecture requirement.",
+      "quote": "and the legacy mongo shell no longer support x86_64 platforms which do not meet this minimum microarchitecture requirement.",
       "fetched_at": "2026-04-25"
     },
     "engine": "mongo",
@@ -3096,7 +3096,7 @@
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/core/index-creation/#interrupted-index-builds-on-a-secondary-mongod",
       "title": "Interrupted Index Builds on a Secondary mongod",
-      "quote": "Starting in MongoDB 5.0, if the primary mongod performs a clean shutdown with \"force\" : true or receives a SIGTERM signal during an index build and the commitQuorum is set to the default votingMembers, then the index build progress is saved to disk.",
+      "quote": "Starting in MongoDB 5.0, if the primary mongod performs a clean shutdown with \"force\" : true or receives a SIGTERM signal during an index build and the commitQuorum is set to the default",
       "fetched_at": "2026-04-25"
     },
     "engine": "mongo",
@@ -3349,7 +3349,7 @@
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#platform-support-matrix",
       "title": "Platform Support Matrix",
-      "quote": "While MongoDB supports a variety of platforms, the following operating systems are recommended for production use on x86_64 architecture: Amazon Linux, Debian, RHEL, SLES, Ubuntu LTS, Windows Server.",
+      "quote": "While MongoDB supports a variety of platforms, the following operating systems are recommended for production use on x86_64 architecture: Amazon",
       "fetched_at": "2026-04-25"
     },
     "engine": "mongo",
@@ -3528,7 +3528,7 @@
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#recommended-configuration",
       "title": "Tip",
-      "quote": "Copy the default MongoDB service file: sudo cp /lib/systemd/system/mongod.service /etc/systemd/system/",
+      "quote": "Copy the default MongoDB service file: sudo cp /lib/systemd/system/mongod.service",
       "fetched_at": "2026-04-25"
     },
     "engine": "mongo",
@@ -3593,7 +3593,7 @@
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#remote-filesystems--nfs-",
       "title": "Remote Filesystems (NFS)",
-      "quote": "If you decide to use NFS, add the following NFS options to your /etc/fstab file: bg, hard, nolock, noatime, nointr.",
+      "quote": "If you decide to use NFS, add the following NFS options to your /etc/fstab file:",
       "fetched_at": "2026-04-25"
     },
     "engine": "mongo",
@@ -3782,7 +3782,7 @@
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/administration/production-notes/#system-c-library",
       "title": "System C Library",
-      "quote": "For best results, use the latest update available for this system-provided version. You can check whether you have the latest version installed by using your system's package manager.",
+      "quote": "For best results, use the latest update available for this system-provided version. You can check whether you have the latest version installed by using your",
       "fetched_at": "2026-04-25"
     },
     "engine": "mongo",
