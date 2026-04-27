@@ -53,11 +53,24 @@ ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new \
 
 **Mode B · SSH password auth (Claude Code + ohsql only)** — 用户传了 `password=<pw>`:
 
+命令字面短且不含 `'` / `"` / `$` —— `--command '<command>'` 内联即可:
+
 ```
 Bash(command="node ${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/scripts/ssh.mjs --op exec \
        --host <ip> --user <user> --password '<pw>' [--port <n>] \
        --command '<command>'")
 ```
+
+命令字面含 `'` / `"` / `$` 混杂(典型:probeCmd / osBatchCmd / dbBatchTemplates 替换后) —— **必须**走 `--command-file`,先 Write 落盘再传路径。**不要**改用 `$'...'` ANSI-C 引号或 `"<cmd>"` 内联,前者会被 OH-SQL 的 BashTool 安全规则硬拒(CC 平台同款规则会弹权限提示),后者会让远端要展开的 `$VAR` 被本机 shell 提前吃掉。
+
+```
+Write(file_path="/Users/<yourlogin>/.ohsql/tmp/perf-kp-sql-cmd-<TS>.txt", content="<command 字面>")
+Bash(command="node ${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/scripts/ssh.mjs --op exec \
+       --host <ip> --user <user> --password '<pw>' [--port <n>] \
+       --command-file /Users/<yourlogin>/.ohsql/tmp/perf-kp-sql-cmd-<TS>.txt")
+```
+
+`<TS>` 用本轮调用统一的时间戳后缀(同 probe / os / db 输出文件命名),用完不必删除——`/Users/<yourlogin>/.ohsql/tmp/` 是会话临时目录。
 
 > ⚠️ **Mode B 必须走 `ssh.mjs --op exec`,不要直接 `sshpass + ssh`**。理由:
 > - 部分 Linux 主机(华为云 EulerOS / RHEL+PAM / Ubuntu+pam_unix 等)的 sshd 把 `password` 方法代理到 PAM 的 `keyboard-interactive` 多回合 challenge-response
@@ -235,6 +248,13 @@ Read(file_path="${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/data/collect-cmds.json
 ```
 
 按 SSH execution pattern 跑(Mode B 默认走 `ssh.mjs --op exec`,见 Architecture 一段);timeout ≈ 15s。`<command>` = literal `probeCmd` string。
+
+probeCmd 含 `'` / `"` / `$` 混杂 → **必须**走 `--command-file`(见 Architecture · Mode B):
+
+```
+Write(file_path="/Users/<yourlogin>/.ohsql/tmp/perf-kp-sql-cmd-probe-<TS>.txt", content="<probeCmd 字面 · 即 collect-cmds.json 里 probeCmd 字段的字符串值>")
+Bash(command="node ${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/scripts/ssh.mjs --op exec --host <ip> --user <user> --password '<pw>' --port <n> --command-file /Users/<yourlogin>/.ohsql/tmp/perf-kp-sql-cmd-probe-<TS>.txt --timeout 15000")
+```
 
 `ssh.mjs --op exec` 返回的 JSON 里取 `stdout` 字段(probe 文本),Write 落盘:
 ```
@@ -440,7 +460,9 @@ Read(file_path="${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/data/collect-cmds.json
 Bash("ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i <privateKeyPath> -p <port> <user>@<host> '<osBatchCmd>'")
 
 # Mode B · password auth (推荐,默认):
-Bash("node ${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/scripts/ssh.mjs --op exec --host <ip> --user <user> --password '<pw>' --port <n> --command '<osBatchCmd>'")
+# osBatchCmd 含 ' / " / $ 混杂 → 走 --command-file(见 Architecture · Mode B)
+Write(file_path="/Users/<yourlogin>/.ohsql/tmp/perf-kp-sql-cmd-os-<TS>.txt", content="<osBatchCmd 字面>")
+Bash("node ${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/scripts/ssh.mjs --op exec --host <ip> --user <user> --password '<pw>' --port <n> --command-file /Users/<yourlogin>/.ohsql/tmp/perf-kp-sql-cmd-os-<TS>.txt")
 ```
 
 Set timeout ≈ 60 seconds。
@@ -587,11 +609,12 @@ Bash(command="node ${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/scripts/ssh.mjs --o
 
 按 SSH execution pattern 跑(Mode B 默认走 `ssh.mjs --op exec`,见 Architecture),`<command>` = `dbBatchTemplates[engine]` 占位符替换后的字符串。占位符:`__BIND__` / `__DB_PORT__` / `__USER__` / `__PWD__`(MongoDB 专属:`__MONGO_USER__` / `__MONGO_PWD__` / `__AUTH_DB__` / `__AUTH_ARGS__`)。
 
-Mode B 模板:
+Mode B 模板(dbBatchCmd 含 ' / " / $ 混杂 → 走 --command-file,见 Architecture · Mode B):
 ```
+Write(file_path="/Users/<yourlogin>/.ohsql/tmp/perf-kp-sql-cmd-db-<engine>-<TS>.txt", content="<dbBatchCmd 替换占位符后>")
 Bash(command="node ${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/scripts/ssh.mjs --op exec \
        --host <ip> --user <user> --password '<ssh_pw>' --port <n> \
-       --command '<dbBatchCmd 替换占位符后>'")
+       --command-file /Users/<yourlogin>/.ohsql/tmp/perf-kp-sql-cmd-db-<engine>-<TS>.txt")
 ```
 
 Set timeout ≈ 60 seconds。

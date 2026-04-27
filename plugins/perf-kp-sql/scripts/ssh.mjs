@@ -187,6 +187,7 @@ function parseExecArgs(argv) {
   const password = typeof argv.password === "string" ? argv.password : void 0;
   const privateKeyPath = typeof argv.privateKeyPath === "string" && argv.privateKeyPath || (typeof argv["private-key-path"] === "string" ? argv["private-key-path"] : void 0) || void 0;
   const command = typeof argv.command === "string" ? argv.command : "";
+  const commandFile = typeof argv.commandFile === "string" && argv.commandFile || (typeof argv["command-file"] === "string" ? argv["command-file"] : void 0) || void 0;
   const outputFile = typeof argv.outputFile === "string" && argv.outputFile || (typeof argv["output-file"] === "string" ? argv["output-file"] : void 0) || void 0;
   return {
     host,
@@ -195,6 +196,7 @@ function parseExecArgs(argv) {
     privateKeyPath,
     port: parseInt(portRaw, 10) || 22,
     command,
+    commandFile,
     timeout: parseInt(timeoutRaw, 10) || 12e4,
     outputFile
   };
@@ -396,8 +398,19 @@ function execCommand(client, command, timeoutMs, outputFile) {
 }
 async function runExec(argv) {
   const args = parseExecArgs(argv);
+  if (args.command && args.commandFile) {
+    execDie("--command \u4E0E --command-file \u4E0D\u80FD\u540C\u65F6\u63D0\u4F9B");
+  }
+  if (args.commandFile) {
+    try {
+      const buf = await readFile(args.commandFile, "utf8");
+      args.command = buf;
+    } catch (e) {
+      execDie(`\u8BFB\u53D6 --command-file \u5931\u8D25: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
   if (!args.command) {
-    execDie("\u5FC5\u987B\u63D0\u4F9B --command");
+    execDie("\u5FC5\u987B\u63D0\u4F9B --command \u6216 --command-file");
   }
   let client;
   try {
