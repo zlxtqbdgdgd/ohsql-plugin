@@ -242,9 +242,43 @@ Output strict JSON (no prose, no markdown fence):
   { "verdict": "pass" | "fail" | "uncertain", "reason": "<≤140 chars · why>" }
 
 verdict guide:
-  • pass — quote is clearly about the rule's topic
-  • fail — quote is about an unrelated topic
-  • uncertain — borderline; tangentially related but doesn't directly support`;
+  • pass — quote is clearly about the rule's topic. The quote should explain, define, or operationally support the rule's claim.
+  • fail — quote is about an unrelated topic, even if it happens to mention some shared keywords incidentally.
+  • uncertain — borderline; tangentially related but does not directly support the rule's claim.
+
+Calibration examples (study these · do not echo them):
+
+Example 1 — pass:
+  rule_title:  vm.swappiness Linux sysctl
+  quote:       This control is used to define how aggressive the kernel will swap memory pages.
+  verdict:     pass · reason: directly defines what swappiness controls
+
+Example 2 — pass:
+  rule_title:  WT cache size advisory
+  quote:       The default WiredTiger internal cache size is the larger of either: 50% of (RAM - 1GB), or 0.256 GB.
+  verdict:     pass · reason: gives the exact default formula for WT cache size
+
+Example 3 — fail (off-topic, despite same source URL):
+  rule_title:  Linux disk I/O await time threshold
+  quote:       If you use an antivirus (AV) scanner, configure your scanner to exclude the database storage path from the scan.
+  verdict:     fail · reason: AV scanner exclusion is unrelated to disk await time
+
+Example 4 — fail (incidental keyword overlap):
+  rule_title:  MongoDB connection pool oversized check
+  quote:       The connPoolStats command returns information regarding the number of open connections to the current database instance.
+  verdict:     fail · reason: connPoolStats command description is not a sizing recommendation
+
+Example 5 — uncertain:
+  rule_title:  TCP keepalive time setting
+  quote:       Keepalive values greater than 300 seconds, (5 minutes) will be overridden on mongod and mongos sockets and set to 300 seconds.
+  verdict:     uncertain · reason: about override behavior, not the recommended value itself
+
+Example 6 — pass (despite Chinese title and English quote):
+  rule_title:  Global lock 队列
+  quote:       currentQueue A document that provides information concerning the number of operations queued because of a lock.
+  verdict:     pass · reason: directly defines the lock queue metric
+
+Decision rule of thumb: if a developer reading the rule's check report would feel the quote LITERALLY supports what the rule is testing, it is pass. If the quote feels like a paragraph from the same page but on a different sub-topic, it is fail.`;
 
   const client = await getOpenAIClient();
   const results = [];
@@ -346,7 +380,54 @@ Three-step decision:
 2. Judge prior_wrong_quote AGAINST that topic (NOT rule_title): if genuinely on-topic for rule_id's topic → output {"old_quote_actually_correct": true, "chosen_index": -1, "reason": "title_likely_wrong"}.
 3. Otherwise pick the candidate index that best matches rule_id's topic + fact_type. Prefer concrete commands/numbers/parameter names (esp. fact_type=threshold). If NO candidate is on-topic for rule_id's topic, output {"old_quote_actually_correct": false, "chosen_index": -1, "reason": "no_on_topic_candidate"}.
 
-Output strict JSON: { "old_quote_actually_correct": <bool>, "chosen_index": <int 0-based or -1>, "reason": "<≤140 chars>" }`;
+Output strict JSON: { "old_quote_actually_correct": <bool>, "chosen_index": <int 0-based or -1>, "reason": "<≤140 chars>" }
+
+Reference rule_id decoding patterns:
+  mongo-resources-av-edr-scan-exclusions       → "Excluding MongoDB data/log paths from antivirus / EDR scanners"
+  mongo-resources-thp-disabled-on-8x           → "Transparent Huge Pages disabled on RHEL/CentOS 8.x for MongoDB"
+  os.vm.swappiness                              → "Linux sysctl vm.swappiness · how aggressive kernel swaps memory pages"
+  os.vm.zone_reclaim_mode                       → "Linux sysctl vm.zone_reclaim_mode · NUMA reclaim behavior"
+  os.io.disk_await_ms                           → "Disk I/O average wait time per request in ms (iostat await column)"
+  mongo.runtime.global_lock_queue               → "MongoDB serverStatus.globalLock queue length runtime metric"
+  mongo.runtime.connections_available           → "MongoDB connections.available · headroom from net.maxIncomingConnections"
+  mongo.config.wt_cache_size_advisory           → "WT cache size vs official default 50% × (RAM - 1GB)"
+  openeuler.cmdline.nohz                        → "openEuler kernel cmdline nohz / nohz_full parameter"
+  arm64.lse.cpu_flag                            → "ARMv8.1-A LSE atomic instructions CPU flag · ID_AA64ISAR0_EL1.Atomic"
+  mongo-network-tcp-keepalive                   → "TCP keepalive_time setting for MongoDB connections (recommended 120s)"
+  mongo-storage-tcmalloc-glibc-rseq-disable     → "Disabling glibc Restartable Sequences when using TCMalloc"
+
+Worked example A — title is wrong:
+  rule_id:        mongo-resources-av-edr-scan-exclusions
+  rule_title:     MongoDB dbPath  (← title is wrong, not the rule's topic)
+  fact_type:      summary
+  prior_quote:    If you use an antivirus (AV) scanner, configure your scanner to exclude the database storage path from the scan.
+  candidates:     [0] MongoDB dbPath The files in dbPath ...
+                  [1] If you use an antivirus (AV) scanner ...  (== prior · filtered out before sending to you)
+                  [2] The I/O and CPU costs to scan these files ...
+  decision:       prior_quote IS on-topic for "AV/EDR scan exclusions" (the rule_id) — title "MongoDB dbPath" is wrong
+  output:         {"old_quote_actually_correct": true, "chosen_index": -1, "reason": "title_likely_wrong · prior quote already on-topic for rule_id"}
+
+Worked example B — title is right, quote is wrong:
+  rule_id:        os.vm.swappiness
+  rule_title:     vm.swappiness 检查
+  fact_type:      summary
+  prior_quote:    The fork operation (running in the main thread) can induce latency by itself.
+  candidates:     [0] swappiness This control is used to define how aggressive the kernel will swap memory pages.
+                  [1] The default value is 60.
+                  [2] Higher values will increase aggressiveness, lower values decrease the amount of swap.
+  decision:       prior_quote is about fork(), unrelated to swappiness. Candidate 0 is the canonical definition.
+  output:         {"old_quote_actually_correct": false, "chosen_index": 0, "reason": "candidate 0 directly defines swappiness control"}
+
+Worked example C — no good candidate:
+  rule_id:        mongo.runtime.wt_pages_read_volume
+  rule_title:     WT 累计 page-read 量
+  fact_type:      threshold
+  prior_quote:    Avoid increasing the WiredTiger internal cache size above its default value.
+  candidates:     [0] Block compression can provide significant on-disk storage savings.
+                  [1] If a single machine contains multiple MongoDB instances, decrease the setting.
+                  [2] With the filesystem cache, MongoDB automatically uses all free memory.
+  decision:       all candidates are about cache SIZE config, not pages_read VOLUME runtime metric. None on-topic.
+  output:         {"old_quote_actually_correct": false, "chosen_index": -1, "reason": "no_on_topic_candidate · source URL lacks pages_read narrative"}`;
 
   const client = await getOpenAIClient();
   const fixed = []; const residue = [];
@@ -465,9 +546,51 @@ Output strict JSON: { "new_title_zh": "<≤14 个汉字 / 28 个 ASCII, 简洁, 
 
 Rules:
 - 必须把 rule_id 拆出的核心 token (e.g. swappiness / tcmalloc / disk_await) 直接用 ASCII 写进去
-- 不要用过宽的词 (Memory Use / Index Metrics 这种页面节段名)
-- 不要重复 rule_id 整段
-- 中文优先 · 但参数名 / 命令名保留原文`;
+- 不要用过宽的词 (Memory Use / Index Metrics 这种页面节段名 · Schema Improvement / Common Reasons 这种文章节段)
+- 不要重复 rule_id 整段 (变成机器风占位)
+- 不要把 fact_type 的术语 (mechanism / threshold / when_deviate) 搬进 title
+- 中文优先 · 但参数名 / 命令名 / 配置 key 保留原文 (e.g. \`vm.swappiness\` / \`maxIncomingConnections\`)
+- 优先动词短语 (检查 / 优化 / 监控 / 阻塞) 表达"这条规则在做什么"
+
+Calibration examples (study the patterns · do not echo):
+
+  rule_id: mongo-runtime-connection-pool-oversized
+  current: mongo-runtime-connection-pool-oversized   (机器风占位 · 不可读)
+  sample:  Start at 110-115% of the typical number of current database requests
+  → new_title_zh: "mongo 连接池过大检查"   (动词短语 · 含核心 token "连接池")
+
+  rule_id: mongo-resources-wt-cache-multi-instance-host
+  current: Memory Use   (页面节段名 · 太宽)
+  sample:  If a single machine contains multiple MongoDB instances, decrease the setting
+  → new_title_zh: "wt_cache 多实例配置"   (含 wt_cache + 多实例两个核心词)
+
+  rule_id: mongo-runtime-ticket-queue-overload
+  current: Transaction (Read and Write) Concurrency   (页面节段)
+  sample:  A low value of available in queues.execution does not indicate ...
+  → new_title_zh: "mongo 运行票据队列过载"
+
+  rule_id: mongo-query-in-memory-sort-index
+  current: Index Metrics   (太宽)
+  sample:  In Memory Sort Current number of affected queries per hour
+  → new_title_zh: "mongo-query 内存排序监控"
+
+  rule_id: mongo-config-tcmalloc-percpu-caches-disabled
+  current: Disable glibc rseq   (相关但偏)
+  sample:  Starting in MongoDB 8.0, MongoDB uses an upgraded version of TCMalloc
+  → new_title_zh: "MongoDB TCMalloc 关闭每核缓存"
+
+  rule_id: mongo-runtime-ldap-retrycount-zero
+  current: mongo-runtime-ldap-retrycount-zero   (机器风)
+  sample:  mongod --ldapRetryCount=3 Or, if using the setParameter command
+  → new_title_zh: "mongo 设定 ldapRetryCount"
+
+  rule_id: mongo-design-unnecessary-indexes-write-overhead
+  current: Schema Improvement   (太宽)
+  → new_title_zh: "Mongo 不必要索引写入开销"
+
+  rule_id: mongo-storage-tcmalloc-glibc-rseq-disable
+  current: TCMalloc · glibc rseq   (基本对 · 但太短)
+  → new_title_zh: "TCMalloc 关闭 glibc rseq 优化"`;
 
   const client = await getOpenAIClient();
   const proposals = [];

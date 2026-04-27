@@ -2374,7 +2374,7 @@
     "source": {
       "tier": "official",
       "url": "https://www.mongodb.com/docs/manual/tutorial/transparent-huge-pages/#enable-per-cpu-caches",
-      "title": "Mongo禁用tcmalloc-rseq",
+      "title": "禁用 glibc rseq",
       "quote": "Starting in MongoDB 8.0, MongoDB uses an upgraded version of TCMalloc that uses per-CPU caches , instead of per-thread caches , to reduce memory fragmentation and make your database more resilient to high-stress workloads.",
       "fetched_at": "2026-04-25"
     },
