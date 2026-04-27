@@ -1,12 +1,13 @@
 ---
 name: perf-kp-sql-setup
-description: Diagnose and install perf-kp-sql native dependencies (better-sqlite3, sqlite-vec, ssh2, @xenova/transformers) and verify knowledge.sqlite schema. Use ONLY when invoked explicitly via `/perf-kp-sql-setup`, after first install of perf-kp-sql, or when perf-kp-sql diagnosis fails with native-addon / ABI / 'module not found' / 'NODE_MODULE_VERSION mismatch' errors. Do NOT auto-invoke based on general user requests.
+description: Diagnose and install perf-kp-sql runtime dependencies (better-sqlite3, sqlite-vec, ssh2, @xenova/transformers, marked) and verify knowledge.sqlite schema. Use ONLY when invoked explicitly via `/perf-kp-sql-setup`, after first install of perf-kp-sql, or when perf-kp-sql diagnosis fails with native-addon / ABI / 'module not found' / 'NODE_MODULE_VERSION mismatch' errors. Do NOT auto-invoke based on general user requests.
 compatibility: |
   Requires Node.js >= 18 and `npm` on the local machine. Installs native modules
-  (better-sqlite3, sqlite-vec, ssh2, @xenova/transformers) into the plugin's
-  per-plugin `node_modules` directory via `npm install --prefix`. Optionally
-  warms up the HuggingFace MiniLM-L6-v2 model (~25MB download) for KB semantic
-  search readiness. Works on Claude Code, OpenAI Codex CLI, and ohsql.
+  (better-sqlite3, sqlite-vec, ssh2, @xenova/transformers) plus the markdown
+  renderer (marked) into the plugin's per-plugin `node_modules` directory via
+  `npm install --prefix`. Optionally warms up the HuggingFace MiniLM-L6-v2 model
+  (~25MB download) for KB semantic search readiness. Works on Claude Code,
+  OpenAI Codex CLI, and ohsql.
 metadata:
   generator: "manual"
   generated_at: "2026-04-26"
@@ -84,7 +85,7 @@ Question: 是否安装 / 修复 perf-kp-sql 的 native 依赖？
   Option 1 [recommended]: 是,跑 npm install
     cd "${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}"
     npm install --no-audit --no-fund --loglevel=error \
-      better-sqlite3@^11.7 sqlite-vec@^0.1 ssh2@^1.17 @xenova/transformers@^2.17
+      better-sqlite3@^11.7 sqlite-vec@^0.1 ssh2@^1.17 @xenova/transformers@^2.17 marked@^18
 
   Option 2: 跳过 — 我自己装
 ```
@@ -92,7 +93,7 @@ Question: 是否安装 / 修复 perf-kp-sql 的 native 依赖？
 If user chose Option 1, run:
 
 ```
-Bash(command="cd '${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}' && npm install --no-audit --no-fund --loglevel=error better-sqlite3@^11.7 sqlite-vec@^0.1 ssh2@^1.17 @xenova/transformers@^2.17")
+Bash(command="cd '${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}' && npm install --no-audit --no-fund --loglevel=error better-sqlite3@^11.7 sqlite-vec@^0.1 ssh2@^1.17 @xenova/transformers@^2.17 marked@^18")
 ```
 
 Display stdout/stderr to the user.
