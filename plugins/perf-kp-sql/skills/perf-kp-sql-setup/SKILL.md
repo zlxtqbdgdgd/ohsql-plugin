@@ -23,20 +23,29 @@ Bootstrap the native dependencies that `perf-kp-sql` relies on. Modeled after Ev
 
 ### Step 1: Resolve plugin cache directory
 
+按以下顺序解析 `PLUGIN_ROOT`(找到第一个有效值即用,**不要全部尝试**):
+
+1. **env `$CLAUDE_PLUGIN_ROOT`** — Claude Code 注入
+2. **env `$OHSQL_PLUGIN_ROOT`** — ohsql 注入(部分版本)
+3. **env `$CODEX_PLUGIN_ROOT`** — 防御性占位(Codex CLI 当前不注入,留作未来兼容)
+4. **从本 SKILL.md 的绝对加载路径反推** — 每家 harness 都会在 system context 里告诉 LLM 当前 SKILL.md 是从哪个绝对路径加载的。本 SKILL.md 位于 `<PLUGIN_ROOT>/skills/perf-kp-sql-setup/SKILL.md`,反推就是:`PLUGIN_ROOT = dirname(dirname(dirname(<本 SKILL.md 路径>)))`
+
+四种策略全部失败,才退化报错:
+
 ```
-Bash(command="echo \"PLUGIN_ROOT=${OHSQL_PLUGIN_ROOT:-unset}\"")
+perf-kp-sql-setup 无法解析 PLUGIN_ROOT。请确认本插件已通过 /plugin install
+正确安装,或手动告诉我插件目录的绝对路径。
 ```
 
-Resolve the plugin root by trying both `${CLAUDE_PLUGIN_ROOT}` (Claude Code) and `${OHSQL_PLUGIN_ROOT}` (ohsql) — whichever is set. The fallback expression `${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}` is used in all subsequent shell commands. If neither is set, the skill is running outside any supported agent's plugin runtime; tell the user:
+> 下文所有 `${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}` 都是**占位符**,**不是 shell 表达式** —— 部分 harness(如 OH-SQL)会以 `Command contains ${} parameter substitution` 拒掉。agent 必须在每条 Bash 命令发出前,把占位符替换为本会话刚解出的字面绝对路径。
+
+可选验证(env 模式时):
 
 ```
-perf-kp-sql-setup needs to run inside Claude Code, OpenAI Codex CLI, or
-OpenHarness-SQL — one of $CLAUDE_PLUGIN_ROOT / $OHSQL_PLUGIN_ROOT must
-be set so the script can find the plugin's node_modules directory.
-Please install perf-kp-sql via `/plugin install perf-kp-sql` first.
+Bash(command="echo \"PLUGIN_ROOT=$CLAUDE_PLUGIN_ROOT or $OHSQL_PLUGIN_ROOT\"")
 ```
 
-Stop here.
+(若 harness 不允许 `$VAR`,跳过此验证步,直接进入 Step 2 用解出的字面路径调用)
 
 ### Step 2: Run the health-check script
 
@@ -134,8 +143,10 @@ Question: 提前下载 MiniLM-L6-v2 模型 (~25MB) 缓存到 ~/.cache/huggingfac
 If accepted:
 
 ```
-Bash(command="node '${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/scripts/kb.mjs' --op embed --text warmup", timeout=120000)
+Bash(command="node '${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/scripts/kb.mjs' --op query --q warmup --engine mongo --top-k 1", timeout=120000)
 ```
+
+(`--op query --q <text>` 内部会触发 `embed()` 加载 MiniLM-L6-v2 → 触发首次模型下载并缓存。`--engine mongo --top-k 1` 是为了让查询有效但极轻量。返回 JSON 里包含 `qVector` 384 维即说明模型已就位。脚本里没有 `--op embed` / `--text` 参数,旧文档残留勿用。)
 
 ### Step 7: Re-run health check + finish
 
