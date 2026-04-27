@@ -167,13 +167,13 @@ export const check_arm64_lse_binary: CheckFn = (ctx) => {
   return finding({
     id,
     title,
-    severity: "warning",
+    severity: "info",
     bucket: 1,
     scope,
-    summary: `${bin} 未发现 outline-atomics 符号`,
-    description: `${bin} 二进制未引用 libgcc 的 outline-atomics(__aarch64_cas/ldadd/swp/ldset),也未内联 LSE 原子指令,竞争路径会退回 ldxr/stxr 循环,ARM64 上吞吐显著低于带 LSE 的构建。`,
-    reason: `nm -D $(command -v ${bin}) 中 __aarch64_(have_lse_atomics|cas|ldadd|swp|ldset) 等 outline-atomics 动态符号出现 0 次`,
-    threshold_display: "> 0 outline-atomics symbols",
+    summary: `${bin} .dynsym 未发现 outline-atomics 符号 · 需手动确认 LSE 是否启用`,
+    description: `${bin} 二进制 .dynsym 段没有 __aarch64_(cas|ldadd|swp|ldset) 等 outline-atomics 动态符号。这有三种可能,无法靠 nm -D 区分: (a) 编译时既没带 -moutline-atomics 也没 -march=armv8.1-a+lse · 竞争路径退回 ldxr/stxr · ARM64 上吞吐腰斩(最常见 · 老 distro repo build); (b) 用 -march=armv8.1-a+lse 直接内联 LSE · 已是最优 build 但 outline 符号自然不出现; (c) 静态链接 libgcc · outline-atomics 函数被 inline 进二进制 · 也不在 .dynsym。建议手动 readelf -A / 或对比 perf 火焰图的 ldxr/stxr 占比来区分。`,
+    reason: `nm -D $(command -v ${bin}) 中 __aarch64_(have_lse_atomics|cas|ldadd|swp|ldset) 等 outline-atomics 动态符号出现 0 次 · 但无法据此独立判断是否走了 LSE`,
+    threshold_display: "> 0 outline-atomics symbols (info-only · 不判 warning)",
     evidence: [{ kind: "metric", value: `lse_outline_symbols_${bin}=0` }],
     impact: { metric: "throughput_qps", value: 25, unit: "percent", confidence: "high" },
     citations: [

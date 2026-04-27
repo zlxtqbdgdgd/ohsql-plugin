@@ -28,13 +28,29 @@ Bootstrap the native dependencies that `perf-kp-sql` relies on. Modeled after Ev
 1. **env `$CLAUDE_PLUGIN_ROOT`** — Claude Code 注入
 2. **env `$OHSQL_PLUGIN_ROOT`** — ohsql 注入(部分版本)
 3. **env `$CODEX_PLUGIN_ROOT`** — 防御性占位(Codex CLI 当前不注入,留作未来兼容)
-4. **从本 SKILL.md 的绝对加载路径反推** — 每家 harness 都会在 system context 里告诉 LLM 当前 SKILL.md 是从哪个绝对路径加载的。本 SKILL.md 位于 `<PLUGIN_ROOT>/skills/perf-kp-sql-setup/SKILL.md`,反推就是:`PLUGIN_ROOT = dirname(dirname(dirname(<本 SKILL.md 路径>)))`
+4. **扫已知安装位** — 按下面顺序探测,选第一个存在的:
+   ```
+   Bash(command="for d in ~/.claude/plugins/cache/*/perf-kp-sql/* ~/.claude-max/plugins/cache/*/perf-kp-sql/* ~/.codex/plugins/cache/*/perf-kp-sql/* ~/.ohsql/plugins/cache/perf-kp-sql@* ~/.ohsql/plugins/cache/*/perf-kp-sql/*; do test -d \"$d\" && echo \"$d\"; done | head -1")
+   ```
+   stdout 非空就用它当 PLUGIN_ROOT(若多个版本,head -1 选字母序最大的,通常即最新)
+5. **如果本 SKILL.md 加载时 agent 已知绝对路径** — 部分 harness 会在 system context 暴露 SKILL.md 的 file:// URL,agent 直接 `dirname^3` 反推。但**这是机会主义策略 · 不是所有 harness 都暴露 · 失败也属正常 · 立刻进 6**
+6. **问用户** — 走 AskUserQuestion(或对话式 stop-and-wait):
 
-四种策略全部失败,才退化报错:
+   ```
+   Question: 无法自动解析 perf-kp-sql 插件目录。请贴一下绝对路径(`ls` 一下应该能看到 scripts/ 与 skills/ 子目录)?
+
+     Option 1: ~/.claude/plugins/cache/.../perf-kp-sql/<version>
+     Option 2: ~/.codex/plugins/cache/.../perf-kp-sql/<version>
+     Option 3: ~/.ohsql/plugins/cache/perf-kp-sql@<version>
+     Option 4: 其他 — 我手动输入
+   ```
+
+六种策略全失败(用户也答不出),才退化报错并附建议:
 
 ```
-perf-kp-sql-setup 无法解析 PLUGIN_ROOT。请确认本插件已通过 /plugin install
-正确安装,或手动告诉我插件目录的绝对路径。
+perf-kp-sql-setup 无法解析 PLUGIN_ROOT。可以:
+  · 确认插件已通过 /plugin install 正确安装
+  · 或显式 export CLAUDE_PLUGIN_ROOT=/abs/path/to/perf-kp-sql 后重跑
 ```
 
 > 下文所有 `${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}` 都是**占位符**,**不是 shell 表达式** —— 部分 harness(如 OH-SQL)会以 `Command contains ${} parameter substitution` 拒掉。agent 必须在每条 Bash 命令发出前,把占位符替换为本会话刚解出的字面绝对路径。

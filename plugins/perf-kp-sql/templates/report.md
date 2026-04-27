@@ -1,6 +1,6 @@
 # 诊断报告模板(v0.3.2 · 兑现三亮点 · 业界对齐)
 
-本文件是 SKILL.md Step 4.2 写入 `~/.ohsql/reports/perf-kp-sql-<engine>-<TS>.md` 时
+本文件是 SKILL.md Step 4.2 写入 `~/.perf-kp-sql/reports/perf-kp-sql-<engine>-<TS>.md` 时
 **必须参照的结构**。LLM 以 `report_input` JSON 为输入,按下列顺序渲染 markdown。
 
 业界对照:
@@ -184,11 +184,11 @@ spec § 3.7 MVL 最小闭环 · 当前仅展示命令占位 · runner 实装排 
 ```markdown
 ## Artifacts
 
-- OS 采集: `~/.ohsql/tmp/perf-kp-sql-os-<TS>.txt`
-- DB 采集: `~/.ohsql/tmp/perf-kp-sql-mongo-db-<TS>.txt`
+- OS 采集: `~/.perf-kp-sql/tmp/perf-kp-sql-os-<TS>.txt`
+- DB 采集: `~/.perf-kp-sql/tmp/perf-kp-sql-mongo-db-<TS>.txt`
 - 诊断 JSON: diagnose.mjs stdout(已消费)
-- FixExperiment 模板(若存在): `~/.ohsql/experiments/<TS>/*.json`
-- 火焰图(若 Step 3.3 执行): `~/.ohsql/flame/<TS>.svg`
+- FixExperiment 模板(若存在): `~/.perf-kp-sql/experiments/<TS>/*.json`
+- 火焰图(若 Step 3.3 执行): `~/.perf-kp-sql/flame/<TS>.svg`
 ```
 
 ### 7. 参考(v0.3.8)
@@ -226,6 +226,6 @@ spec § 3.7 MVL 最小闭环 · 当前仅展示命令占位 · runner 实装排 
 
 完整报告由 LLM 通过 `Write(file_path, content)` 写到:
 ```
-~/.ohsql/reports/perf-kp-sql-<engine>-<TS>.md
+~/.perf-kp-sql/reports/perf-kp-sql-<engine>-<TS>.md
 ```
 **不要**在控制台复制全文 · 只打 SKILL.md Step 4.3 的 `━━ 诊断完成 ━━` footer 4 行即可。

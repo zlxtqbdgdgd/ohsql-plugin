@@ -565,13 +565,13 @@ var check_arm64_lse_binary = (ctx) => {
   return finding({
     id,
     title,
-    severity: "warning",
+    severity: "info",
     bucket: 1,
     scope,
-    summary: `${bin} \u672A\u53D1\u73B0 outline-atomics \u7B26\u53F7`,
-    description: `${bin} \u4E8C\u8FDB\u5236\u672A\u5F15\u7528 libgcc \u7684 outline-atomics(__aarch64_cas/ldadd/swp/ldset),\u4E5F\u672A\u5185\u8054 LSE \u539F\u5B50\u6307\u4EE4,\u7ADE\u4E89\u8DEF\u5F84\u4F1A\u9000\u56DE ldxr/stxr \u5FAA\u73AF,ARM64 \u4E0A\u541E\u5410\u663E\u8457\u4F4E\u4E8E\u5E26 LSE \u7684\u6784\u5EFA\u3002`,
-    reason: `nm -D $(command -v ${bin}) \u4E2D __aarch64_(have_lse_atomics|cas|ldadd|swp|ldset) \u7B49 outline-atomics \u52A8\u6001\u7B26\u53F7\u51FA\u73B0 0 \u6B21`,
-    threshold_display: "> 0 outline-atomics symbols",
+    summary: `${bin} .dynsym \u672A\u53D1\u73B0 outline-atomics \u7B26\u53F7 \xB7 \u9700\u624B\u52A8\u786E\u8BA4 LSE \u662F\u5426\u542F\u7528`,
+    description: `${bin} \u4E8C\u8FDB\u5236 .dynsym \u6BB5\u6CA1\u6709 __aarch64_(cas|ldadd|swp|ldset) \u7B49 outline-atomics \u52A8\u6001\u7B26\u53F7\u3002\u8FD9\u6709\u4E09\u79CD\u53EF\u80FD,\u65E0\u6CD5\u9760 nm -D \u533A\u5206: (a) \u7F16\u8BD1\u65F6\u65E2\u6CA1\u5E26 -moutline-atomics \u4E5F\u6CA1 -march=armv8.1-a+lse \u00B7 \u7ADE\u4E89\u8DEF\u5F84\u9000\u56DE ldxr/stxr \u00B7 ARM64 \u4E0A\u541E\u5410\u8170\u65A9(\u6700\u5E38\u89C1 \u00B7 \u8001 distro repo build); (b) \u7528 -march=armv8.1-a+lse \u76F4\u63A5\u5185\u8054 LSE \u00B7 \u5DF2\u662F\u6700\u4F18 build \u4F46 outline \u7B26\u53F7\u81EA\u7136\u4E0D\u51FA\u73B0; (c) \u9759\u6001\u94FE\u63A5 libgcc \u00B7 outline-atomics \u51FD\u6570\u88AB inline \u8FDB\u4E8C\u8FDB\u5236 \u00B7 \u4E5F\u4E0D\u5728 .dynsym\u3002\u5EFA\u8BAE\u624B\u52A8 readelf -A / \u6216\u5BF9\u6BD4 perf \u706B\u7130\u56FE\u7684 ldxr/stxr \u5360\u6BD4\u6765\u533A\u5206\u3002`,
+    reason: `nm -D $(command -v ${bin}) \u4E2D __aarch64_(have_lse_atomics|cas|ldadd|swp|ldset) \u7B49 outline-atomics \u52A8\u6001\u7B26\u53F7\u51FA\u73B0 0 \u6B21 \u00B7 \u4F46\u65E0\u6CD5\u636E\u6B64\u72EC\u7ACB\u5224\u65AD\u662F\u5426\u8D70\u4E86 LSE`,
+    threshold_display: "> 0 outline-atomics symbols (info-only \xB7 \u4E0D\u5224 warning)",
     evidence: [{ kind: "metric", value: `lse_outline_symbols_${bin}=0` }],
     impact: { metric: "throughput_qps", value: 25, unit: "percent", confidence: "high" },
     citations: [
