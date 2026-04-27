@@ -13,7 +13,7 @@ Kunpeng + MongoDB/MySQL/Redis joint performance diagnosis. SSH-based collection 
 # → echoes:  "请运行 /perf-kp-sql-setup 完成 native 依赖安装"
 
 /perf-kp-sql-setup
-# → installs better-sqlite3, sqlite-vec, ssh2, @xenova/transformers
+# → installs better-sqlite3, sqlite-vec, @xenova/transformers
 # → triggers MiniLM-L6-v2 model warmup (~25MB download)
 # → verifies knowledge.sqlite schema
 ```
@@ -26,25 +26,19 @@ codex plugin marketplace add zlxtqbdgdgd/ohsql-plugin
 /perf-kp-sql-setup
 ```
 
-**SSH auth on Codex**: only key auth is supported (Codex sandbox blocks `sshpass`). Run once on your local machine before invoking the skill:
-
-```bash
-ssh-copy-id -i ~/.ssh/id_ed25519.pub <user>@<host>
-```
-
-Then invoke with `privateKeyPath=~/.ssh/id_ed25519` (NOT `password=`).
+**SSH auth**: 自 v0.12.0 起 `password=` / `privateKeyPath=` 都通过 `node ssh.mjs` wrapper 走本地 OpenSSH `ssh` CLI · 密码模式用 OpenSSH 内建 SSH_ASKPASS,**不再依赖 sshpass**,所以 Codex / Claude Code / ohsql 三家都支持密码与 key 两种方式。
 
 ## Install · ohsql (≥ 0.38.0)
 
-Same syntax as Claude Code. Both `password=` and `privateKeyPath=` auth work.
+Same syntax as Claude Code.
 
 ## Use
 
 ```
-# SSH key auth (recommended, all agents):
+# SSH key auth (推荐):
 /perf-kp-sql host=10.0.0.1 user=root privateKeyPath=~/.ssh/id_ed25519 engine=mongo
 
-# SSH password auth (Claude Code + ohsql only):
+# SSH password auth:
 /perf-kp-sql host=10.0.0.1 user=root password=xxx engine=mongo
 ```
 
@@ -58,8 +52,9 @@ Native deps (installed by `/perf-kp-sql-setup`):
 |---|---|
 | `better-sqlite3@^11.7` | knowledge.sqlite + skills.db reads |
 | `sqlite-vec@^0.1` | 384-dim vector ANN over MongoDB facts |
-| `ssh2@^1.17` | SSH fallback library (legacy; the v0.6.0 skill prefers local `ssh` CLI) |
 | `@xenova/transformers@^2.17` | MiniLM-L6-v2 sentence embeddings |
+
+SSH 走本地 OpenSSH `ssh` CLI(v0.12.0 起 ssh2 native module 已下线)· 通过 `node scripts/ssh.mjs` wrapper 统一进入,带 ControlMaster 多路复用与 SSH_ASKPASS 密码注入。
 
 ## Knowledge base
 

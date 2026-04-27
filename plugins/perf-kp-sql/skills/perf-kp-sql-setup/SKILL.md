@@ -1,12 +1,15 @@
 ---
 name: perf-kp-sql-setup
-description: Diagnose and install perf-kp-sql native dependencies (better-sqlite3, sqlite-vec, ssh2, @xenova/transformers) and verify knowledge.sqlite schema. Use ONLY when invoked explicitly via `/perf-kp-sql-setup`, after first install of perf-kp-sql, or when perf-kp-sql diagnosis fails with native-addon / ABI / 'module not found' / 'NODE_MODULE_VERSION mismatch' errors. Do NOT auto-invoke based on general user requests.
+description: Diagnose and install perf-kp-sql runtime dependencies (better-sqlite3, sqlite-vec, @xenova/transformers, marked) and verify knowledge.sqlite schema. Use ONLY when invoked explicitly via `/perf-kp-sql-setup`, after first install of perf-kp-sql, or when perf-kp-sql diagnosis fails with native-addon / ABI / 'module not found' / 'NODE_MODULE_VERSION mismatch' errors. Do NOT auto-invoke based on general user requests.
 compatibility: |
-  Requires Node.js >= 18 and `npm` on the local machine. Installs native modules
-  (better-sqlite3, sqlite-vec, ssh2, @xenova/transformers) into the plugin's
-  per-plugin `node_modules` directory via `npm install --prefix`. Optionally
-  warms up the HuggingFace MiniLM-L6-v2 model (~25MB download) for KB semantic
-  search readiness. Works on Claude Code, OpenAI Codex CLI, and ohsql.
+  Requires Node.js >= 18 and `npm` on the local machine + 本地 OpenSSH `ssh`
+  CLI(Linux/macOS 自带 · Windows 走 WSL/OpenSSH-Win)。Installs native modules
+  (better-sqlite3, sqlite-vec, @xenova/transformers) plus the markdown
+  renderer (marked) into the plugin's per-plugin `node_modules` directory via
+  `npm install --prefix`. Optionally warms up the HuggingFace MiniLM-L6-v2 model
+  (~25MB download) for KB semantic search readiness. Works on Claude Code,
+  OpenAI Codex CLI, and ohsql. v0.12.0 起 ssh2 native module 已下线 ·
+  cli-ssh 改走 spawn(本地 ssh)+ SSH_ASKPASS。
 metadata:
   generator: "manual"
   generated_at: "2026-04-26"
@@ -48,7 +51,6 @@ The script outputs a colored report covering:
 - Node.js version
 - `better-sqlite3` (require + ABI)
 - `sqlite-vec` (require + extension load + `vec_version()`)
-- `ssh2` (require)
 - `@xenova/transformers` (import)
 - `data/knowledge.sqlite` (file exists + readable + schema)
 
@@ -63,7 +65,6 @@ Parse the script output. If every item is 🟢, display the success banner and s
 
    better-sqlite3   🟢
    sqlite-vec       🟢
-   ssh2             🟢
    transformers     🟢
    knowledge.sqlite 🟢
 
@@ -74,25 +75,39 @@ Otherwise proceed to Phase 2.
 
 ## Phase 2: Fix
 
-### Step 4: Confirm install
+### Step 4: Compute missing deps & confirm install
 
-Ask the user whether to proceed with fixing the missing/broken deps (the proposed install command is the same regardless of which subset is missing — `npm install` is idempotent for already-present packages). Use the agent's native Q&A facility: structured options on Claude Code, plain stop-and-wait conversational ask on Codex CLI / others.
+Re-run the health-check in `--list-missing` mode to get the precise subset that needs `npm install`. Already-present packages are excluded — we don't reinstall what's already there (avoids network hits and version drift).
 
 ```
-Question: 是否安装 / 修复 perf-kp-sql 的 native 依赖？
+Bash(command="bash ${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/skills/perf-kp-sql-setup/scripts/check-health --list-missing")
+```
 
-  Option 1 [recommended]: 是,跑 npm install
-    cd "${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}"
-    npm install --no-audit --no-fund --loglevel=error \
-      better-sqlite3@^11.7 sqlite-vec@^0.1 ssh2@^1.17 @xenova/transformers@^2.17
+Stdout is one install spec per line, e.g. `marked@^18`. Empty stdout means nothing needs installing (all required runtime deps are already present in the plugin's `node_modules`).
 
+If stdout is empty:
+
+```
+✅ 所有 runtime 依赖已就位,无需 npm install
+```
+
+Skip Step 4 install and proceed to Step 5 (ABI rebuild check) / Step 6 (model warmup).
+
+If stdout is non-empty, ask the user whether to install **only** the listed subset. Use the agent's native Q&A facility: structured options on Claude Code, plain stop-and-wait conversational ask on Codex CLI / others.
+
+```
+Question: 是否安装下列缺失依赖?
+
+  缺失: <pkg1> <pkg2> ...    # 上一步 --list-missing 输出, 已确认本地不存在
+
+  Option 1 [recommended]: 是,只装上面这些
   Option 2: 跳过 — 我自己装
 ```
 
-If user chose Option 1, run:
+If user chose Option 1, install **only** the missing subset (substitute the spec list captured above into the command):
 
 ```
-Bash(command="cd '${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}' && npm install --no-audit --no-fund --loglevel=error better-sqlite3@^11.7 sqlite-vec@^0.1 ssh2@^1.17 @xenova/transformers@^2.17")
+Bash(command="cd '${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}' && npm install --no-audit --no-fund --loglevel=error <pkg1> <pkg2> ...")
 ```
 
 Display stdout/stderr to the user.

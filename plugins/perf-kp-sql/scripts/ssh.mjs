@@ -6,13 +6,15 @@ const require = createRequire(import.meta.url);
 const __filename = __fileURLToPath(import.meta.url);
 const __dirname = __pathDirname(__filename);
 
-// skills/perf-kp-sql/src/cli-ssh.ts
-import { Client } from "ssh2";
-import { createWriteStream, mkdirSync } from "node:fs";
+// plugins/perf-kp-sql/src/cli-ssh.ts
+import { spawn } from "node:child_process";
+import { createWriteStream, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
-import { dirname } from "node:path";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
+import { createHash } from "node:crypto";
 
-// skills/perf-kp-sql/src/shared/utils.ts
+// plugins/perf-kp-sql/src/shared/utils.ts
 function parseOsIntoMetrics(osStdout) {
   const out = {};
   parseOsBatch(osStdout, out);
@@ -152,7 +154,7 @@ function parseIntOr(s, fallback) {
   return fallback;
 }
 
-// skills/perf-kp-sql/src/cli-ssh.ts
+// plugins/perf-kp-sql/src/cli-ssh.ts
 function parseArgs(args) {
   const out = {};
   for (let i = 0; i < args.length; i++) {
@@ -168,6 +170,79 @@ function parseArgs(args) {
     }
   }
   return out;
+}
+var CONNECT_TIMEOUT_SEC = 10;
+var CONTROL_PERSIST_SEC = 600;
+function controlPathFor(host, port, user) {
+  const hash = createHash("sha1").update(`${host}:${port}:${user}`).digest("hex").slice(0, 12);
+  return join(tmpdir(), `perf-kp-sql-cm-${hash}.sock`);
+}
+function makeAskpassScript(password) {
+  const dir = mkdtempSync(join(tmpdir(), "perf-kp-sql-askpass-"));
+  const scriptPath = join(dir, "askpass.sh");
+  const escaped = password.replace(/'/g, "'\\''");
+  writeFileSync(scriptPath, `#!/bin/sh
+printf '%s\\n' '${escaped}'
+`, { mode: 448 });
+  return {
+    scriptPath,
+    cleanup: () => {
+      try {
+        rmSync(dir, { recursive: true, force: true });
+      } catch {
+      }
+    }
+  };
+}
+function buildSshBaseArgs(opts) {
+  const args = [
+    "-p",
+    String(opts.port),
+    "-o",
+    `ConnectTimeout=${CONNECT_TIMEOUT_SEC}`,
+    "-o",
+    "StrictHostKeyChecking=accept-new",
+    "-o",
+    "ServerAliveInterval=15",
+    "-o",
+    "ControlMaster=auto",
+    "-o",
+    `ControlPath=${opts.controlPath}`,
+    "-o",
+    `ControlPersist=${CONTROL_PERSIST_SEC}`
+  ];
+  if (opts.usePassword) {
+    args.push("-o", "PreferredAuthentications=password,keyboard-interactive");
+    args.push("-o", "PubkeyAuthentication=no");
+    args.push("-o", "NumberOfPasswordPrompts=1");
+  } else {
+    args.push("-o", "BatchMode=yes");
+  }
+  if (opts.privateKeyPath) {
+    args.push("-i", opts.privateKeyPath);
+  }
+  return args;
+}
+function planSshSpawn(args, sshArgs) {
+  const usePassword = !!args.password && !args.privateKeyPath;
+  if (!usePassword) {
+    return { args: sshArgs, env: process.env, detached: false };
+  }
+  const { scriptPath, cleanup } = makeAskpassScript(args.password);
+  return {
+    args: sshArgs,
+    env: {
+      ...process.env,
+      SSH_ASKPASS: scriptPath,
+      // OpenSSH ≥ 8.4 看到 force 直接走脚本 · 即使有 tty
+      SSH_ASKPASS_REQUIRE: "force",
+      // 老版本回退路径需要 DISPLAY 非空
+      DISPLAY: process.env["DISPLAY"] || ":0"
+    },
+    // POSIX setsid → 没 controlling tty → 必走 askpass
+    detached: true,
+    cleanup
+  };
 }
 function execOutput(r) {
   process.stdout.write(JSON.stringify(r) + "\n");
@@ -187,6 +262,7 @@ function parseExecArgs(argv) {
   const password = typeof argv.password === "string" ? argv.password : void 0;
   const privateKeyPath = typeof argv.privateKeyPath === "string" && argv.privateKeyPath || (typeof argv["private-key-path"] === "string" ? argv["private-key-path"] : void 0) || void 0;
   const command = typeof argv.command === "string" ? argv.command : "";
+  const commandFile = typeof argv.commandFile === "string" && argv.commandFile || (typeof argv["command-file"] === "string" ? argv["command-file"] : void 0) || void 0;
   const outputFile = typeof argv.outputFile === "string" && argv.outputFile || (typeof argv["output-file"] === "string" ? argv["output-file"] : void 0) || void 0;
   return {
     host,
@@ -195,122 +271,19 @@ function parseExecArgs(argv) {
     privateKeyPath,
     port: parseInt(portRaw, 10) || 22,
     command,
+    commandFile,
     timeout: parseInt(timeoutRaw, 10) || 12e4,
     outputFile
   };
 }
-var READY_TIMEOUT_MS = 6e4;
-var RETRY_BACKOFFS = [0, 3e3, 6e3];
-var TRANSIENT_PATTERNS = [
-  /timed out while waiting for handshake/i,
-  /all configured authentication methods failed/i,
-  /ECONNRESET/i,
-  /ETIMEDOUT/i,
-  /EPIPE/i
-];
-function isTransient(msg) {
-  return TRANSIENT_PATTERNS.some((p) => p.test(msg));
-}
-function sleep(ms) {
-  return new Promise((r) => setTimeout(r, ms));
-}
-async function loadPrivateKey(path) {
-  const fs = await import("node:fs/promises");
-  return fs.readFile(path);
-}
-async function connectOnce(args) {
-  const client = new Client();
-  await new Promise((resolve, reject) => {
-    let settled = false;
-    const timer = setTimeout(() => {
-      if (settled) return;
-      settled = true;
-      try {
-        client.end();
-      } catch {
-      }
-      reject(new Error("SSH \u63E1\u624B\u8D85\u65F6"));
-    }, READY_TIMEOUT_MS + 2e3);
-    client.on("ready", () => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      client.removeListener("error", onError);
-      resolve();
-    });
-    function onError(e) {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      try {
-        client.end();
-      } catch {
-      }
-      client.on("error", () => {
-      });
-      reject(e);
-    }
-    client.on("error", onError);
-    const cfg = {
-      host: args.host,
-      port: args.port,
-      username: args.user,
-      readyTimeout: READY_TIMEOUT_MS,
-      keepaliveInterval: 1e4,
-      keepaliveCountMax: 3
-    };
-    if (args.privateKeyPath) {
-      loadPrivateKey(args.privateKeyPath).then((key) => {
-        cfg.privateKey = key;
-        cfg.authHandler = ["publickey"];
-        client.connect(cfg);
-      }).catch((e) => {
-        if (!settled) {
-          settled = true;
-          clearTimeout(timer);
-          reject(e);
-        }
-      });
-    } else if (args.password) {
-      cfg.password = args.password;
-      // v0.6.1 · also accept PAM keyboard-interactive (default on most Linux distros)
-      cfg.authHandler = ["password", "keyboard-interactive"];
-      cfg.tryKeyboard = true;
-      client.on("keyboard-interactive", (_name, _instructions, _lang, _prompts, finish) => {
-        finish([args.password]);
-      });
-      client.connect(cfg);
-    } else {
-      clearTimeout(timer);
-      reject(new Error("\u5FC5\u987B\u63D0\u4F9B --password \u6216 --privateKeyPath"));
-    }
-  });
-  return client;
-}
-async function connectWithRetry(args) {
-  let lastErr = null;
-  for (const delay of RETRY_BACKOFFS) {
-    if (delay > 0) await sleep(delay);
-    try {
-      return await connectOnce(args);
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      if (!isTransient(msg)) throw e;
-      lastErr = e instanceof Error ? e : new Error(msg);
-    }
-  }
-  throw lastErr ?? new Error("SSH \u8FDE\u63A5\u5931\u8D25");
-}
-function execCommand(client, command, timeoutMs, outputFile) {
+function runSshExec(plan, timeoutMs, outputFile) {
   return new Promise((resolve) => {
-    let stdout = "";
-    let stderr = "";
-    let bytesWritten = 0;
-    let settled = false;
-    const finish = (r) => {
-      if (settled) return;
-      settled = true;
-      resolve(r);
+    let proc;
+    let cleanupCalled = false;
+    const doCleanup = () => {
+      if (cleanupCalled) return;
+      cleanupCalled = true;
+      plan.cleanup?.();
     };
     let writeStream = null;
     let writeStreamErr = null;
@@ -318,7 +291,8 @@ function execCommand(client, command, timeoutMs, outputFile) {
       try {
         mkdirSync(dirname(outputFile), { recursive: true });
       } catch (e) {
-        finish({
+        doCleanup();
+        resolve({
           stdout: "",
           stderr: "",
           exitCode: null,
@@ -331,89 +305,213 @@ function execCommand(client, command, timeoutMs, outputFile) {
         writeStreamErr = e;
       });
     }
-    const timer = setTimeout(() => {
+    try {
+      proc = spawn("ssh", plan.args, {
+        stdio: ["pipe", "pipe", "pipe"],
+        env: plan.env,
+        detached: plan.detached
+      });
+    } catch (e) {
+      doCleanup();
       try {
-        if (writeStream) writeStream.destroy();
+        writeStream?.destroy();
       } catch {
       }
-      finish({ stdout, stderr, exitCode: null, err: "\u547D\u4EE4\u8D85\u65F6" });
+      resolve({
+        stdout: "",
+        stderr: "",
+        exitCode: null,
+        err: `spawn ssh failed: ${e instanceof Error ? e.message : String(e)}`
+      });
+      return;
+    }
+    let stdout = "";
+    let stderr = "";
+    let bytesWritten = 0;
+    let timedOut = false;
+    if (writeStream) {
+      proc.stdout?.on("data", (c) => {
+        writeStream.write(c);
+        bytesWritten += c.length;
+      });
+    } else {
+      proc.stdout?.on("data", (c) => {
+        stdout += c.toString("utf-8");
+      });
+    }
+    proc.stderr?.on("data", (c) => {
+      stderr += c.toString("utf-8");
+    });
+    proc.stdin?.on("error", () => {
+    });
+    try {
+      proc.stdin?.end();
+    } catch {
+    }
+    const timer = setTimeout(() => {
+      timedOut = true;
       try {
-        client.end();
+        proc.kill("SIGTERM");
       } catch {
       }
     }, timeoutMs);
-    client.exec(command, (e, stream) => {
-      if (e) {
-        clearTimeout(timer);
-        try {
-          if (writeStream) writeStream.destroy();
-        } catch {
-        }
-        finish({ stdout: "", stderr: "", exitCode: null, err: e.message });
-        return;
-      }
+    proc.on("error", (e) => {
+      clearTimeout(timer);
+      doCleanup();
       try {
-        stream.end();
+        writeStream?.destroy();
       } catch {
       }
-      stream.on("close", (code) => {
-        clearTimeout(timer);
-        const exitCode = typeof code === "number" ? code : null;
-        if (writeStream) {
-          writeStream.end(() => {
-            if (writeStreamErr) {
-              finish({
-                stdout: "",
-                stderr,
-                exitCode,
-                err: `\u5199\u76D8\u5931\u8D25 ${outputFile}: ${writeStreamErr.message}`
-              });
-              return;
-            }
-            finish({
-              stdout: `<wrote ${bytesWritten} bytes to ${outputFile}>`,
-              stderr,
-              exitCode,
-              bytesWritten,
-              outputFile
-            });
-          });
-        } else {
-          finish({ stdout, stderr, exitCode });
-        }
-      }).on("data", (c) => {
-        if (writeStream) {
-          writeStream.write(c);
-          bytesWritten += c.length;
-        } else {
-          stdout += c.toString("utf-8");
-        }
-      }).stderr.on("data", (c) => {
-        stderr += c.toString("utf-8");
+      resolve({
+        stdout,
+        stderr,
+        exitCode: null,
+        err: `ssh not available locally: ${e.message}`
       });
+    });
+    proc.on("close", (code) => {
+      clearTimeout(timer);
+      doCleanup();
+      const finishWithStream = (final) => {
+        if (writeStream) {
+          writeStream.end(() => resolve(final));
+        } else {
+          resolve(final);
+        }
+      };
+      if (timedOut) {
+        finishWithStream({
+          stdout: writeStream ? "" : stdout,
+          stderr,
+          exitCode: code,
+          err: `\u547D\u4EE4\u8D85\u65F6 (${timeoutMs}ms)`
+        });
+        return;
+      }
+      const exitCode = code;
+      if (exitCode === 255) {
+        const stderrHint = stderr.trim();
+        const stdoutHint = (writeStream ? "" : stdout).trim();
+        const source = stderrHint || stdoutHint;
+        const hint = source ? source.split("\n").slice(-3).join(" | ") : "(no output)";
+        finishWithStream({
+          stdout: writeStream ? "" : stdout,
+          stderr,
+          exitCode,
+          err: `SSH connection failed (255): ${hint}`
+        });
+        return;
+      }
+      if (writeStream) {
+        if (writeStreamErr) {
+          finishWithStream({
+            stdout: "",
+            stderr,
+            exitCode,
+            err: `\u5199\u76D8\u5931\u8D25 ${outputFile}: ${writeStreamErr.message}`
+          });
+          return;
+        }
+        finishWithStream({
+          stdout: `<wrote ${bytesWritten} bytes to ${outputFile}>`,
+          stderr,
+          exitCode,
+          bytesWritten,
+          outputFile
+        });
+        return;
+      }
+      finishWithStream({ stdout, stderr, exitCode });
     });
   });
 }
 async function runExec(argv) {
   const args = parseExecArgs(argv);
-  if (!args.command) {
-    execDie("\u5FC5\u987B\u63D0\u4F9B --command");
+  if (args.command && args.commandFile) {
+    execDie("--command \u4E0E --command-file \u4E0D\u80FD\u540C\u65F6\u63D0\u4F9B");
   }
-  let client;
-  try {
-    client = await connectWithRetry(args);
-  } catch (e) {
-    execDie(e instanceof Error ? e.message : String(e));
-  }
-  try {
-    const result = await execCommand(client, args.command, args.timeout, args.outputFile);
-    execOutput(result);
-  } finally {
+  if (args.commandFile) {
     try {
-      client.end();
-    } catch {
+      const buf = await readFile(args.commandFile, "utf8");
+      args.command = buf;
+    } catch (e) {
+      execDie(`\u8BFB\u53D6 --command-file \u5931\u8D25: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
+  if (!args.command) {
+    execDie("\u5FC5\u987B\u63D0\u4F9B --command \u6216 --command-file");
+  }
+  if (!args.password && !args.privateKeyPath) {
+    execDie("\u5FC5\u987B\u63D0\u4F9B --password \u6216 --privateKeyPath");
+  }
+  const usePassword = !!args.password && !args.privateKeyPath;
+  const controlPath = controlPathFor(args.host, args.port, args.user);
+  const baseArgs = buildSshBaseArgs({
+    port: args.port,
+    controlPath,
+    usePassword,
+    privateKeyPath: args.privateKeyPath
+  });
+  const sshArgs = [...baseArgs, `${args.user}@${args.host}`, args.command];
+  const plan = planSshSpawn(args, sshArgs);
+  const result = await runSshExec(plan, args.timeout, args.outputFile);
+  execOutput(result);
+}
+function parseSessionCloseArgs(argv) {
+  const host = typeof argv.host === "string" ? argv.host : "";
+  const user = typeof argv.user === "string" ? argv.user : "";
+  if (!host || !user) {
+    execDie("\u5FC5\u987B\u63D0\u4F9B --host \u548C --user");
+  }
+  const portRaw = typeof argv.port === "string" ? argv.port : "22";
+  return { host, user, port: parseInt(portRaw, 10) || 22 };
+}
+async function runSessionClose(argv) {
+  const args = parseSessionCloseArgs(argv);
+  const controlPath = controlPathFor(args.host, args.port, args.user);
+  await new Promise((resolve) => {
+    let done = false;
+    const finish = (r) => {
+      if (done) return;
+      done = true;
+      process.stdout.write(JSON.stringify({ ...r, controlPath }) + "\n");
+      resolve();
+    };
+    let proc;
+    try {
+      proc = spawn(
+        "ssh",
+        ["-O", "exit", "-S", controlPath, "-p", String(args.port), `${args.user}@${args.host}`],
+        { stdio: ["ignore", "pipe", "pipe"] }
+      );
+    } catch (e) {
+      finish({ ok: true, err: `spawn ssh failed (master \u53EF\u80FD\u672C\u5C31\u6CA1\u8D77): ${e instanceof Error ? e.message : String(e)}` });
+      return;
+    }
+    let stderr = "";
+    proc.stderr?.on("data", (c) => {
+      stderr += c.toString("utf-8");
+    });
+    const timer = setTimeout(() => {
+      try {
+        proc.kill("SIGTERM");
+      } catch {
+      }
+      finish({ ok: true, err: "session-close \u8D85\u65F6(\u53EF\u80FD master \u5DF2\u9000\u51FA)" });
+    }, 5e3);
+    proc.on("error", () => {
+      clearTimeout(timer);
+      finish({ ok: true, err: "ssh \u4E0D\u53EF\u7528(\u53EF\u80FD master \u5DF2\u9000\u51FA)" });
+    });
+    proc.on("close", (code) => {
+      clearTimeout(timer);
+      if (code === 0 || /No such file or directory|Control socket connect|not connected/i.test(stderr)) {
+        finish({ ok: true });
+      } else {
+        finish({ ok: true, err: `ssh -O exit exit=${code}: ${stderr.trim() || "(no stderr)"}` });
+      }
+    });
+  });
 }
 var DEFAULT_PORTS = {
   mongo: "27017",
@@ -516,7 +614,7 @@ async function runDiscover(argv) {
   } catch (e) {
     const baseErr = e instanceof Error ? e.message : String(e);
     const isMissing = /ENOENT|no such file|does not exist/i.test(baseErr);
-    const hint = isMissing ? " \xB7 \u6700\u53EF\u80FD\u539F\u56E0:LLM \u5728 ssh shell command \u4E4B\u540E\u8DF3\u8FC7\u4E86 Write \u843D\u76D8\u6B65\u9AA4 \xB7 \u8BF7\u56DE\u67E5\u4E0A\u4E00\u8F6E ssh shell command \u8FD4\u56DE\u7684 stdout \u662F\u5426\u8C03\u7528\u4E86 Write(file_path=" + osFile + ", content=<osStdout>) \xB7 \u89C1 SKILL.md Step 2.3 \xB7 \u4E0D\u662F Write \u5DE5\u5177\u4E0D\u53EF\u7528" : "";
+    const hint = isMissing ? " \xB7 \u6700\u53EF\u80FD\u539F\u56E0:LLM \u5728 SSH \u547D\u4EE4(remote osBatchCmd)\u4E4B\u540E\u8DF3\u8FC7\u4E86 Write \u843D\u76D8\u6B65\u9AA4 \xB7 \u8BF7\u56DE\u67E5\u4E0A\u4E00\u8F6E SSH \u547D\u4EE4\u8FD4\u56DE\u7684 stdout \u662F\u5426\u8C03\u7528\u4E86 Write(file_path=" + osFile + ", content=<osStdout>) \xB7 \u89C1 SKILL.md Step 2.3 \xB7 \u4E0D\u662F Write \u5DE5\u5177\u4E0D\u53EF\u7528" : "";
     discoverWriteError(`failed to read ${osFile}: ${baseErr}${hint}`);
   }
   const osMetrics = parseOsIntoMetrics(raw);
@@ -582,7 +680,7 @@ async function runProbeParse(argv) {
   } catch (e) {
     const baseErr = e instanceof Error ? e.message : String(e);
     const isMissing = /ENOENT|no such file|does not exist/i.test(baseErr);
-    const hint = isMissing ? " \xB7 LLM 可能跳过了 Write 落盘步骤 \xB7 请回查 ssh probe 返回的 stdout 是否调用了 Write(file_path=" + probeFile + ", content=<probeStdout>) \xB7 见 SKILL.md Step 1.3" : "";
+    const hint = isMissing ? " \xB7 LLM \u53EF\u80FD\u8DF3\u8FC7\u4E86 Write \u843D\u76D8\u6B65\u9AA4 \xB7 \u8BF7\u56DE\u67E5 ssh probe \u8FD4\u56DE\u7684 stdout \u662F\u5426\u8C03\u7528\u4E86 Write(file_path=" + probeFile + ", content=<probeStdout>) \xB7 \u89C1 SKILL.md Step 1.3" : "";
     process.stdout.write(JSON.stringify({ ok: false, error: `failed to read ${probeFile}: ${baseErr}${hint}` }));
     process.exit(1);
   }
@@ -592,8 +690,8 @@ async function runProbeParse(argv) {
   const realInstances = allInstances.filter((i) => i.source !== "no-pid-default-engine");
   const perfRaw = parseSectionContent(raw, "PERF");
   const offcpuRaw = parseSectionContent(raw, "OFFCPU");
-  const perfAvailable = perfRaw && perfRaw !== "MISSING" && !/MISSING/.test(perfRaw);
-  const offcpuAvailable = offcpuRaw && offcpuRaw !== "MISSING" && !/MISSING/.test(offcpuRaw);
+  const perfAvailable = !!perfRaw && perfRaw !== "MISSING" && !/MISSING/.test(perfRaw);
+  const offcpuAvailable = !!offcpuRaw && offcpuRaw !== "MISSING" && !/MISSING/.test(offcpuRaw);
   let flame_capable = "none";
   if (perfAvailable && offcpuAvailable) flame_capable = "oncpu+offcpu";
   else if (perfAvailable) flame_capable = "oncpu";
@@ -612,18 +710,19 @@ async function main() {
   const argv = parseArgs(process.argv.slice(2));
   const op = typeof argv.op === "string" ? argv.op : "";
   if (op === "exec") return runExec(argv);
+  if (op === "session-close") return runSessionClose(argv);
   if (op === "discover") return runDiscover(argv);
   if (op === "probe-parse") return runProbeParse(argv);
   process.stdout.write(JSON.stringify({
     ok: false,
-    err: `unknown --op: ${op || "(missing)"} \xB7 expect: exec | discover | probe-parse`
+    err: `unknown --op: ${op || "(missing)"} \xB7 expect: exec | session-close | discover | probe-parse`
   }) + "\n");
   process.exit(2);
 }
 var isCli = (() => {
   try {
     const entry = process.argv[1] ?? "";
-    return /(^|[\\/])ssh\.(mjs|js|ts)$/.test(entry) || /cli-ssh(\.|$)/.test(entry);
+    return /(^|[\\/])(ssh\.(mjs|js|ts)|cli-ssh\.(ts|js|mjs))$/.test(entry);
   } catch {
     return false;
   }
@@ -635,6 +734,8 @@ if (isCli) {
   });
 }
 export {
+  buildSshBaseArgs,
+  controlPathFor,
   normalizeHintEngine,
   parseInstances
 };

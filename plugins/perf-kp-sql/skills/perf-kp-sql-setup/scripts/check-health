@@ -5,14 +5,33 @@
 #   - Node.js >= 18
 #   - better-sqlite3 (require + ABI compat)
 #   - sqlite-vec (require + extension load + vec_version())
-#   - ssh2 (require)
 #   - @xenova/transformers (dynamic import)
+#   - marked (require — used by render-html-report.mjs)
 #   - data/knowledge.sqlite (file + readable + schema)
+#
+# v0.12.0: ssh2 已下线 — cli-ssh.ts 改走 spawn(本地 OpenSSH ssh CLI) +
+# SSH_ASKPASS,不再需要 ssh2 native module。
 #
 # Output style mirrors EveryInc/ce-setup/check-health: 🟢/🔴/🟡 per item,
 # with hints to fix.
+#
+# Modes:
+#   (default)        Human-readable diagnose. Exit code = number of issues.
+#   --list-missing   Suppress all human output; print one npm install spec per
+#                    line for items that are absent (NOT for ABI mismatches —
+#                    those need rebuild, not install). Exit 0 even if some
+#                    items still need attention via rebuild.
 
 set -o pipefail
+
+# --list-missing: 抑制 human-readable 输出, 只把"应该 npm install 的 spec"
+# 一行一个写到 stdout. 让 SKILL.md 据此精准 install, 已经存在的不再重装.
+LIST_MISSING=0
+for arg in "$@"; do
+  case "$arg" in
+    --list-missing) LIST_MISSING=1 ;;
+  esac
+done
 
 PLUGIN_ROOT="${OHSQL_PLUGIN_ROOT:-}"
 if [ -z "$PLUGIN_ROOT" ]; then
@@ -21,19 +40,29 @@ if [ -z "$PLUGIN_ROOT" ]; then
 fi
 
 if [ ! -d "$PLUGIN_ROOT" ]; then
-  echo "🔴  Cannot resolve plugin root (\$OHSQL_PLUGIN_ROOT='${OHSQL_PLUGIN_ROOT:-unset}')"
+  msg="🔴  Cannot resolve plugin root (\$OHSQL_PLUGIN_ROOT='${OHSQL_PLUGIN_ROOT:-unset}')"
+  if [ "$LIST_MISSING" = 1 ]; then echo "$msg" >&2; else echo "$msg"; fi
   exit 1
 fi
 
 cd "$PLUGIN_ROOT" || exit 1
 
-ok()    { echo "  🟢  $1"; }
-warn()  { echo "  🟡  $1"; }
-fail()  { echo "  🔴  $1"; }
-hint()  { echo "      → $1"; }
-header(){ echo ""; echo " $1"; }
+if [ "$LIST_MISSING" = 1 ]; then
+  ok()    { :; }
+  warn()  { :; }
+  fail()  { :; }
+  hint()  { :; }
+  header(){ :; }
+else
+  ok()    { echo "  🟢  $1"; }
+  warn()  { echo "  🟡  $1"; }
+  fail()  { echo "  🔴  $1"; }
+  hint()  { echo "      → $1"; }
+  header(){ echo ""; echo " $1"; }
+fi
 
 issues=0
+needed_install=()  # npm install 候选(只装缺的, ABI mismatch 走 rebuild 不进这里)
 
 header "Plugin"
 ok "root: $PLUGIN_ROOT"
@@ -73,6 +102,7 @@ if [ -z "$err" ]; then
 else
   fail "better-sqlite3 missing"
   hint "fix: cd '$PLUGIN_ROOT' && npm install better-sqlite3@^11.7"
+  needed_install+=("better-sqlite3@^11.7")
   issues=$((issues + 1))
 fi
 
@@ -91,16 +121,8 @@ else
   fail "sqlite-vec extension load failed"
   hint "$vec_err"
   hint "fix: cd '$PLUGIN_ROOT' && npm install sqlite-vec@^0.1"
+  needed_install+=("sqlite-vec@^0.1")
   issues=$((issues + 1))
-fi
-
-# ----- ssh2 -----
-err="$(node -e "require('ssh2')" 2>&1)"
-if [ -z "$err" ]; then
-  ok "ssh2"
-else
-  warn "ssh2 missing (optional fallback when ohsql SshExec is unavailable)"
-  hint "fix: cd '$PLUGIN_ROOT' && npm install ssh2@^1.17"
 fi
 
 # ----- @xenova/transformers -----
@@ -110,6 +132,18 @@ if [ "$err" = "ok" ]; then
 else
   fail "@xenova/transformers missing or broken"
   hint "fix: cd '$PLUGIN_ROOT' && npm install @xenova/transformers@^2.17"
+  needed_install+=("@xenova/transformers@^2.17")
+  issues=$((issues + 1))
+fi
+
+# ----- marked (used by scripts/render-html-report.mjs) -----
+err="$(node --input-type=module -e "import('marked').then(()=>{process.stdout.write('ok')}).catch(e=>{process.stderr.write(String(e));process.exit(1)})" 2>&1)"
+if [ "$err" = "ok" ]; then
+  ok "marked"
+else
+  fail "marked missing"
+  hint "fix: cd '$PLUGIN_ROOT' && npm install marked@^18"
+  needed_install+=("marked@^18")
   issues=$((issues + 1))
 fi
 
@@ -148,6 +182,14 @@ if [ -d "$HF_CACHE" ] && find "$HF_CACHE" -name "*MiniLM*" -type d 2>/dev/null |
 else
   warn "MiniLM-L6-v2 not cached (~25MB; downloads on first KB query)"
   hint "warmup: node '$PLUGIN_ROOT/scripts/kb.mjs' --op embed --text warmup"
+fi
+
+# ----- --list-missing 模式: 只 emit 待装 spec, 一行一个; exit 0 -----
+if [ "$LIST_MISSING" = 1 ]; then
+  for p in "${needed_install[@]}"; do
+    echo "$p"
+  done
+  exit 0
 fi
 
 # ----- summary -----
