@@ -787,20 +787,34 @@ query-kb 失败 → 跳过,不影响主体。
 Bash(command="node ${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/scripts/render-screen-footer.mjs \
        --from-diagnose <diag-json-path> \
        --report-path <html-报告绝对路径> \
-       [--from-flame-json <flame-json-path>]")
+       [--from-flame-json <flame-json-path>] \
+       [--format markdown|box|auto]")
 ```
 
-**LLM 必须用 Bash 工具执行上述命令。** 然后把脚本 stdout **作为普通 Markdown 正文直接输出**到对话——逐行原样,不重绘、不包裹、不重排。
+**LLM 必须用 Bash 工具执行上述命令。** 然后把脚本 stdout **作为普通文本逐行原样输出**到对话——不重绘、不包裹、不重排。
 不再需要 LLM 单独 echo 火焰图的 `terminalReport`，因为脚本已经读取了 flame-json 并自动把它合并到了 footer 里面，而且参考编号也一起合并了。
 
-#### 4.3 红线 · footer 输出格式（违反即视为破规）
+#### 4.3.1 · `--format` 自适应（v0.22.0+）
 
-- ❌ **禁止用 fenced code block 包裹** —— `` ``` ``、`` ```markdown ``、`` ```text `` 一律不许出现在 footer 上下任何位置
+脚本根据当前 harness 自动选择渲染格式:
+
+| 模式 | 用法场景 | 输出特点 |
+|---|---|---|
+| `markdown`(默认 · CC / OH-SQL) | harness 渲染 Markdown | `## 标题` H2 + `\| col \|` MD pipe table + flame 段包 ` ``` ` fenced code block 保等宽对齐 |
+| `box`(Codex CLI) | harness 不渲染 Markdown | `═══ 标题 ═══` + 全 box-drawing 表格(`╭─┬─╮ │ ╰─┴─╯`)+ cell 按视觉宽度 padding(CJK=2、ASCII=1) |
+| `auto`(默认) | 自动探测 | 看到 `$CODEX_PLUGIN_ROOT` env → box;否则 → markdown |
+
+显式 override 优先级(从高到低):`--format <mode>` flag → `$PERF_KP_SQL_FORMAT` env → `auto` 探测。**99% 情况下 agent 不传 `--format` 即可**(auto 已经够用);仅在用户明确反馈"输出格式不对"时,agent 可加 `--format box` 或 `--format markdown` 重跑。
+
+#### 4.3.2 红线 · footer 输出格式（违反即视为破规）
+
+- ❌ **禁止 LLM 自己用 fenced code block 包裹整个 footer** —— `` ``` ``、`` ```markdown ``、`` ```text `` 一律不许由 LLM 在 footer 输出前后加包裹(脚本内部 markdown mode 下会自行给 flame 段包 ` ``` `,这是脚本设计 · LLM 不要再多包一层)
 - ❌ **禁止用引用块包裹** —— 不许在 footer 行首加 `> `
 - ❌ **禁止用缩进代码块** —— 不许在 footer 行首加 4 空格 / tab
-- ❌ **禁止把 Markdown pipe table 改写成 box-drawing 表格**(`┌─┬─┐` / `╭─┬─╮` 系列)
-- ❌ **禁止把 Markdown pipe table 重排** —— 列宽对齐、表头加粗、添加分隔线全都不许做
-- ✅ stdout 含 `|---|` 形式的表格分隔线时,**默认按 Markdown 正文输出**,聊天界面会自动渲染成原生表格
+- ❌ **禁止把脚本输出的表格重写改格式** —— markdown mode 拿到 `\| col \|`、box mode 拿到 `╭─┬─╮`,LLM 都按字面输出,不许互相转换
+- ❌ **禁止把 Markdown pipe table 重排** —— 列宽对齐、表头加粗、添加分隔线全都不许做(脚本已对齐过)
+- ✅ stdout 含 `|---|` 形式的表格分隔线时,**默认按 Markdown 正文输出**,渲染 Markdown 的聊天界面会自动渲染成原生表格
+- ✅ stdout 含 `╭─┬─╮ / │ / ╰─┴─╯` 等 box-drawing 时,直接按字面输出,等宽终端会自动对齐成可视表格
 - ✅ 允许在脚本 stdout **前后** 补 1-2 句简短说明(中文一两行),但**表格本体逐行原样保留**
 - ✅ 仍然允许:执行 `render-screen-footer.mjs` 命令本身;不再单独 echo 火焰图 terminalReport;不复制整份 HTML 报告到对话
 
@@ -815,9 +829,9 @@ Bash(command="node ${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/scripts/render-scre
 ```
 ````
 
-(整段塞进 fenced block → 表格分隔线被当字面量,聊天界面只看到一坨字符)
+(LLM 把整段塞进 fenced block → 表格分隔线被当字面量,聊天界面只看到一坨字符)
 
-**正确示例**:
+**正确示例(markdown mode)**:
 
 ```
 ## 诊断结果
@@ -825,6 +839,18 @@ Bash(command="node ${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/scripts/render-scre
 | 模块 | 严重 | ... |
 | --- | --- | --- |
 | ... |
+```
+
+**正确示例(box mode)**:
+
+```
+═══ 诊断结果 ═══
+
+╭───────┬──────┬──────╮
+│ 模块  │ 严重 │ ... │
+├───────┼──────┼──────┤
+│ os    │  1   │ ... │
+╰───────┴──────┴──────╯
 ```
 
 (直接输出 → 聊天界面按 Markdown 渲染成原生表格)
