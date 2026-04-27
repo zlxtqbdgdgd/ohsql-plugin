@@ -5,10 +5,12 @@
 #   - Node.js >= 18
 #   - better-sqlite3 (require + ABI compat)
 #   - sqlite-vec (require + extension load + vec_version())
-#   - ssh2 (require)
 #   - @xenova/transformers (dynamic import)
 #   - marked (require — used by render-html-report.mjs)
 #   - data/knowledge.sqlite (file + readable + schema)
+#
+# v0.12.0: ssh2 已下线 — cli-ssh.ts 改走 spawn(本地 OpenSSH ssh CLI) +
+# SSH_ASKPASS,不再需要 ssh2 native module。
 #
 # Output style mirrors EveryInc/ce-setup/check-health: 🟢/🔴/🟡 per item,
 # with hints to fix.
@@ -121,16 +123,6 @@ else
   hint "fix: cd '$PLUGIN_ROOT' && npm install sqlite-vec@^0.1"
   needed_install+=("sqlite-vec@^0.1")
   issues=$((issues + 1))
-fi
-
-# ----- ssh2 -----
-err="$(node -e "require('ssh2')" 2>&1)"
-if [ -z "$err" ]; then
-  ok "ssh2"
-else
-  warn "ssh2 missing (optional fallback when ohsql SshExec is unavailable)"
-  hint "fix: cd '$PLUGIN_ROOT' && npm install ssh2@^1.17"
-  needed_install+=("ssh2@^1.17")
 fi
 
 # ----- @xenova/transformers -----

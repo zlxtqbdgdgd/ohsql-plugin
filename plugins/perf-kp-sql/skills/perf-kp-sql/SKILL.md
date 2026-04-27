@@ -2,14 +2,17 @@
 name: perf-kp-sql
 description: Kunpeng ARM64 + multi-database (MongoDB / MySQL / Redis) joint performance diagnosis. Runs SSH-based remote collection (50 OS metrics + per-engine runtime), evaluates 59-39 enabled rules from a sqlite knowledge base (FTS5 trigram + sqlite-vec 384-dim semantic search), and emits an impact-ranked HTML report with authoritative citations. Use when users report database slowness, CPU spikes, latency jitter, query timeouts, or are doing Kunpeng migration / config audit. Triggers include '数据库慢' / 'CPU 高' / '抖动' / 'mongo perf' / 'mysql 慢查询' / 'redis 延迟' / 'Kunpeng 性能' / similar phrases. First-time use:run `/perf-kp-sql-setup` to install native deps.
 compatibility: |
-  Requires SSH access to the target host. Two auth modes:
-  - SSH key (recommended, all agents): pass `privateKeyPath=<path>`. Works on
-    Claude Code, OpenAI Codex CLI, ohsql, and any agent with shell access.
-  - SSH password (Claude Code + ohsql only): pass `password=<pw>`. Requires
-    `sshpass` locally; OpenAI Codex CLI sandbox blocks `sshpass` — Codex users
-    must run `ssh-copy-id` once and switch to key auth.
+  Requires SSH access to the target host + local OpenSSH `ssh` CLI (Linux/macOS
+  自带 · Windows 走 WSL 或 OpenSSH-Win)。两种认证方式都通过 `node ssh.mjs`
+  wrapper · agent-agnostic · 任何能跑 node + ssh 的 agent runtime 都能用:
+  - SSH key (推荐): pass `privateKeyPath=<path>`
+  - SSH password: pass `password=<pw>` · 走 OpenSSH 内建 SSH_ASKPASS 机制 ·
+    不再依赖 sshpass · Codex CLI / Claude Code / ohsql 全支持
+  同主机的多次 SSH 调用通过 OpenSSH ControlMaster 复用一条已认证 TCP(socket
+  在 /tmp/perf-kp-sql-cm-<hash>.sock)· 服务端只看到 1 个连接 · 避开 PAM
+  faillock / fail2ban / sshd MaxStartups 限速。
   Native deps installed via `/perf-kp-sql-setup`: better-sqlite3, sqlite-vec,
-  ssh2, @xenova/transformers (~30MB total + 25MB MiniLM model).
+  @xenova/transformers (~30MB total + 25MB MiniLM model)。
   Supported database engines: mongo (MongoDB 3.6-7.x), mysql (5.7-8.x),
   redis (6.x-7.x). Knowledge base: 411 baseline rules + 54 distinct authoritative
   documents (Anthropic + Kunpeng + WiredTiger + MongoDB official + ...).
@@ -21,7 +24,7 @@ argument-hint: "host=<ip> user=<user> (privateKeyPath=<path>|password=<pw>) [eng
 
 # Pre-flight
 
-> **首次安装后**:跑 `/perf-kp-sql-setup` 完成 native 依赖检查与安装(better-sqlite3 / sqlite-vec / ssh2 / @xenova/transformers + knowledge.sqlite 完整性)。setup skill 会在缺依赖时给出 `npm install` 命令并自动执行。
+> **首次安装后**:跑 `/perf-kp-sql-setup` 完成 native 依赖检查与安装(better-sqlite3 / sqlite-vec / @xenova/transformers + knowledge.sqlite 完整性)。setup skill 会在缺依赖时给出 `npm install` 命令并自动执行。
 
 每次本 skill 触发,直接进入 Step 1 — `/perf-kp-sql-setup` 已经把 build 产物和 native 依赖都校验过了。运行时若仍出现 `Cannot find module 'better-sqlite3'` 或 `NODE_MODULE_VERSION X != Y`,提示用户重跑 `/perf-kp-sql-setup`。
 
@@ -29,7 +32,7 @@ argument-hint: "host=<ip> user=<user> (privateKeyPath=<path>|password=<pw>) [eng
 
 # Architecture
 
-- **Collect** — local shell + `ssh` CLI (key auth recommended; password auth via `sshpass` on supported agents) runs per-engine batch commands on the remote host
+- **Collect** — local shell + `node ${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/scripts/ssh.mjs --op exec` (内部 spawn 本地 OpenSSH `ssh` · ControlMaster 多路复用 · 密码走 SSH_ASKPASS · key 走 -i)运行 per-engine batch commands on the remote host
 - **Persist** — write stdout to `~/.ohsql/tmp/perf-kp-sql-<engine>-{os,db}-<ts>.txt` (NOT `/tmp` — sandboxes vary)
 - **Analyze** — local shell: `node ${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/scripts/diagnose.mjs --os-file ... --db-file ... --engine <name>`
 - **Knowledge base** — read / grep over `${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/data/<engine>/` + `data/common/`
@@ -40,52 +43,62 @@ argument-hint: "host=<ip> user=<user> (privateKeyPath=<path>|password=<pw>) [eng
 
 ## SSH execution pattern
 
-This skill SSHs to the target host multiple times. 两条路径,按 auth 方式分:
+This skill SSHs to the target host multiple times — **统一走** `node ${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/scripts/ssh.mjs --op exec`,key auth 与 password auth 共用同一 wrapper · 输出同一 JSON 结构。
 
-**Mode A · SSH key auth (推荐, all agents)** — 用户传了 `privateKeyPath=<path>`:
-
-```bash
-ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new \
-    -i <privateKeyPath> -p <port> <user>@<host> '<command>'
-```
-
-直接用本地 `ssh` CLI,简单稳定。
-
-**Mode B · SSH password auth (Claude Code + ohsql only)** — 用户传了 `password=<pw>`:
-
-命令字面短且不含 `'` / `"` / `$` —— `--command '<command>'` 内联即可:
+### 调用模板(命令字面短且不含 `'` / `"` / `$`)
 
 ```
 Bash(command="node ${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/scripts/ssh.mjs --op exec \
-       --host <ip> --user <user> --password '<pw>' [--port <n>] \
+       --host <ip> --user <user> [--privateKeyPath <path> | --password '<pw>'] [--port <n>] \
        --command '<command>'")
 ```
 
-命令字面含 `'` / `"` / `$` 混杂(典型:probeCmd / osBatchCmd / dbBatchTemplates 替换后) —— **必须**走 `--command-file`,先 Write 落盘再传路径。**不要**改用 `$'...'` ANSI-C 引号或 `"<cmd>"` 内联,前者会被 OH-SQL 的 BashTool 安全规则硬拒(CC 平台同款规则会弹权限提示),后者会让远端要展开的 `$VAR` 被本机 shell 提前吃掉。
+### 调用模板(命令含 `'` / `"` / `$` 混杂 → 必须走 `--command-file`)
+
+典型场景:probeCmd / osBatchCmd / dbBatchTemplates 替换后。**不要**改用 `$'...'` ANSI-C 引号或 `"<cmd>"` 内联 —— 前者命中 OH-SQL BashTool 硬拒(CC 平台同款规则会弹权限提示),后者会让远端要展开的 `$VAR` 被本机 shell 提前吃掉。
 
 ```
 Write(file_path="/Users/<yourlogin>/.ohsql/tmp/perf-kp-sql-cmd-<TS>.txt", content="<command 字面>")
 Bash(command="node ${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/scripts/ssh.mjs --op exec \
-       --host <ip> --user <user> --password '<pw>' [--port <n>] \
+       --host <ip> --user <user> [--privateKeyPath <path> | --password '<pw>'] [--port <n>] \
        --command-file /Users/<yourlogin>/.ohsql/tmp/perf-kp-sql-cmd-<TS>.txt")
 ```
 
 `<TS>` 用本轮调用统一的时间戳后缀(同 probe / os / db 输出文件命名),用完不必删除——`/Users/<yourlogin>/.ohsql/tmp/` 是会话临时目录。
 
-> ⚠️ **Mode B 必须走 `ssh.mjs --op exec`,不要直接 `sshpass + ssh`**。理由:
-> - 部分 Linux 主机(华为云 EulerOS / RHEL+PAM / Ubuntu+pam_unix 等)的 sshd 把 `password` 方法代理到 PAM 的 `keyboard-interactive` 多回合 challenge-response
-> - `sshpass` 用 TTY/SSH_ASKPASS 拦截单次 prompt 的机制,在 PAM 多回合时会**时序对错**(把第一回合的 password 注入到第二回合的 prompt) → 间歇性 `Permission denied`,exit code 5
-> - `ssh.mjs --op exec` 走 ssh2 库 + `tryKeyboard:true` + `keyboard-interactive` event handler,**直接处理 PAM challenge**,不依赖 TTY 时序 → 在 PAM 主机上稳定
-> - 即使非 PAM 主机,走 ssh.mjs 也没坏处(就是多 ~50ms node 启动开销)
+### 认证方式
 
-`sshpass + ssh` 仅在调试需要(例:确认 SSH 是否还通)时用,**不进主流程**。
+- 用户传了 `privateKeyPath=<path>` → 加 `--privateKeyPath <path>` flag · 走 OpenSSH pubkey
+- 用户传了 `password=<pw>` → 加 `--password '<pw>'` flag · ssh.mjs 内部走 SSH_ASKPASS(写一次性 mode 0700 askpass 脚本 + setsid 断 tty)· **不依赖 sshpass** · Codex CLI / Claude Code / ohsql 全支持
+- 两个都给 → key 优先 · password 静默忽略
 
-**ssh.mjs --op exec 的 stdout 是结构化 JSON**:`{"stdout":"...","stderr":"...","exitCode":0}`。LLM 拿到后:
+PAM 主机(华为云 EulerOS / RHEL+PAM / Ubuntu+pam_unix 等)上 password+keyboard-interactive 多回合 challenge 由 OpenSSH 自身处理,跟之前 ssh2 + tryKeyboard 路径同等稳定。
+
+### ControlMaster 长连接(本 skill 多次 SSH 复用一条 TCP)
+
+ssh.mjs 自带 `ControlMaster=auto` + 稳定 hash ControlPath(`/tmp/perf-kp-sql-cm-<sha1[host:port:user][:12]>.sock`)+ `ControlPersist=600`。**第一次** ssh.mjs 调用顺手开 master(socket 监听),**后续**所有 ssh.mjs 调用看到 socket 存在 → 直接通过 socket 起新 channel(完全跳过 TCP 握手 + auth)。
+
+效果:服务端只看到 1 个连接,N 个 channel 是 SSH 协议内部多路复用,**不计入 PAM faillock / fail2ban / sshd MaxStartups 等连接级限速器**。
+
+### 流程末尾 · session-close
+
+Step 2 收尾(2.9)显式调一次 `--op session-close` 收掉 master:
+
+```
+Bash(command="node ${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/scripts/ssh.mjs --op session-close \
+       --host <ip> --user <user> [--port <n>]")
+```
+
+即使忘调,ControlPersist=600(10 min)到期也会自动退,不会留孤儿。
+
+### 输出结构
+
+`ssh.mjs --op exec` 的 stdout 是结构化 JSON:`{"stdout":"...","stderr":"...","exitCode":0}`(--output-file 模式下 `stdout` 字段被替换为 `<wrote N bytes to /path>` metadata)。LLM 拿到后:
 - 解析 JSON,取 `stdout` 字段当作"远端命令的标准输出"
 - `exitCode === 0` 且 `stdout` 非空 → 成功;`stdout` 空且 `stderr` 空 → 走 Gate 4 自检
-- `err` 字段非空 → SSH 协议层失败(`All configured authentication methods failed` 等),按场景兜底
+- `err` 字段非空 → SSH 协议层失败(`SSH connection failed (255)` 等),按场景兜底
 
-**On OpenAI Codex CLI (sandbox blocks `sshpass`)** — 用户只传 `password=<pw>` 时,**Mode B 仍可用**(`ssh.mjs --op exec` 走 ssh2,不依赖 sshpass)。Codex CLI 沙箱通常能跑 node + ssh2,真不行才回退到要求 ssh-copy-id。
+`ssh.mjs --op session-close` 的 stdout 是 `{"ok":true,"controlPath":"..."}`(socket 不存在或 master 已退也算 ok)。
 
 ## Task tracking pattern
 
@@ -247,13 +260,13 @@ Stop and wait for the next turn。
 Read(file_path="${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/data/collect-cmds.json")
 ```
 
-按 SSH execution pattern 跑(Mode B 默认走 `ssh.mjs --op exec`,见 Architecture 一段);timeout ≈ 15s。`<command>` = literal `probeCmd` string。
+按 SSH execution pattern 跑(见 Architecture · 统一走 `ssh.mjs --op exec`);timeout ≈ 15s。`<command>` = literal `probeCmd` string。
 
-probeCmd 含 `'` / `"` / `$` 混杂 → **必须**走 `--command-file`(见 Architecture · Mode B):
+probeCmd 含 `'` / `"` / `$` 混杂 → **必须**走 `--command-file`(见 Architecture):
 
 ```
 Write(file_path="/Users/<yourlogin>/.ohsql/tmp/perf-kp-sql-cmd-probe-<TS>.txt", content="<probeCmd 字面 · 即 collect-cmds.json 里 probeCmd 字段的字符串值>")
-Bash(command="node ${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/scripts/ssh.mjs --op exec --host <ip> --user <user> --password '<pw>' --port <n> --command-file /Users/<yourlogin>/.ohsql/tmp/perf-kp-sql-cmd-probe-<TS>.txt --timeout 15000")
+Bash(command="node ${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/scripts/ssh.mjs --op exec --host <ip> --user <user> [--privateKeyPath <path> | --password '<pw>'] --port <n> --command-file /Users/<yourlogin>/.ohsql/tmp/perf-kp-sql-cmd-probe-<TS>.txt --timeout 15000")
 ```
 
 `ssh.mjs --op exec` 返回的 JSON 里取 `stdout` 字段(probe 文本),Write 落盘:
@@ -453,28 +466,22 @@ Read(file_path="${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/data/collect-cmds.json
   · 磁盘 · iostat / 调度器 / 利用率
 ```
 
-按 SSH execution pattern 跑(见 Architecture 一段),`<command>` = literal `osBatchCmd` from `collect-cmds.json` (do NOT improvise)。
+按 SSH execution pattern 跑(见 Architecture · 统一走 `ssh.mjs --op exec`),`<command>` = literal `osBatchCmd` from `collect-cmds.json` (do NOT improvise)。
 
+osBatchCmd 含 `'` / `"` / `$` 混杂 → 走 `--command-file`(见 Architecture):
 ```
-# Mode A · key auth:
-Bash("ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i <privateKeyPath> -p <port> <user>@<host> '<osBatchCmd>'")
-
-# Mode B · password auth (推荐,默认):
-# osBatchCmd 含 ' / " / $ 混杂 → 走 --command-file(见 Architecture · Mode B)
 Write(file_path="/Users/<yourlogin>/.ohsql/tmp/perf-kp-sql-cmd-os-<TS>.txt", content="<osBatchCmd 字面>")
-Bash("node ${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/scripts/ssh.mjs --op exec --host <ip> --user <user> --password '<pw>' --port <n> --command-file /Users/<yourlogin>/.ohsql/tmp/perf-kp-sql-cmd-os-<TS>.txt")
+Bash("node ${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/scripts/ssh.mjs --op exec --host <ip> --user <user> [--privateKeyPath <path> | --password '<pw>'] --port <n> --command-file /Users/<yourlogin>/.ohsql/tmp/perf-kp-sql-cmd-os-<TS>.txt")
 ```
 
 Set timeout ≈ 60 seconds。
 
-**Mode B 解析 JSON**:`ssh.mjs --op exec` 返回 `{"stdout":"...","stderr":"...","exitCode":N}`。
+**解析 JSON**:`ssh.mjs --op exec` 返回 `{"stdout":"...","stderr":"...","exitCode":N}`。
 - `exitCode===0 && stdout` 非空 → 成功
 - `stdout=="" && stderr==""` → SSH 不通,走 Gate 4 自检
-- `err` 字段非空 → 协议层失败(认证失败 / 路由不通),展开 troubleshooting checklist
+- `err` 字段非空(典型:`SSH connection failed (255): ...`)→ 协议层失败(认证失败 / 路由不通),展开 troubleshooting checklist
 
-**Mode A 解析**:exitCode + stdout 直接由 shell 暴露,stdout 非空 = 成功;stderr 的 WARN/deprecated 噪声忽略。
-
-osStdout Write 落盘(Mode B 用 JSON 的 `stdout` 字段;Mode A 用 shell stdout):
+osStdout Write 落盘(从 JSON 的 `stdout` 字段取):
 ```
 Write(
   file_path="/Users/<yourlogin>/.ohsql/tmp/perf-kp-sql-os-<TS>.txt",
@@ -607,13 +614,13 @@ Bash(command="node ${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/scripts/ssh.mjs --o
   · slowlog / 大 key / ...
 ```
 
-按 SSH execution pattern 跑(Mode B 默认走 `ssh.mjs --op exec`,见 Architecture),`<command>` = `dbBatchTemplates[engine]` 占位符替换后的字符串。占位符:`__BIND__` / `__DB_PORT__` / `__USER__` / `__PWD__`(MongoDB 专属:`__MONGO_USER__` / `__MONGO_PWD__` / `__AUTH_DB__` / `__AUTH_ARGS__`)。
+按 SSH execution pattern 跑(见 Architecture · 统一走 `ssh.mjs --op exec`),`<command>` = `dbBatchTemplates[engine]` 占位符替换后的字符串。占位符:`__BIND__` / `__DB_PORT__` / `__USER__` / `__PWD__`(MongoDB 专属:`__MONGO_USER__` / `__MONGO_PWD__` / `__AUTH_DB__` / `__AUTH_ARGS__`)。
 
-Mode B 模板(dbBatchCmd 含 ' / " / $ 混杂 → 走 --command-file,见 Architecture · Mode B):
+模板(dbBatchCmd 含 ' / " / $ 混杂 → 走 --command-file):
 ```
 Write(file_path="/Users/<yourlogin>/.ohsql/tmp/perf-kp-sql-cmd-db-<engine>-<TS>.txt", content="<dbBatchCmd 替换占位符后>")
 Bash(command="node ${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/scripts/ssh.mjs --op exec \
-       --host <ip> --user <user> --password '<ssh_pw>' --port <n> \
+       --host <ip> --user <user> [--privateKeyPath <path> | --password '<ssh_pw>'] --port <n> \
        --command-file /Users/<yourlogin>/.ohsql/tmp/perf-kp-sql-cmd-db-<engine>-<TS>.txt")
 ```
 
@@ -656,6 +663,16 @@ Bash(command="node ${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/scripts/history.mjs
 ```
 
 失败静默忽略,不打屏。
+
+### 2.9 · 收 SSH 长连接(session-close)
+
+Step 2 是本 skill 唯一的 SSH 阶段(Step 3-5 都是本地分析)。这里显式收 ControlMaster · 立即释放远端 socket · 不等 ControlPersist=600 自然到期:
+
+```
+Bash(command="node ${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/scripts/ssh.mjs --op session-close --host <ip> --user <user> --port <n>")
+```
+
+返回 `{"ok":true,"controlPath":"..."}` 即正常收尾(socket 不存在或 master 已退出也算 ok)。**失败静默忽略**:即使没收成功,master 也会到期自动退,不影响诊断结果。
 
 ---
 
@@ -877,10 +894,8 @@ prose so the LLM can quote them back to the user.
 - `host=<ip>` — target host (IP or FQDN; e.g. `10.0.0.1`)
 - `user=<user>` — SSH user (e.g. `root`, `ec2-user`)
 - One of `privateKeyPath=<path>` (recommended) OR `password=<pw>`
-  - `privateKeyPath`: SSH key file path (e.g. `~/.ssh/id_ed25519`) — works on all agents
-  - `password`: SSH password — Claude Code + ohsql only (uses `sshpass`); OpenAI
-    Codex CLI sandbox blocks it, so Codex users must run `ssh-copy-id` once and
-    switch to `privateKeyPath`
+  - `privateKeyPath`: SSH key file path (e.g. `~/.ssh/id_ed25519`)
+  - `password`: SSH password · ssh.mjs 走 OpenSSH 内建 SSH_ASKPASS · 不再依赖 sshpass · Codex CLI / Claude Code / ohsql 全支持
 
 **Optional**:
 - `engine=<mongo|mysql|redis>` — database engine; auto-detected if omitted

@@ -1,13 +1,15 @@
 ---
 name: perf-kp-sql-setup
-description: Diagnose and install perf-kp-sql runtime dependencies (better-sqlite3, sqlite-vec, ssh2, @xenova/transformers, marked) and verify knowledge.sqlite schema. Use ONLY when invoked explicitly via `/perf-kp-sql-setup`, after first install of perf-kp-sql, or when perf-kp-sql diagnosis fails with native-addon / ABI / 'module not found' / 'NODE_MODULE_VERSION mismatch' errors. Do NOT auto-invoke based on general user requests.
+description: Diagnose and install perf-kp-sql runtime dependencies (better-sqlite3, sqlite-vec, @xenova/transformers, marked) and verify knowledge.sqlite schema. Use ONLY when invoked explicitly via `/perf-kp-sql-setup`, after first install of perf-kp-sql, or when perf-kp-sql diagnosis fails with native-addon / ABI / 'module not found' / 'NODE_MODULE_VERSION mismatch' errors. Do NOT auto-invoke based on general user requests.
 compatibility: |
-  Requires Node.js >= 18 and `npm` on the local machine. Installs native modules
-  (better-sqlite3, sqlite-vec, ssh2, @xenova/transformers) plus the markdown
+  Requires Node.js >= 18 and `npm` on the local machine + 本地 OpenSSH `ssh`
+  CLI(Linux/macOS 自带 · Windows 走 WSL/OpenSSH-Win)。Installs native modules
+  (better-sqlite3, sqlite-vec, @xenova/transformers) plus the markdown
   renderer (marked) into the plugin's per-plugin `node_modules` directory via
   `npm install --prefix`. Optionally warms up the HuggingFace MiniLM-L6-v2 model
   (~25MB download) for KB semantic search readiness. Works on Claude Code,
-  OpenAI Codex CLI, and ohsql.
+  OpenAI Codex CLI, and ohsql. v0.12.0 起 ssh2 native module 已下线 ·
+  cli-ssh 改走 spawn(本地 ssh)+ SSH_ASKPASS。
 metadata:
   generator: "manual"
   generated_at: "2026-04-26"
@@ -49,7 +51,6 @@ The script outputs a colored report covering:
 - Node.js version
 - `better-sqlite3` (require + ABI)
 - `sqlite-vec` (require + extension load + `vec_version()`)
-- `ssh2` (require)
 - `@xenova/transformers` (import)
 - `data/knowledge.sqlite` (file exists + readable + schema)
 
@@ -64,7 +65,6 @@ Parse the script output. If every item is 🟢, display the success banner and s
 
    better-sqlite3   🟢
    sqlite-vec       🟢
-   ssh2             🟢
    transformers     🟢
    knowledge.sqlite 🟢
 
