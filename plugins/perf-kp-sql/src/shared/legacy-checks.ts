@@ -1134,7 +1134,7 @@ export const check_thp: CheckFn = (ctx) => {
     severity: expected === "always" ? "warning" : "critical",
     bucket: 1,
     scope,
-    summary: `THP=${mode} 不符合 mongo${scope.engine_version ? ` ${scope.engine_version}` : ""} 期望`,
+    summary: `THP=${mode}`,
     description: `mongo 期望 THP=${expected}。` + (rationaleWhyBad ? ` ${rationaleWhyBad}。` : ""),
     reason: `当前 THP=${mode} · 期望 ${expected} · ${rationaleWhyBad}`,
     evidence: [

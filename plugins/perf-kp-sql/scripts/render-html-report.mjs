@@ -19,7 +19,7 @@ import { renderReportFromDiagnoseJson } from "./render-report.mjs";
 const args = process.argv.slice(2);
 const htmlPath = args[0];
 if (!htmlPath) {
-  console.error("usage: render-html-report.mjs <html-path> --from-diagnose <json-path> [--from-flame-json <flame-json-path>]");
+  console.error("usage: render-html-report.mjs <html-path> --from-diagnose <json-path> [--from-flame-json <flame-json-path>] [--ssh-user u --ssh-host h --ssh-port p] [--os-collect-path <path> --db-collect-path <path>]");
   process.exit(1);
 }
 
@@ -28,7 +28,39 @@ const diagnoseJson = fromIdx >= 0 && args[fromIdx + 1]
   ? readFileSync(args[fromIdx + 1], "utf8")
   : readFileSync(0, "utf8");
 
-let md = renderReportFromDiagnoseJson(diagnoseJson);
+// v0.23.0 · 2026-04-26 · 用户反馈 · SSH user/host/port 通过 CLI flag 注入
+// 远端 mongod bind=127.0.0.1 是远端进程视角的本地监听 IP · 用户视角下毫无意义。
+// LLM 调本脚本时应把"自己 SSH 实际连的 user@host:port"传进来。
+function pickArg(name) {
+  const i = args.indexOf(name);
+  return i >= 0 && args[i + 1] && !args[i + 1].startsWith("--") ? args[i + 1] : undefined;
+}
+const flameArgPath = pickArg("--from-flame-json");
+const metaOverrides = {
+  ssh_user: pickArg("--ssh-user"),
+  ssh_host: pickArg("--ssh-host"),
+  ssh_port: pickArg("--ssh-port"),
+  report_path: htmlPath,
+  flame_path: flameArgPath,
+  // v0.23.1 · MAJOR review 反馈 · 实际采集落盘路径必须从 SKILL.md 4.2 透传 ·
+  // 不让 renderArtifacts 按 ts 猜路径(猜出来的前缀和顺序与实际命名不一致)
+  os_collect_path: pickArg("--os-collect-path"),
+  db_collect_path: pickArg("--db-collect-path"),
+};
+
+// metadata 注入:在 renderReport 之前 patch report_input.metadata
+// 让 render-report.mjs::renderMetadata / renderArtifacts 直接取
+const diagObj = JSON.parse(diagnoseJson);
+if (diagObj.report_input?.metadata) {
+  for (const [k, v] of Object.entries(metaOverrides)) {
+    if (v !== undefined && v !== null && v !== "") {
+      diagObj.report_input.metadata[k] = v;
+    }
+  }
+}
+const patchedJson = JSON.stringify(diagObj);
+
+let md = renderReportFromDiagnoseJson(patchedJson);
 
 // Include Flamegraph Data if present
 const flameIdx = args.indexOf("--from-flame-json");
@@ -247,10 +279,10 @@ ol.footnotes li::marker { color: var(--accent); font-weight: 600; }
 </style>
 </head>
 <body>
+<h1>perf-kp-sql · 性能诊断报告</h1>
 ${body}
 <div class="footer">
-  perf-kp-sql skill · kunpeng 全栈数据库性能诊断 · 规则依据:鲲鹏原厂规范 + MongoDB 官方文档<br>
-  HTML 由 render-html-report.mjs 一次性渲染 · 包含知识库追问及深度火焰图分析
+  perf-kp-sql · kunpeng 全栈数据库性能诊断 · 规则依据:鲲鹏原厂规范 + MongoDB 官方文档
 </div>
 </body>
 </html>
