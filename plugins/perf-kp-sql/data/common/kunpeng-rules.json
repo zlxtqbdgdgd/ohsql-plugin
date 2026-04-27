@@ -40,26 +40,6 @@
     "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
   },
   {
-    "id": "kunpeng.cpu.governor",
-    "bucket": 1,
-    "severity": "WARNING",
-    "source": {
-      "tier": "vendor-primary",
-      "url": "https://www.cnblogs.com/huaweicloud/p/11861191.html",
-      "title": "鲲鹏 BoostKit · CPU 调频策略",
-      "quote": "STREAM测试工具、Nginx和数据库场景需要关闭CPU预取",
-      "accessed": "2026-04-26"
-    },
-    "engine": "any",
-    "audit": {
-      "status": "verified_replaced",
-      "pass": true,
-      "last_audited": "2026-04-26"
-    },
-    "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
-  },
-  {
     "id": "kunpeng.numa.balancing",
     "bucket": 1,
     "severity": "WARNING",
@@ -527,38 +507,20 @@
     "severity": "CRITICAL",
     "source": {
       "tier": "vendor-primary",
-      "url": "https://www.mongodb.com/docs/manual/administration/production-notes/",
-      "title": "鲲鹏 BoostKit · MongoDB 调优指南",
+      "url": "https://www.mongodb.com/docs/v7.0/tutorial/transparent-huge-pages/",
+      "title": "MongoDB Manual · Disable THP (v7.0)",
       "quote": "When running MongoDB on Linux, THP should be disabled for best performance.",
       "accessed": "2026-04-26"
     },
     "engine": "any",
     "audit": {
-      "status": "verified_replaced",
+      "status": "verified_url_quote_match",
       "pass": true,
       "last_audited": "2026-04-26"
     },
     "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
-  },
-  {
-    "id": "os.vm.dirty_ratio",
-    "bucket": 1,
-    "severity": "WARNING",
-    "source": {
-      "tier": "vendor-primary",
-      "url": "https://www.kernel.org/doc/Documentation/sysctl/vm.txt",
-      "title": "鲲鹏 BoostKit · MongoDB 调优指南",
-      "quote": "Contains, as a percentage of total available memory that contains free pages and reclaimable pages, the number of pages at which a process which is generating disk writes will itself start writing out dirty data.",
-      "accessed": "2026-04-26"
-    },
-    "engine": "any",
-    "audit": {
-      "status": "verified_replaced",
-      "pass": true,
-      "last_audited": "2026-04-26"
-    },
-    "_runtime_excluded": true,
-    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire"
+    "_exclude_reason": "no_v2_checks · KB 召回素材 · 不参与诊断 fire",
+    "threshold": "transparent_hugepages=never",
+    "recommend": "echo never | tee /sys/kernel/mm/transparent_hugepage/enabled > /dev/null && echo never | tee /sys/kernel/mm/transparent_hugepage/defrag > /dev/null"
   }
 ]
