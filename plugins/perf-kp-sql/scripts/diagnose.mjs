@@ -550,7 +550,7 @@ var check_arm64_lse_binary = (ctx) => {
   const countKey = bin === "mysqld" ? "lse_mysqld_count" : "lse_mongod_count";
   const count = osVal(ctx, countKey, null);
   if (count === null) {
-    return infoResult({ id, title, bucket: 1, scope, summary: `\u672A\u627E\u5230 ${bin} \u4E8C\u8FDB\u5236`, reason: `command -v ${bin} \u65E0\u8FD4\u56DE(\u6216 objdump \u4E0D\u53EF\u7528)` });
+    return infoResult({ id, title, bucket: 1, scope, summary: `\u672A\u627E\u5230 ${bin} \u4E8C\u8FDB\u5236`, reason: `command -v ${bin} \u65E0\u8FD4\u56DE(\u6216 nm \u4E0D\u53EF\u7528)` });
   }
   if (count > 0) {
     return okResult({
@@ -558,8 +558,8 @@ var check_arm64_lse_binary = (ctx) => {
       title,
       bucket: 1,
       scope,
-      summary: `${bin} \u542B ${count} \u6761 LSE opcode`,
-      reason: `\u4E8C\u8FDB\u5236\u7F16\u8BD1\u65F6\u5E26\u4E86 -moutline-atomics \u6216 -march=armv8.1-a+`
+      summary: `${bin} .dynsym \u542B ${count} \u4E2A outline-atomics \u7B26\u53F7`,
+      reason: `\u4E8C\u8FDB\u5236\u7F16\u8BD1\u65F6\u5E26\u4E86 -moutline-atomics(\u9ED8\u8BA4 gcc 10+),\u8FD0\u884C\u671F\u5728\u9CB2\u9E4F CPU \u4E0A\u4F1A\u8C03\u5EA6\u5230 LSE \u539F\u5B50\u6307\u4EE4`
     });
   }
   return finding({
@@ -568,11 +568,11 @@ var check_arm64_lse_binary = (ctx) => {
     severity: "warning",
     bucket: 1,
     scope,
-    summary: `${bin} \u672A\u53D1\u73B0 LSE opcode`,
-    description: `${bin} \u4E8C\u8FDB\u5236\u6CA1\u7528 LSE \u539F\u5B50\u6307\u4EE4,\u7ADE\u4E89\u8DEF\u5F84\u4F1A\u9000\u56DE ldxr/stxr \u5FAA\u73AF,ARM64 \u4E0A\u541E\u5410\u663E\u8457\u4F4E\u4E8E\u5E26 LSE \u7684\u6784\u5EFA\u3002`,
-    reason: `objdump -d $(command -v ${bin}) \u4E2D cas/ldadd/swp \u7B49 LSE opcode \u51FA\u73B0 0 \u6B21`,
-    threshold_display: "> 0 LSE opcodes",
-    evidence: [{ kind: "metric", value: `lse_opcode_count_${bin}=0` }],
+    summary: `${bin} \u672A\u53D1\u73B0 outline-atomics \u7B26\u53F7`,
+    description: `${bin} \u4E8C\u8FDB\u5236\u672A\u5F15\u7528 libgcc \u7684 outline-atomics(__aarch64_cas/ldadd/swp/ldset),\u4E5F\u672A\u5185\u8054 LSE \u539F\u5B50\u6307\u4EE4,\u7ADE\u4E89\u8DEF\u5F84\u4F1A\u9000\u56DE ldxr/stxr \u5FAA\u73AF,ARM64 \u4E0A\u541E\u5410\u663E\u8457\u4F4E\u4E8E\u5E26 LSE \u7684\u6784\u5EFA\u3002`,
+    reason: `nm -D $(command -v ${bin}) \u4E2D __aarch64_(have_lse_atomics|cas|ldadd|swp|ldset) \u7B49 outline-atomics \u52A8\u6001\u7B26\u53F7\u51FA\u73B0 0 \u6B21`,
+    threshold_display: "> 0 outline-atomics symbols",
+    evidence: [{ kind: "metric", value: `lse_outline_symbols_${bin}=0` }],
     impact: { metric: "throughput_qps", value: 25, unit: "percent", confidence: "high" },
     citations: [
       KUNPENG_REFS.arm64Porting,

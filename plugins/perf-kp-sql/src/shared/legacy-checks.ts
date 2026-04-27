@@ -152,7 +152,7 @@ export const check_arm64_lse_binary: CheckFn = (ctx) => {
   const countKey = bin === "mysqld" ? "lse_mysqld_count" : "lse_mongod_count";
   const count = osVal<number | null>(ctx, countKey, null);
   if (count === null) {
-    return infoResult({ id, title, bucket: 1, scope, summary: `未找到 ${bin} 二进制`, reason: `command -v ${bin} 无返回(或 objdump 不可用)` });
+    return infoResult({ id, title, bucket: 1, scope, summary: `未找到 ${bin} 二进制`, reason: `command -v ${bin} 无返回(或 nm 不可用)` });
   }
   if (count > 0) {
     return okResult({
@@ -160,8 +160,8 @@ export const check_arm64_lse_binary: CheckFn = (ctx) => {
       title,
       bucket: 1,
       scope,
-      summary: `${bin} 含 ${count} 条 LSE opcode`,
-      reason: `二进制编译时带了 -moutline-atomics 或 -march=armv8.1-a+`,
+      summary: `${bin} .dynsym 含 ${count} 个 outline-atomics 符号`,
+      reason: `二进制编译时带了 -moutline-atomics(默认 gcc 10+),运行期在鲲鹏 CPU 上会调度到 LSE 原子指令`,
     });
   }
   return finding({
@@ -170,11 +170,11 @@ export const check_arm64_lse_binary: CheckFn = (ctx) => {
     severity: "warning",
     bucket: 1,
     scope,
-    summary: `${bin} 未发现 LSE opcode`,
-    description: `${bin} 二进制没用 LSE 原子指令,竞争路径会退回 ldxr/stxr 循环,ARM64 上吞吐显著低于带 LSE 的构建。`,
-    reason: `objdump -d $(command -v ${bin}) 中 cas/ldadd/swp 等 LSE opcode 出现 0 次`,
-    threshold_display: "> 0 LSE opcodes",
-    evidence: [{ kind: "metric", value: `lse_opcode_count_${bin}=0` }],
+    summary: `${bin} 未发现 outline-atomics 符号`,
+    description: `${bin} 二进制未引用 libgcc 的 outline-atomics(__aarch64_cas/ldadd/swp/ldset),也未内联 LSE 原子指令,竞争路径会退回 ldxr/stxr 循环,ARM64 上吞吐显著低于带 LSE 的构建。`,
+    reason: `nm -D $(command -v ${bin}) 中 __aarch64_(have_lse_atomics|cas|ldadd|swp|ldset) 等 outline-atomics 动态符号出现 0 次`,
+    threshold_display: "> 0 outline-atomics symbols",
+    evidence: [{ kind: "metric", value: `lse_outline_symbols_${bin}=0` }],
     impact: { metric: "throughput_qps", value: 25, unit: "percent", confidence: "high" },
     citations: [
       KUNPENG_REFS.arm64Porting,
@@ -192,7 +192,7 @@ export const check_arm64_lse_binary: CheckFn = (ctx) => {
     ],
     rationale: {
       summary: "即使 CPU 和内核都支持 LSE · DB 二进制本身必须用 LSE-aware 编译器构建才能用上。老发行版 repo 的 mongod / mysqld 常是 -march=armv8-a 构建 · 运行在鲲鹏上也是 ldxr 循环 · 硬件白给不用。",
-      mechanism: "二进制里有没有 LSE 看 objdump -d 中的 cas*/ldadd*/swp*/cas* 系列 opcode。若计数为 0 说明编译器没带 -march=armv8.1-a 或 -moutline-atomics。后者更实用:编译时生成 runtime-dispatch stub · 老 CPU 走 ldxr 路径 · LSE CPU 走 cas 路径 · 一个二进制两处跑。",
+      mechanism: "二进制里有没有 outline-atomics 看 nm -D 输出中的 __aarch64_(have_lse_atomics|cas|ldadd|swp|ldset) 等动态符号。若 0 命中说明编译器既没带 -march=armv8.1-a+lse(内联 LSE),也没带 -moutline-atomics(默认 gcc10+)。后者更实用:编译时生成 runtime-dispatch · 老 CPU 走 ldxr 路径 · LSE CPU 走 cas 路径 · 一个二进制两处跑。nm -D 只读 .dynsym 段,毫秒级,远比 objdump -d 反汇编整段二进制要快(避免 30~120s 超时)。",
       trade_offs: "换带 LSE 的二进制需要重装 package(Percona ARM64 repo / MongoDB 官方 aarch64 rpm)或自编译。重装引入 engine restart · rolling restart 无损。LSE 吞吐增益在高竞争 OLTP 场景可达 25-40%。",
       when_to_deviate: "受限环境只能装发行版 repo 二进制时没得选。可考虑 LD_PRELOAD 的 glibc atomics 兼容层 · 但效果不如重编译彻底。",
     },
