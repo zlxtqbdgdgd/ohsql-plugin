@@ -839,79 +839,87 @@ mongo 第一期实测:
 
 > **接力起点 · 30 秒读完 § 11.0 即可**。§ 11.1-11.15 是详细历史档案 · 只在 § 11.0 不够用时查阅。
 
-### 11.0 当前状态板 / 接力指南 (2026-04-26 17:00)
+### 11.0 当前状态板 / 接力指南 (2026-04-26 晚 · v1.0 红线最终闸完工)
 
 #### Skill 定位
 
-**鲲鹏 + OS + 数据库(目前仅 mongo)三层联合性能诊断**。不是只 mongo 诊断 · 35 条鲲鹏 / ARM / openEuler / OS 层规则一直在 fire(§ 11.0 已做表第一行)。
+**鲲鹏 + OS + 数据库(目前仅 mongo)三层联合性能诊断**。50 CheckFn(TS 注册表) + 5 v2(数据驱动) = 55 条规则。
+
+#### 当前真实数据(2026-04-26 实测)
+
+```
+sqlite rules 表 enabled=1: 55 条 (50 CheckFn + 5 v2 数据驱动)
+sqlite knowledge 表:        1568 facts · 字面命中率 100%(141 distinct URL · 全 cache 存在)
+真机 mongo 7.0.31 fire:    1 critical + 7 warning · 8/8 角注 URL 跟字面对应
+```
+
+#### v1.0 红线最终闸 = "用户读报告 · 任意一条建议 · Cmd+F 必能在 [参考N] URL 字面命中"
+
+数据来源链路:
+```
+sqlite knowledge.{rule_id, fact_type, quote, source_url}
+ → enrichResultsFromKb 注入到 CheckResult:
+     summary/reason/description ← KB summary/mechanism quote
+     recommendations[i].action  ← KB remediation quote
+     recommendations[i].fix_url ← 该 quote 的 source_url(角注绑这个)
+     threshold_display          ← KB threshold quote
+     citations[].url            ← distinct source_url
+ → footer 渲染按 fix_url 反查 [参考N] 编号 · 角注跟字面绑定
+```
+
+验证脚本:`tools/audit-report-grounding.mjs <diag.json>` · 真机回放后跑 · pass rate 100% 才算红线兜住。
 
 #### 已做(按时间倒序)
 
 | 模块 | commit | 状态 |
 |---|---|---|
-| 红线偏移盘点 + 收紧路径(extractive + 字面验) | `c68b122` `e82c341` | ✅ spec § 11.15 钉死 |
-| Collector v2 双采样基建(t0/t1/sample_interval_sec) | `896c9ea` | ✅ |
-| info+fire severity 保留(撤销强转 warning) | `3c1e54a` | ✅ |
-| 撤掉阶段化字段(audit.phase1_pass 等)· 用 `_v2.checks + audit.pass` 联合判定 | `d396276` | ✅ |
-| rule-engine v2 接进 cli-diagnose 主路径 · 5 条 mongo phase1 规则真 fire | `1a1dfdd` | ✅ |
-| Phase 1 KB 三关审计 · 349 条全过 audit.pass(220 verified_literal + 129 verified_replaced)· 5 条入 _v2 | `5ecb528` | ✅ |
-| 鲲鹏 / ARM / openEuler / OS CheckFn(35 条 TS 硬码) | (历史) | ✅ 一直 enabled=1 |
-| Mongo CheckFn(15 条 TS 硬码) | (历史) | ✅ 一直 enabled=1 |
+| **v1.0 红线最终闸** · footer 渲染适配 KB 强覆盖 · 字面 100% | plugin `c81fa1b` `76cc833` | ✅ § 11.19 |
+| **v1.0 P0 红线收紧** · KB 重建 1568 verified · cleaner v5 + audit-citations + kb-build · slim rules.json | plugin `7766509` | ✅ § 11.16/11.19 |
+| Phase 2 step 2 · `rate()` / `baseline()` 内置函数 + baseline-store 持久化 | (合并入 `7766509`) | ✅ § 11.17 |
+| Phase 2 step 1 · collector v2 双采样基建 | `896c9ea` | ✅ § 11.14 |
+| Phase 1 · 5 条 v2 规则真 fire · rule-engine v2 接进主路径 | `5ecb528` `1a1dfdd` | ✅ |
+| 鲲鹏 / ARM / openEuler / OS / mongo CheckFn(50 条 TS 硬码) | (历史) | ✅ 一直 enabled=1 |
 
-**当前 enabled=1 自动 fire 规则:55 条**(50 CheckFn + 5 v2)。其中 33 条是鲲鹏/OS/ARM/openEuler 层 · 17 条 mongo CheckFn · 5 条 mongo v2。
+**plugin 仓 PR #5** = `https://github.com/zlxtqbdgdgd/ohsql-plugin/pull/5` · base: main(`f89cb55`) · head: `c81fa1b` · rebased onto v0.7/v0.8/v0.9 之后 · validate 全过 · 字面 100%。
 
 #### 待做(优先级降序)
 
-##### P0 · 红线收紧 — Phase 2 前必做
-
-**红线**: rules.json + sqlite **不存在 LLM 自由编造或改写的内容** · 用户必须字面溯源到原始文档。
-
-**当前偏移 ~3228 处**(详 § 11.15):
-- rules.json: `metric_expr` / `threshold` / `reason` / `recommend` / `fix` × 349 + `_v2.notes` / `_v2.structuring_confidence` × 5 = 1755 处
-- sqlite knowledge: 1822 facts 里 1473 是 LLM paraphrase
-
-**收紧路径**(唯一守红线方案 · 详 § 11.15):
-- 字段值改造:`reason / recommend / fix / threshold` 从 string 改成 `{quote, source_url, verified}` 三元组
-- cleaner v5 跑 349 条 extractive(只截字面 · 不许改写)+ audit-citations 同款字面验
-- 删字段:`metric_expr` / `_v2.notes` / `_v2.structuring_confidence`(不参与运行时)
-- 重建 sqlite `knowledge` 表 · 8 类 fact 重抽全 verified
-- 报告 template fallback:字段未 verified 时显 `source.quote` 主引文
-
-工作量:1-2 天 + LLM 费用。
-
-##### P1 · Phase 2 主任务(红线收紧后)
+##### P1 · Phase 2 step 3 主任务(15 条 D 类规则结构化 · 真值已不冲突)
 
 | step | 内容 | 状态 |
 |---|---|---|
-| 1 | collector v2 双采样基建 | ✅ 已做(commit `896c9ea`)|
-| 2 | rule-engine v3 加 `rate(metric, '5s')` + `baseline_*` + 单测 | ⏳ |
-| 3 | cleaner v6 加 rate-aware prompt · 重洗 D 类规则(估 50 条) | ⏳ |
-| 4 | 字段白名单加类型(int/string/boolean/ratio · § 11.10 #1) | ⏳ |
-| 5 | 整合入库 + 测试 | ⏳ |
+| 3 | cleaner v5 加 rate-aware structuring prompt · 重洗 raw rules 含 `rate(`/`avg(`/`window(` 的 ~30 条 | ⏳ |
+| 4 | 字段白名单加类型(int/string/boolean/ratio · § 11.10 #1)· 已生成 typed JSON 待消费 | ⏳ |
+| 5 | 整合入库 + 真机端到端 + 回归 | ⏳ |
 
-预期 enabled=1 fire 数:55 → 105。**鲲鹏 / OS 层 35 条 CheckFn 不动 · Phase 2 只重洗 mongo 层**。
+实测预期(§ 11.17 探路): 14 候选 → 真环境 + 跨模型筛 = ~3-5 条新 v2 入库 · fire 数 55 → ~58。**不是 +50 · 是 +5**(原计划 50 是 spec 历史草稿 · 实际 raw rules 91% 字段虚构无法精确量化)。
 
-##### P2 · 长期(Phase 3 / 4)
+##### P2 · 工程债清账
 
-| 工程债 | 说明 |
-|---|---|
-| 重复规则系统去重 | subagent 揪出 4 对(§ 11.10 #2)· 按 source.url + reason TF-IDF 聚类 |
-| rate-baseline 持久化层 | `~/.ohsql/perf-kp-sql/baselines/<host>.json`(§ 11.10 #3) |
-| 退场规则显式 `_runtime_excluded` 字段 | 当前是隐式的(§ 11.12 #5) |
-| 真实数据回放测试集 | 周期性拉真 mongo dump 跑回归 |
+| 工程债 | 说明 | 优先级 |
+|---|---|---|
+| 3 条 fire 规则 KB 重抽 | `os.vm.dirty_ratio` / `os.vm.max_map_count` / `kunpeng.net.tcp_keepalive_time_strict` 因 attribution 错被删 facts · 重跑 cleaner v5 即可补 | 高 · 30 分钟 |
+| 9 条 CheckFn KB 缺 facts | TS 用 `KUNPENG_REFS` 常量引用 url · grep regex 没识别 | 中 |
+| 重复规则系统去重 | subagent 揪出 4 对(§ 11.10 #2) | 低 |
+| rate-baseline 持久化层 ✅ | `~/.ohsql/perf-kp-sql/baselines/<host>.json`(§ 11.17 已实装) | 已做 |
+| 退场规则显式 `_runtime_excluded` ✅ | 277 条已显式标(§ 11.18 已做) | 已做 |
+| 真实数据回放测试集 | 周期性拉真 mongo dump 跑回归 | 低 |
+| Phase 3 · CheckFn TS 源码硬码字符串删除 | 已用 KB 强覆盖让用户看不到(用户体验等价) · 源码层面工程债 | 低 |
 
 #### 当前阻塞
 
-无 · 所有 P0 / P1 / P2 都待用户决策启动。
+无 · PR #5 已 push · 待 review + merge。
 
 #### 接力清单(下个 agent 必读)
 
 1. 读本节 § 11.0(就这一节够了)
-2. 读 `CLAUDE.md`(项目规范 · skill 定位 · 命令 / 架构)
-3. P0 / P1 启动前先跑 § 11.11 核对清单(vitest 126 / sqlite 5 表 / 真环境连通)
-4. **不要**在 rules.json / sqlite 加阶段化标记(`phase1_pass` / `roundN_*`)— memory `feedback_no_phase_tagged_metadata.md`
-5. **不要**让 LLM 干 abstractive(改写)· 只能 extractive(字面截取)— § 11.15 红线
-6. **保护**鲲鹏 / OS 层规则 — Phase 2 重洗只针对 mongo · 不动鲲鹏 35 条 CheckFn
+2. 读 § 11.16 + § 11.17 + § 11.19(P0 + Phase 2 + v1.0 字面闸完工档案)
+3. 读 `CLAUDE.md`(项目规范)
+4. **任何新加的 fact** 必须过 `audit-citations.ts --extractive-input` 字面验才入 KB
+5. **任何 CheckFn 改造** 禁止新加 paraphrase 字符串字段 · 留 finding({...}) 不带 reason/recommendations 让 enrichResultsFromKb 注入
+6. 跑完诊断必跑 `tools/audit-report-grounding.mjs <diag.json>` · pass rate 必须 100% 才算红线兜住
+7. **不要**让 LLM 干 abstractive(改写)· 只能 extractive(字面截取)— § 11.15 红线
+8. **保护**鲲鹏 / OS 层 50 CheckFn — TS 注册表(`sharedChecks` + `mongoChecks`)是注册中心 · 不进 sqlite
 
 ---
 
