@@ -35,8 +35,8 @@ argument-hint: "host=<ip> user=<user> (privateKeyPath=<path>|password=<pw>) [eng
 - **Collect** — local shell + `node ${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/scripts/ssh.mjs --op exec` (内部 spawn 本地 OpenSSH `ssh` · ControlMaster 多路复用 · 密码走 SSH_ASKPASS · key 走 -i)运行 per-engine batch commands on the remote host
 - **Persist** — write stdout to `~/.perf-kp-sql/tmp/perf-kp-sql-<engine>-{os,db}-<ts>.txt`
   - 不用 `/tmp/`(sandboxes vary)
-  - 不用 `~/.ohsql/tmp/`(ohsql harness 把整棵 `~/.ohsql/` 当 session 状态区,Write tool 报告 success 但子进程 read 看不到 → ENOENT)
-  - 用 plugin-自有 namespace `~/.perf-kp-sql/`,跨 Claude Code / Codex CLI / ohsql 三家 harness 都不被劫持
+  - 不用 `~/.ohsql/tmp/`(在 OH-SQL 0.36.x 上**实测观察到** Write tool 报 success 但紧接的 Bash 子进程 read 同路径立即 ENOENT 的失配现象;OH-SQL 0.51.0 源码读了 `FileWriteTool` 是直 `writeFileSync` · **真因未确认** · 可能与 agent 实际传入的 path 与 Write 报告值字面差异 / 未做的 mkdir 先决条件 / 截断显示掩盖的 typo 有关。无论根因为何,挪出 `~/.ohsql/` 命名空间是防御性正确的)
+  - 用 plugin-自有 namespace `~/.perf-kp-sql/`(没有任何 harness 声明拥有这个目录,跨 Claude Code / Codex CLI / OH-SQL 三家都不会被劫持)
 - **Analyze** — local shell: `node ${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/scripts/diagnose.mjs --os-file ... --db-file ... --engine <name>`
 - **Knowledge base** — read / grep over `${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/data/<engine>/` + `data/common/`
 - **Flamegraph** — local shell: `node ${CLAUDE_PLUGIN_ROOT:-$OHSQL_PLUGIN_ROOT}/scripts/capture-flamegraph.mjs ...` (内部自定位 cpu-flamegraph 插件,跨 harness 兼容)
