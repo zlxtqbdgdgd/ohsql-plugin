@@ -12,7 +12,7 @@
  * JSON-in / JSON-out 契约 · 与 ssh.mjs / kb.mjs 同模式。
  */
 
-import { spawnSync, execSync } from "node:child_process";
+import { spawnSync, execSync, spawn } from "node:child_process";
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { resolve, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -87,6 +87,40 @@ function nlmJson(args, opts) {
   }
 }
 
+/** async spawn — 返回 Promise<{status, stdout, stderr}> */
+function nlmExecAsync(args, { timeoutMs = 60_000 } = {}) {
+  return new Promise((resolve) => {
+    const child = spawn("notebooklm", args, { timeout: timeoutMs });
+    let stdout = "", stderr = "";
+    child.stdout?.on("data", (d) => (stdout += d));
+    child.stderr?.on("data", (d) => (stderr += d));
+    child.on("close", (code) => resolve({ status: code, stdout: stdout.trim(), stderr: stderr.trim() }));
+    child.on("error", (e) => resolve({ status: 1, stdout: "", stderr: e.message }));
+  });
+}
+
+/** async spawn + JSON parse */
+async function nlmJsonAsync(args, opts) {
+  const r = await nlmExecAsync([...args, "--json"], opts);
+  if (r.status !== 0) return { ok: false, raw: r };
+  try {
+    return { ok: true, data: JSON.parse(r.stdout), raw: r };
+  } catch {
+    return { ok: false, raw: r };
+  }
+}
+
+/** 并发执行，限制并发度 */
+async function concurrentBatch(items, concurrency, fn) {
+  const results = [];
+  for (let i = 0; i < items.length; i += concurrency) {
+    const batch = items.slice(i, i + concurrency);
+    const batchResults = await Promise.all(batch.map(fn));
+    results.push(...batchResults);
+  }
+  return results;
+}
+
 function checkAuth() {
   const r = nlmExec(["auth", "check", "--test"], { timeoutMs: 15_000 });
   return r.status === 0;
@@ -116,7 +150,7 @@ function opCheck() {
 
 // ── op: setup ────────────────────────────────────────────────────────
 
-function opSetup(urlsFile) {
+async function opSetup(urlsFile) {
   // Step 9: install pip packages
   console.error("→ 检查 notebooklm CLI...");
   if (!isCliInstalled()) {
@@ -209,7 +243,7 @@ print(json.dumps({"ok": True, "cookie_count": len(cookies)}))
     if (notebookId) {
       const listR = nlmJson(["list"]);
       if (listR.ok) {
-        const nbs = Array.isArray(listR.data) ? listR.data : listR.data?.notebooks ?? [];
+        const nbs = listR.data?.notebooks ?? (Array.isArray(listR.data) ? listR.data : []);
         const found = nbs.some((nb) => nb.id === notebookId || nb.notebook_id === notebookId);
         if (!found) {
           console.error(`    notebook ${notebookId} 已不存在,重新创建`);
@@ -226,7 +260,16 @@ print(json.dumps({"ok": True, "cookie_count": len(cookies)}))
         results[domain] = { ok: false, error: "创建失败" };
         continue;
       }
-      notebookId = createR.data?.id ?? createR.data?.notebook_id;
+      notebookId = createR.data?.notebook?.id ?? createR.data?.id ?? createR.data?.notebook_id;
+      if (!notebookId) {
+        // fallback: search by name in list
+        const fallbackList = nlmJson(["list"]);
+        if (fallbackList.ok) {
+          const nbs = fallbackList.data?.notebooks ?? (Array.isArray(fallbackList.data) ? fallbackList.data : []);
+          const match = nbs.find((nb) => nb.title === notebook_name);
+          if (match) notebookId = match.id;
+        }
+      }
       if (!notebookId) {
         console.error(`    无法获取 notebook id`);
         results[domain] = { ok: false, error: "无法获取 id" };
@@ -251,20 +294,22 @@ print(json.dumps({"ok": True, "cookie_count": len(cookies)}))
       }
     }
 
-    // add new URLs (batch of 5)
+    // add new URLs (concurrent, batch of 5)
     const addedUrls = [...(cfg.notebooks[domain]?.urls ?? []).filter((u) => plannedUrlSet.has(u.url))];
-    for (let i = 0; i < toAdd.length; i += 5) {
-      const batch = toAdd.slice(i, i + 5);
-      const promises = batch.map((urlEntry) => {
-        const r = nlmJson(["source", "add", urlEntry.url]);
+    if (toAdd.length > 0) {
+      console.error(`    并发添加 ${toAdd.length} 个 URL (每批 5 个)...`);
+      const addResults = await concurrentBatch(toAdd, 5, async (urlEntry) => {
+        const r = await nlmJsonAsync(["source", "add", urlEntry.url]);
         if (r.ok) {
-          const sourceId = r.data?.id ?? r.data?.source_id ?? null;
-          addedUrls.push({ url: urlEntry.url, source_id: sourceId });
+          const sourceId = r.data?.source?.id ?? r.data?.id ?? r.data?.source_id ?? null;
           return { url: urlEntry.url, ok: true, source_id: sourceId };
         }
         console.error(`    添加 URL 失败: ${urlEntry.url} — ${r.raw.stderr}`);
-        return { url: urlEntry.url, ok: false };
+        return { url: urlEntry.url, ok: false, source_id: null };
       });
+      for (const ar of addResults) {
+        if (ar.ok) addedUrls.push({ url: ar.url, source_id: ar.source_id });
+      }
     }
 
     cfg.notebooks[domain] = {
@@ -480,7 +525,7 @@ function opQueryBatch(fromDiagnose, hwArch) {
 
 // ── op: add-domain ───────────────────────────────────────────────────
 
-function opAddDomain(domain, urlsFile) {
+async function opAddDomain(domain, urlsFile) {
   if (!domain) fatal("--domain required");
   if (!isCliInstalled()) fatal("notebooklm CLI 未安装");
 
@@ -510,7 +555,16 @@ function opAddDomain(domain, urlsFile) {
   if (!notebookId) {
     const createR = nlmJson(["create", notebook_name]);
     if (!createR.ok) fatal(`创建 notebook '${notebook_name}' 失败: ${createR.raw.stderr}`);
-    notebookId = createR.data?.id ?? createR.data?.notebook_id;
+    notebookId = createR.data?.notebook?.id ?? createR.data?.id ?? createR.data?.notebook_id;
+    if (!notebookId) {
+      // fallback: search by name in list
+      const fallbackList = nlmJson(["list"]);
+      if (fallbackList.ok) {
+        const nbs = fallbackList.data?.notebooks ?? (Array.isArray(fallbackList.data) ? fallbackList.data : []);
+        const match = nbs.find((nb) => nb.title === notebook_name);
+        if (match) notebookId = match.id;
+      }
+    }
     if (!notebookId) fatal("无法获取 notebook id");
   }
 
@@ -529,14 +583,17 @@ function opAddDomain(domain, urlsFile) {
   const addedUrls = [...(cfg.notebooks[domain]?.urls ?? []).filter((u) => plannedUrlSet.has(u.url))];
   const urlResults = [];
 
-  for (let i = 0; i < toAdd.length; i += 5) {
-    const batch = toAdd.slice(i, i + 5);
-    for (const urlEntry of batch) {
-      const r = nlmJson(["source", "add", urlEntry.url]);
-      const sourceId = r.ok ? (r.data?.id ?? r.data?.source_id ?? null) : null;
+  if (toAdd.length > 0) {
+    console.error(`  并发添加 ${toAdd.length} 个 URL (每批 5 个)...`);
+    const addResults = await concurrentBatch(toAdd, 5, async (urlEntry) => {
+      const r = await nlmJsonAsync(["source", "add", urlEntry.url]);
+      const sourceId = r.ok ? (r.data?.source?.id ?? r.data?.id ?? r.data?.source_id ?? null) : null;
       const status = r.ok ? "PENDING" : "FAILED";
-      addedUrls.push({ url: urlEntry.url, source_id: sourceId });
-      urlResults.push({ url: urlEntry.url, source_id: sourceId, status });
+      return { url: urlEntry.url, source_id: sourceId, status, ok: r.ok };
+    });
+    for (const ar of addResults) {
+      addedUrls.push({ url: ar.url, source_id: ar.source_id });
+      urlResults.push({ url: ar.url, source_id: ar.source_id, status: ar.status });
     }
   }
 
@@ -583,22 +640,24 @@ const { values } = parseArgs({
   },
 });
 
-switch (values.op) {
-  case "check":
-    opCheck();
-    break;
-  case "setup":
-    opSetup(values["urls-file"]);
-    break;
-  case "query":
-    opQuery(values.domain, values.query);
-    break;
-  case "query-batch":
-    opQueryBatch(values["from-diagnose"], values["hw-arch"]);
-    break;
-  case "add-domain":
-    opAddDomain(values.domain, values["urls-file"]);
-    break;
-  default:
-    fatal(`未知 op: ${values.op}。支持: check | setup | query | query-batch | add-domain`);
-}
+void (async () => {
+  switch (values.op) {
+    case "check":
+      opCheck();
+      break;
+    case "setup":
+      await opSetup(values["urls-file"]);
+      break;
+    case "query":
+      opQuery(values.domain, values.query);
+      break;
+    case "query-batch":
+      opQueryBatch(values["from-diagnose"], values["hw-arch"]);
+      break;
+    case "add-domain":
+      await opAddDomain(values.domain, values["urls-file"]);
+      break;
+    default:
+      fatal(`未知 op: ${values.op}。支持: check | setup | query | query-batch | add-domain`);
+  }
+})();
