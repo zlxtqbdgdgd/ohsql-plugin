@@ -17,7 +17,7 @@ import Database from "better-sqlite3";
 import * as sqliteVec from "sqlite-vec";
 import { parseArgs } from "node:util";
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { dirname, join, resolve } from "node:path";
 
@@ -599,31 +599,8 @@ function runStats(values: Record<string, string | boolean | undefined>): void {
     return;
   }
 
-  // CheckFn 计数 · 从 TS 源码 grep(单一真源 = src/.../legacy-checks.ts + engines/mongo/checks.ts)
-  try {
-    const skillRoot = dirname(fileURLToPath(import.meta.url)).replace(/\/scripts$/, "").replace(/\/src$/, "");
-    const tsFiles = [
-      join(skillRoot, "src/shared/legacy-checks.ts"),
-      join(skillRoot, "src/engines/mongo/checks.ts"),
-    ];
-    const cfDocUrls = new Set<string>();
-    for (const f of tsFiles) {
-      if (!existsSync(f)) continue;
-      const src = readFileSync(f, "utf8");
-      const blocks = src.split(/^(?:export\s+)?const\s+check_\w+\s*:\s*CheckFn\s*=\s*/m);
-      for (const block of blocks) {
-        const idM = block.match(/(?:const\s+)?id\s*[:=]\s*['"]([\w.-]+)['"]/);
-        if (idM && !checkFnIds.includes(idM[1])) checkFnIds.push(idM[1]);
-        const urlMs = [...block.matchAll(/url\s*:\s*['"](https?:\/\/[^'"]+)['"]/g)];
-        for (const m of urlMs) { cfDocUrls.add(m[1]); allDocUrls.add(m[1]); }
-      }
-    }
-    checkFnIds.sort();
-    checkFnCount = checkFnIds.length;
-    checkFnDocsCount = cfDocUrls.size;
-  } catch {
-    // CheckFn 解析失败 · 继续(显示 0)
-  }
+  // Phase 1 重构(M2):CheckFn 体系已删除 · checkFnIds/checkFnCount/checkFnDocsCount 保持 0 ·
+  // M3 重写时按 distill-v2 case 体系重新统计。
 
   try {
     const factsRow = querySqliteCli(
