@@ -27,6 +27,7 @@ import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { diagnose as runDiagnose } from "./cli-diagnose/index.js";
 import type { Snapshot } from "./cli-diagnose/types.js";
+import { callNotebookLm } from "./cli-diagnose/match-nlm.js";
 import { renderReport } from "./report.js";
 
 async function runCli(): Promise<void> {
@@ -37,12 +38,14 @@ async function runCli(): Promise<void> {
       query: { type: "string" },
       out: { type: "string" },
       html: { type: "string" },
+      nlm: { type: "boolean", default: false },
+      "nlm-script": { type: "string" }, // notebooklm.mjs 路径(可选 · 默认 scripts/notebooklm.mjs)
     },
   });
 
   if (!values.snapshot || !values.kb) {
     console.error(
-      'Usage: diagnose.mjs --snapshot <snapshot.json> --kb <knowledge.sqlite> [--query "..."] [--out <out.json>] [--html <out.html>]',
+      'Usage: diagnose.mjs --snapshot <snapshot.json> --kb <knowledge.sqlite> [--query "..."] [--out <out.json>] [--html <out.html>] [--nlm]',
     );
     process.exit(2);
   }
@@ -54,13 +57,41 @@ async function runCli(): Promise<void> {
     query: values.query,
   });
 
+  // M6 路径 E · NotebookLM 扩展查询(可选 · 优雅降级)
+  let nlmReason: string | undefined;
+  let nlmExpansions: Map<string, { answer: string; references?: Array<{ cited_text: string }> }> | undefined;
+  if (values.nlm) {
+    const nlmScript =
+      values["nlm-script"] ??
+      resolve(fileURLToPath(import.meta.url), "../../scripts/notebooklm.mjs");
+    const hwArch = (snapshot.platform || "").includes("kunpeng") ? "kunpeng" : "x86_64";
+    const nlmResult = callNotebookLm({
+      scriptPath: nlmScript,
+      diagnoseResult: result,
+      hwArch,
+    });
+    if (nlmResult.ok) {
+      nlmExpansions = nlmResult.expansions;
+    } else {
+      nlmReason = nlmResult.reason;
+    }
+  }
+
   if (values.out) {
     mkdirSync(dirname(resolve(values.out)), { recursive: true });
     writeFileSync(resolve(values.out), JSON.stringify(result, null, 2));
   }
   if (values.html) {
     mkdirSync(dirname(resolve(values.html)), { recursive: true });
-    writeFileSync(resolve(values.html), renderReport({ snapshot, matched: result.matched, rag_context: result.rag_context }));
+    writeFileSync(
+      resolve(values.html),
+      renderReport({
+        snapshot,
+        matched: result.matched,
+        rag_context: result.rag_context,
+        notebooklm_expansions: nlmExpansions,
+      }),
+    );
   }
   if (!values.out && !values.html) {
     console.log(JSON.stringify(result, null, 2));
@@ -70,10 +101,16 @@ async function runCli(): Promise<void> {
   const bp = result.matched.filter((r) => r.path === "A").length;
   const df = result.matched.filter((r) => r.path === "B").length;
   const flame = result.matched.filter((r) => r.path === "C").length;
+  const nlmStr = values.nlm
+    ? nlmExpansions
+      ? ` · NotebookLM 注入 ${nlmExpansions.size} 条`
+      : ` · NotebookLM 跳过 (${nlmReason ?? "unknown"})`
+    : "";
   console.log(
     `命中 ${result.matched.length} 条 · BP ${bp} / DF ${df} / Flame ${flame} · rag_context ${result.rag_context?.length ?? 0} 条` +
       (values.out ? ` · JSON 写入 ${values.out}` : "") +
-      (values.html ? ` · HTML 写入 ${values.html}` : ""),
+      (values.html ? ` · HTML 写入 ${values.html}` : "") +
+      nlmStr,
   );
 }
 
