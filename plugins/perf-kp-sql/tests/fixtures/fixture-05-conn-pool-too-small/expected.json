@@ -1,0 +1,43 @@
+{
+  "fixture_id": "fixture-05-conn-pool-too-small",
+  "scenario_zh": "Java driver maxPoolSize=40 严重小于应用层典型并发 200 (比例 0.20 · 远低于 1.10) · DB 端 CPU/load 都很闲 (user 18% · query 仅 280/s · 期望 1800/s) · 但客户端 pool checkout wait p99 高达 4800ms · waitQueueSize 累积 162 · 应用侧 p99 端到端 5100ms (DB 侧只 38ms) · 典型 maxPoolSize 太小限流",
+  "scenario_signals": [
+    "driver.maxPoolSize=40 vs typical_concurrent_requests=200 (比例 0.20 · 远 < 1.10)",
+    "DB 端 query QPS=280 远低于期望 1800 · CPU 18% 闲置",
+    "pool.checkout_wait_time_p99=4800ms · waitQueueSize_p99=162",
+    "app_side p99=5100ms vs read_p99_db_side=38ms · 等待几乎全在客户端排队"
+  ],
+  "expected_hits": [
+    {
+      "path": "A",
+      "case_id": "mongo-driver-connection-pool-size-110-115pct-concurrent-03",
+      "entry_kind": "best-practice",
+      "current_value": "maxPoolSize=40 · typical_concurrent_requests=200 · 比例 0.20",
+      "recommended_value": "connection pool size = 110-115% × typical concurrent database requests = 220-230",
+      "severity": "warning",
+      "reason_zh": "现场 maxPoolSize 远低于推荐起点 (110-115% × 200 = 220-230) · 仅为 0.20× · 池排队拉爆应用侧 p99"
+    },
+    {
+      "path": "B",
+      "case_id": "mongo-driver-pool-size-too-small-vs-concurrent-requests-02",
+      "entry_kind": "diagnostic-flow",
+      "trigger": "step 1 maxPoolSize=40 < 1.10 × 200 = 220 命中阈值 + parameter_causes 命中",
+      "linked_likely_cause": "parameter_causes[0]: driver maxPoolSize 未按 110-115% × 并发请求数 设置",
+      "abnormal_value_pattern_match": "< 1.10 × 应用层典型并发请求数"
+    }
+  ],
+  "expected_no_hits": [
+    "linux-mm-numactl-interleave-all-mongod-startup-07",
+    "linux-mm-vm-zone-reclaim-mode-disable-08",
+    "linux-mm-vm-swappiness-1-or-0-mongo-host-05",
+    "linux-thp-disabled-db-mem-fragmentation-bp-01",
+    "wt-cache-size-default-half-ram-minus-1g-01",
+    "os-net-tcp-keepalive-time-cloud-lb-120s-01",
+    "mongo-numa-cross-node-memory-degradation-04",
+    "mongo-os-vm-swappiness-default-60-aggressive-swap-05",
+    "mongo-network-tcp-keepalive-too-long-cloud-lb-drops-02",
+    "wt-app-thread-evict-assist-pressure-01",
+    "wt-eviction-trigger-app-thread-throttle-01"
+  ],
+  "no_hits_rationale_zh": "OS / mongod 端参数全部合规 · DB 侧 cache_size=60GB 也接近 (128-1)/2=63.5GB 推荐值 · 不应命中其他 case · 唯一异常在客户端 driver 连接池配置"
+}

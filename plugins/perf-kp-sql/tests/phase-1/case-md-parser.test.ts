@@ -11,7 +11,8 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { resolve, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import {
   parseFrontmatter,
@@ -22,16 +23,18 @@ import {
   assembleFlameSignatureData,
 } from "../../src/cli-kb/parser.js";
 
+const HERE = dirname(fileURLToPath(import.meta.url));
+
 const FIXTURE_BP = resolve(
-  __dirname,
+  HERE,
   "../../../../../docs/data/distill-v2/cases/_common/best-practice/www.mongodb.com__docs__manual__administration__production-notes.md",
 );
 const FIXTURE_DF = resolve(
-  __dirname,
+  HERE,
   "../../../../../docs/data/distill-v2/cases/mongodb/diagnostic-flow/www.mongodb.com__docs__manual__administration__production-notes.md",
 );
 const FIXTURE_FLAME = resolve(
-  __dirname,
+  HERE,
   "../../../../../docs/data/distill-v2/cases/_common/flame-signature/www.brendangregg.com__FlameGraphs__cpuflamegraphs.md",
 );
 
@@ -50,22 +53,22 @@ describe("parseFrontmatter", () => {
 });
 
 describe("splitCases", () => {
-  it("按 ## case_id 切多个 case (production-notes BP 应有 15 条)", () => {
+  it("按 ## case_id 切多个 case (production-notes BP 应有 13 条 · 去重后)", () => {
     const content = readFileSync(FIXTURE_BP, "utf8");
     const { body } = parseFrontmatter(content);
     const cases = splitCases(body);
-    assert.equal(cases.length, 15);
+    assert.equal(cases.length, 13);
     for (const c of cases) {
       assert.ok(c.caseId.length > 0);
       assert.ok(c.content.includes("## case_id:"));
     }
   });
 
-  it("DF production-notes 应有 6 个 case", () => {
+  it("DF production-notes 应有 5 个 case (去重后)", () => {
     const content = readFileSync(FIXTURE_DF, "utf8");
     const { body } = parseFrontmatter(content);
     const cases = splitCases(body);
-    assert.equal(cases.length, 6);
+    assert.equal(cases.length, 5);
   });
 
   it("Flame brendangregg cpu 只有 1 case", () => {
@@ -83,7 +86,7 @@ describe("parseCaseFields", () => {
     const cases = splitCases(body);
     const tcpKa = cases.find((c) => c.caseId.includes("tcp-keepalive-time"));
     assert.ok(tcpKa, "应当含 tcp_keepalive_time case");
-    const { fields, quotes } = parseCaseFields(tcpKa.content);
+    const { fields, quotes } = parseCaseFields(tcpKa!.content);
     assert.equal(fields.get("scope"), "linux-net");
     assert.equal(fields.get("recommendation_value"), "`net.ipv4.tcp_keepalive_time = 120`");
     assert.equal(fields.get("recommendation_layer"), "os-sysctl");
@@ -97,15 +100,17 @@ describe("assembleBestPracticeData", () => {
     const { fm, body } = parseFrontmatter(content);
     const cases = splitCases(body);
     const tcpKa = cases.find((c) => c.caseId.includes("tcp-keepalive-time"));
-    const data = assembleBestPracticeData(tcpKa, fm);
+    assert.ok(tcpKa, "应当含 tcp_keepalive_time case");
+    const data = assembleBestPracticeData(tcpKa!, fm);
 
     assert.ok(data.scenario);
     assert.ok(data.scenario.description_quote);
-    assert.match(data.scenario.description_quote, /TCP keepalive value is greater/);
+    assert.match(data.scenario.description_quote!, /TCP keepalive value is greater/);
 
     assert.ok(data.recommendation);
     assert.equal(data.recommendation.layer, "os-sysctl");
-    assert.match(data.recommendation.value, /tcp_keepalive_time/);
+    assert.ok(data.recommendation.value);
+    assert.match(data.recommendation.value!, /tcp_keepalive_time/);
 
     assert.ok(data.risk);
     assert.equal(data.risk.severity, "warning");
@@ -151,7 +156,8 @@ describe("assembleFlameSignatureData", () => {
     const data = assembleFlameSignatureData(c, fm);
 
     assert.equal(data.signature_type, "stack-pattern");
-    assert.match(data.pattern_regex, /sys_newfstatat|sys_getdents/);
+    assert.ok(data.pattern_regex);
+    assert.match(data.pattern_regex!, /sys_newfstatat|sys_getdents/);
     assert.equal(data.match_layer, "stack-frame-pattern");
 
     assert.ok(data.pattern_quote);

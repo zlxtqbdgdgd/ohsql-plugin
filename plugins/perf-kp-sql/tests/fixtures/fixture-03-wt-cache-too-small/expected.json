@@ -1,0 +1,55 @@
+{
+  "fixture_id": "fixture-03-wt-cache-too-small",
+  "scenario_zh": "64GB RAM 主机但 wiredTigerCacheSizeGB 被人工设到 0.25GB (256MB) · 严重过小 · cache usage 卡在 96% 持续触发 eviction_trigger · 应用线程被拉去做 eviction · read p99 抖到 920ms · 火焰图栈大量 __wt_cache_eviction_* 函数",
+  "scenario_signals": [
+    "wiredTigerCacheSizeGB=0.25 vs 推荐 max(0.5×(64-1), 0.256)=31.5GB",
+    "wt.cache.usage_ratio=0.96 持续 ≥ 0.95 触发阈值",
+    "wt.eviction.app_thread_time_ms_per_sec=740 (应用线程被拉去 evict)",
+    "火焰图含 __wt_cache_eviction_check / __wt_cache_eviction_worker / __wt_cache_eviction_app 高占比栈"
+  ],
+  "expected_hits": [
+    {
+      "path": "A",
+      "case_id": "wt-cache-size-default-half-ram-minus-1g-01",
+      "entry_kind": "best-practice",
+      "current_value": "storage.wiredTiger.engineConfig.cacheSizeGB=0.25",
+      "recommended_value": "wiredTigerCacheSizeGB = max(0.5 × (RAM - 1GB), 0.256GB) = max(31.5, 0.256) = 31.5GB",
+      "severity": "warning",
+      "reason_zh": "现场 cacheSize 0.25GB 严重低于推荐 31.5GB · WiredTiger 内部缓存基本无法覆盖工作集"
+    },
+    {
+      "path": "B",
+      "case_id": "wt-eviction-trigger-app-thread-throttle-01",
+      "entry_kind": "diagnostic-flow",
+      "trigger": "step 1 bytes_in_cache/maximum_bytes=0.96 持续 ≈ 0.95 命中阈值 + step 2 application thread time evicting > 0",
+      "linked_likely_cause": "non_parameter_causes[0]: cache size 配过小 · 工作集装不下",
+      "abnormal_value_pattern_match": "bytes_in_cache / maximum_bytes 持续 ≈ 0.95"
+    },
+    {
+      "path": "C",
+      "case_id": "wt-app-thread-evict-assist-pressure-01",
+      "entry_kind": "flame-signature",
+      "matched_pattern_regex": "^__wt_cache_eviction_.*",
+      "matched_frames": [
+        "__wt_cache_eviction_check (in stack with 8420 samples)",
+        "__wt_cache_eviction_worker (in stacks with 8420 + 3260 samples)",
+        "__wt_cache_eviction_app (in stack with 1180 samples)"
+      ],
+      "samples_share_pct_estimate": 96,
+      "reason_zh": "三条主栈累计 12860 / 总 13195 ≈ 97% 采样命中 ^__wt_cache_eviction_.* · 远超 5% 阈值 · 触发 flame signature"
+    }
+  ],
+  "expected_no_hits": [
+    "linux-mm-numactl-interleave-all-mongod-startup-07",
+    "linux-mm-vm-zone-reclaim-mode-disable-08",
+    "linux-mm-vm-swappiness-1-or-0-mongo-host-05",
+    "linux-thp-disabled-db-mem-fragmentation-bp-01",
+    "os-net-tcp-keepalive-time-cloud-lb-120s-01",
+    "mongo-driver-connection-pool-size-110-115pct-concurrent-03",
+    "mongo-numa-cross-node-memory-degradation-04",
+    "mongo-network-tcp-keepalive-too-long-cloud-lb-drops-02",
+    "mongo-os-vm-swappiness-default-60-aggressive-swap-05",
+    "mongo-driver-pool-size-too-small-vs-concurrent-requests-02"
+  ],
+  "no_hits_rationale_zh": "其他 OS/驱动相关参数都已合规 · 不应命中 NUMA / swap / THP / keepalive / 连接池相关 case"
+}

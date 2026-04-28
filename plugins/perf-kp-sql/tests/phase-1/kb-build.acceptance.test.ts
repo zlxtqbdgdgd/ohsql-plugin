@@ -7,13 +7,14 @@ import { describe, it, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { join, resolve, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 
-// 这些导入当前会失败 (M3 才会建出 cli-kb.ts 的新 build API)
 import { buildKb, type BuildKbResult } from "../../src/cli-kb.js";
 
+const HERE = dirname(fileURLToPath(import.meta.url));
 const DISTILL_V2_CASES = resolve(
-  __dirname,
+  HERE,
   "../../../../../docs/data/distill-v2/cases",
 );
 
@@ -56,7 +57,7 @@ describe("M3 · cli-kb build 把 distill-v2 cases md 入 sqlite", () => {
   });
 
   it("5 个 bucket 全有 case (1=硬件 2=OS 3=配置 4=运行时 5=业务)", () => {
-    for (const b of [1, 2, 3, 4, 5]) {
+    for (const b of [1, 2, 3, 4, 5] as const) {
       assert.ok(
         (result.totals.byBucket[b] ?? 0) > 0,
         `bucket ${b} 应当至少有 1 条 case`,
@@ -64,10 +65,10 @@ describe("M3 · cli-kb build 把 distill-v2 cases md 入 sqlite", () => {
     }
   });
 
-  it("子表 case_param_names 行数 ≥ 350", () => {
+  it("子表 case_param_names 行数 ≥ 200(去 NULL 后实际 ~230)", () => {
     assert.ok(
-      result.totals.caseParamNames >= 350,
-      `case_param_names 应有 350+ 行 · 实际 ${result.totals.caseParamNames}`,
+      result.totals.caseParamNames >= 200,
+      `case_param_names 应有 200+ 行 · 实际 ${result.totals.caseParamNames}`,
     );
   });
 

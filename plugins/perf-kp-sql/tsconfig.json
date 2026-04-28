@@ -16,7 +16,6 @@
   "exclude": [
     "node_modules",
     "data",
-    "scripts/**/*.mjs",
-    "tests/phase-1/**"
+    "scripts/**/*.mjs"
   ]
 }

@@ -1,0 +1,50 @@
+{
+  "fixture_id": "fixture-01-numa-misconfig",
+  "scenario_zh": "8 NUMA 节点服务器上 mongod 未走 numactl --interleave=all 启动 · 同时 vm.zone_reclaim_mode=1 错配 · 跨节点访问导致 read p99 显著抖动 (480ms vs p50 12ms) · numa_miss/foreign 比例高 · 启动日志含 NUMA warning",
+  "scenario_signals": [
+    "mongod startup log 含 'NUMA' warning 行",
+    "mongod 启动 command_line 不含 numactl",
+    "vm.zone_reclaim_mode=1 (推荐 0)",
+    "numa_miss_per_sec 与 numa_foreign_per_sec 都 > 17k",
+    "os.numa.local_node_alloc_pct=41 (跨节点访问占主导)"
+  ],
+  "expected_hits": [
+    {
+      "path": "A",
+      "case_id": "linux-mm-numactl-interleave-all-mongod-startup-07",
+      "entry_kind": "best-practice",
+      "current_value": "mongod 启动命令未含 numactl --interleave=all (config_dump.mongod_startup.numactl_interleave_all=false)",
+      "recommended_value": "numactl --interleave=all <mongod-cmd>",
+      "severity": "warning",
+      "reason_zh": "现场 mongod 直接启动 · 未配 memory interleave policy · 在 NUMA 机器上违反 BP"
+    },
+    {
+      "path": "A",
+      "case_id": "linux-mm-vm-zone-reclaim-mode-disable-08",
+      "entry_kind": "best-practice",
+      "current_value": "vm.zone_reclaim_mode=1",
+      "recommended_value": "vm.zone_reclaim_mode=0",
+      "severity": "warning",
+      "reason_zh": "NUMA 主机 zone reclaim 必须关 · 与 numactl 配套 · 现场为 1 偏离推荐 0"
+    },
+    {
+      "path": "B",
+      "case_id": "mongo-numa-cross-node-memory-degradation-04",
+      "entry_kind": "diagnostic-flow",
+      "trigger": "step 1 NUMA warning 命中 (mongo.startup_log.has_numa_warning=true) + parameter_causes 命中 (mongod 启动未走 numactl interleave)",
+      "linked_likely_cause": "parameter_causes[0]: 未配 memory interleave policy",
+      "abnormal_value_pattern_match": "直接 mongod 启动 · 未走 numactl interleave"
+    }
+  ],
+  "expected_no_hits": [
+    "linux-mm-vm-swappiness-1-or-0-mongo-host-05",
+    "linux-thp-disabled-db-mem-fragmentation-bp-01",
+    "os-net-tcp-keepalive-time-cloud-lb-120s-01",
+    "wt-cache-size-default-half-ram-minus-1g-01",
+    "mongo-driver-connection-pool-size-110-115pct-concurrent-03",
+    "wt-app-thread-evict-assist-pressure-01",
+    "mongo-os-vm-swappiness-default-60-aggressive-swap-05",
+    "mongo-network-tcp-keepalive-too-long-cloud-lb-drops-02"
+  ],
+  "no_hits_rationale_zh": "现场 swappiness=1 / THP=never / keepalive=120 / cache=120GB / 连接池正常 · 这些 BP/DF case 在该 fixture 不应被命中 · 防 false positive"
+}

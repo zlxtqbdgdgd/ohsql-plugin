@@ -1,0 +1,51 @@
+{
+  "fixture_id": "fixture-02-swap-thp",
+  "scenario_zh": "产线最经典隐患叠加 · vm.swappiness=60 默认值未调 + THP enabled=always / defrag=always · 64GB RAM 仅剩 1.8GB 空闲 · swap_in/out 4k+/s · pgmajfault 980/s · khugepaged 吃 8.4% CPU · mongod 启动日志含 THP warning · read p99 抖到 720ms",
+  "scenario_signals": [
+    "vm.swappiness=60 (默认偏离推荐 1)",
+    "transparent_hugepage_enabled=always (推荐 never)",
+    "transparent_hugepage_defrag=always (推荐 never)",
+    "swap_in/out > 3.8k/s · 持续在 swap",
+    "pgmajfault 高 (980/s)",
+    "mongod startup log 含 THP warning"
+  ],
+  "expected_hits": [
+    {
+      "path": "A",
+      "case_id": "linux-mm-vm-swappiness-1-or-0-mongo-host-05",
+      "entry_kind": "best-practice",
+      "current_value": "vm.swappiness=60",
+      "recommended_value": "vm.swappiness ∈ {0, 1}",
+      "severity": "warning",
+      "reason_zh": "现场 swappiness=60 是 distro 默认 · 让内核激进换页 · MongoDB 性能掉 · BP 推荐 0/1"
+    },
+    {
+      "path": "A",
+      "case_id": "linux-thp-disabled-db-mem-fragmentation-bp-01",
+      "entry_kind": "best-practice",
+      "current_value": "transparent_hugepage/enabled=always · transparent_hugepage/defrag=always",
+      "recommended_value": "transparent_hugepage/enabled=never AND transparent_hugepage/defrag=never",
+      "severity": "warning",
+      "reason_zh": "数据库场景 THP 必须关 · 现场两项都 always · 内存碎片放大 · 偏离 BP"
+    },
+    {
+      "path": "B",
+      "case_id": "mongo-os-vm-swappiness-default-60-aggressive-swap-05",
+      "entry_kind": "diagnostic-flow",
+      "trigger": "step 1 当前 vm.swappiness=60 命中阈值 (>1) + parameter_causes 命中 (默认 60 未调)",
+      "linked_likely_cause": "parameter_causes[0]: vm.swappiness 未调 (默认 60)",
+      "abnormal_value_pattern_match": "默认 60"
+    }
+  ],
+  "expected_no_hits": [
+    "linux-mm-numactl-interleave-all-mongod-startup-07",
+    "linux-mm-vm-zone-reclaim-mode-disable-08",
+    "mongo-numa-cross-node-memory-degradation-04",
+    "os-net-tcp-keepalive-time-cloud-lb-120s-01",
+    "mongo-network-tcp-keepalive-too-long-cloud-lb-drops-02",
+    "wt-cache-size-default-half-ram-minus-1g-01",
+    "mongo-driver-connection-pool-size-110-115pct-concurrent-03",
+    "wt-app-thread-evict-assist-pressure-01"
+  ],
+  "no_hits_rationale_zh": "现场单 NUMA 节点 + 已配 numactl · zone_reclaim=0 · keepalive=120 · cache=30GB 在 64GB RAM 上接近 (RAM-1)/2=31.5GB 推荐值 · 这些 case 不应命中"
+}

@@ -1,0 +1,63 @@
+{
+  "host": "fixture-04-host",
+  "platform": "linux-x86_64-generic",
+  "mongo_version": "7.0.5",
+  "deployment": {
+    "behind_cloud_lb": true,
+    "cloud_provider": "aws",
+    "lb_type": "ELB classic",
+    "lb_idle_timeout_sec": 60
+  },
+  "hardware": {
+    "cpu_model": "AWS m5.4xlarge (16 vCPU)",
+    "ram_gb": 64,
+    "numa_node_count": 1
+  },
+  "metrics": {
+    "os.cpu.user_pct": 22.4,
+    "os.cpu.sys_pct": 8.6,
+    "os.cpu.iowait_pct": 1.8,
+    "os.mem.total_gb": 64,
+    "os.mem.free_gb": 22,
+    "os.net.tcp_close_per_min": 380,
+    "os.net.tcp_reset_per_min": 95,
+    "os.net.established_conns": 1240,
+    "mongo.opcounters.query_per_sec": 2400,
+    "mongo.connection.current": 1240,
+    "mongo.connection.available": 64200,
+    "mongo.network.connection_drops_per_min": 47,
+    "mongo.client.errors.network_timeout_per_min": 28,
+    "mongo.client.errors.connection_reset_per_min": 31
+  },
+  "config_dump": {
+    "kernel_sysctl": {
+      "vm.swappiness": 1,
+      "vm.zone_reclaim_mode": 0,
+      "vm.dirty_ratio": 20,
+      "vm.dirty_background_ratio": 10,
+      "net.ipv4.tcp_keepalive_time": 7200,
+      "net.ipv4.tcp_keepalive_intvl": 75,
+      "net.ipv4.tcp_keepalive_probes": 9,
+      "net.core.somaxconn": 4096
+    },
+    "kernel_thp": {
+      "transparent_hugepage_enabled": "never",
+      "transparent_hugepage_defrag": "never"
+    },
+    "mongod_config": {
+      "storage.wiredTiger.engineConfig.cacheSizeGB": 30,
+      "net.maxIncomingConnections": 65536,
+      "operationProfiling.mode": "off"
+    },
+    "mongod_startup": {
+      "command_line": "numactl --interleave=all /usr/bin/mongod --config /etc/mongod.conf",
+      "wrapped_with_numactl": true,
+      "numactl_interleave_all": true
+    },
+    "filesystem": {
+      "/data/db.fs_type": "xfs",
+      "/data/db.mount_options": "rw,noatime,nobarrier"
+    }
+  },
+  "flamegraph_stacks": []
+}
