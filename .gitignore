@@ -26,7 +26,5 @@ plugins/perf-kp-sql/data/models/
 plugins/perf-kp-sql/_audit_counts.py
 plugins/perf-kp-sql/tools/audit_kb_urls.py
 
-# perf-kp-sql build artifacts
-plugins/perf-kp-sql/data/knowledge.sqlite
-plugins/perf-kp-sql/data/knowledge.sqlite-shm
-plugins/perf-kp-sql/data/knowledge.sqlite-wal
+# perf-kp-sql sqlite WAL/SHM (主体 knowledge.sqlite IS committed · 随 plugin install 发布)
+# (顶部 *.sqlite-wal / *.sqlite-shm 通用规则已覆盖 · 这里不再重复)
