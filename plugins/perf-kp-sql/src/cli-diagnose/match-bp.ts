@@ -15,9 +15,14 @@ interface BpData {
 }
 
 // 简单字面值等价判定: current 是否在 recommendation 里出现
-function valueMatches(current: unknown, recommendation: string | null | undefined): boolean {
-  if (!recommendation) return false;
-  const rec = String(recommendation);
+// 返回 'skip' 表示 recommendation 是公式/占位符/NULL · 无法自动判断违反 · 不应命中(降 false positive)
+function valueMatches(current: unknown, recommendation: string | null | undefined): boolean | "skip" {
+  if (!recommendation) return "skip";
+  const rec = String(recommendation).trim();
+  // 公式 / 范围 / 占位符 / NULL → 跳过
+  if (/\(NULL|RAM|GB\)|max\(|min\(|TBD|N\/A|\.\.\./i.test(rec)) return "skip";
+  if (rec.length === 0) return "skip";
+
   const cur = String(current).trim();
   if (rec === cur) return true;
   // 数字直接相等
@@ -54,7 +59,9 @@ export function matchBpRecommendations(db: Database.Database, snapshot: Snapshot
 
       const data = JSON.parse(row.best_practice_data ?? "{}") as BpData;
       const recValue = data.recommendation?.value ?? null;
-      if (valueMatches(currentValue, recValue)) continue; // 已合规 · 跳过
+      const m = valueMatches(currentValue, recValue);
+      if (m === true) continue; // 已合规 · 跳过
+      if (m === "skip") continue; // recommendation 是公式/NULL · 无法自动判断 · 跳过
 
       const severity = (data.risk?.severity as "warning" | "critical" | undefined) ?? "warning";
       const reason =

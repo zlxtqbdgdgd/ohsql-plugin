@@ -27,6 +27,7 @@ import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { diagnose as runDiagnose } from "./cli-diagnose/index.js";
 import type { Snapshot } from "./cli-diagnose/types.js";
+import { renderReport } from "./report.js";
 
 async function runCli(): Promise<void> {
   const { values } = parseArgs({
@@ -35,12 +36,13 @@ async function runCli(): Promise<void> {
       kb: { type: "string" },
       query: { type: "string" },
       out: { type: "string" },
+      html: { type: "string" },
     },
   });
 
   if (!values.snapshot || !values.kb) {
     console.error(
-      "Usage: diagnose.mjs --snapshot <snapshot.json> --kb <knowledge.sqlite> [--query \"...\"] [--out <out.json>]",
+      'Usage: diagnose.mjs --snapshot <snapshot.json> --kb <knowledge.sqlite> [--query "..."] [--out <out.json>] [--html <out.html>]',
     );
     process.exit(2);
   }
@@ -52,14 +54,27 @@ async function runCli(): Promise<void> {
     query: values.query,
   });
 
-  const outJson = JSON.stringify(result, null, 2);
   if (values.out) {
     mkdirSync(dirname(resolve(values.out)), { recursive: true });
-    writeFileSync(resolve(values.out), outJson);
-    console.log(`命中 ${result.matched.length} 条 (A/B/C 路径) · rag_context ${result.rag_context?.length ?? 0} 条 · 写入 ${values.out}`);
-  } else {
-    console.log(outJson);
+    writeFileSync(resolve(values.out), JSON.stringify(result, null, 2));
   }
+  if (values.html) {
+    mkdirSync(dirname(resolve(values.html)), { recursive: true });
+    writeFileSync(resolve(values.html), renderReport({ snapshot, matched: result.matched, rag_context: result.rag_context }));
+  }
+  if (!values.out && !values.html) {
+    console.log(JSON.stringify(result, null, 2));
+    return;
+  }
+
+  const bp = result.matched.filter((r) => r.path === "A").length;
+  const df = result.matched.filter((r) => r.path === "B").length;
+  const flame = result.matched.filter((r) => r.path === "C").length;
+  console.log(
+    `命中 ${result.matched.length} 条 · BP ${bp} / DF ${df} / Flame ${flame} · rag_context ${result.rag_context?.length ?? 0} 条` +
+      (values.out ? ` · JSON 写入 ${values.out}` : "") +
+      (values.html ? ` · HTML 写入 ${values.html}` : ""),
+  );
 }
 
 if (

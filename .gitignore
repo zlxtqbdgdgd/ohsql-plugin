@@ -25,3 +25,8 @@ plugins/perf-kp-sql/data/models/
 # 一次性 audit 的临时 python 脚本
 plugins/perf-kp-sql/_audit_counts.py
 plugins/perf-kp-sql/tools/audit_kb_urls.py
+
+# perf-kp-sql build artifacts
+plugins/perf-kp-sql/data/knowledge.sqlite
+plugins/perf-kp-sql/data/knowledge.sqlite-shm
+plugins/perf-kp-sql/data/knowledge.sqlite-wal
