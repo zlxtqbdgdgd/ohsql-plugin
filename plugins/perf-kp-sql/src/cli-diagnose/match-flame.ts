@@ -55,7 +55,10 @@ export function matchFlameSignatures(db: Database.Database, snapshot: Snapshot):
     }
     let matchedSamples = 0;
     for (const s of stacks) {
-      if (regex.test(s.stack)) matchedSamples += s.samples;
+      // stack 是 ';' 分隔的多帧 · pattern_regex 的 ^ 是栈帧开头(不是整 stack 开头)
+      // 按 ';' split 后逐帧 test
+      const frames = s.stack.split(";");
+      if (frames.some((f) => regex.test(f))) matchedSamples += s.samples;
     }
     const pct = (matchedSamples / totalSamples) * 100;
     if (pct < DEFAULT_HOTNESS_THRESHOLD_PCT) continue;

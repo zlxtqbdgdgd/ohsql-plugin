@@ -2,6 +2,53 @@
 
 All notable changes to the ohsql-plugin marketplace.
 
+## [1.2.0] — 2026-04-28
+
+### perf-kp-sql 0.24.0 → 0.25.0 — Phase 1 KB 重构
+
+**老规则系统(44 条 hand-crafted CheckFn + 老 sqlite knowledge/rules 表)整体替换为 distill-v2 蒸馏 case 体系(202 case)。**
+
+#### Added
+
+- **新 KB schema** (`src/cli-kb/schema.ts`):单 `cases` 表 + 4 张子表(`case_param_names` / `case_keywords` / `case_inferred_fields` / `case_links`) + FTS5 trigram (`cases_fts`) + sqlite-vec 384 dim (`cases_vec`) + `kb_meta`
+- **distill-v2 cases md → sqlite** 入库流程 (`src/cli-kb/parser.ts` + `src/cli-kb/build.ts`):yaml frontmatter + `## case_id` 切块 + 装配 entry_kind 专属 JSON · `scope/engine/symptom_category → bucket 1-5` 路由 · 4 类 lint · sqlite-vec embedding (`@xenova/transformers all-MiniLM-L6-v2`)
+- **cli-diagnose 4 路径** (`src/cli-diagnose/`):
+  - 路径 A · 配置审计 (BP):config_dump param 偏离 BP recommendation
+  - 路径 B · 指标诊断 (DF):config_dump/metrics 触发 DF parameter_causes
+  - 路径 C · 火焰图栈帧 (Flame):stack 按 ';' split 后逐帧 RegExp.test · 5% hotness 阈值
+  - 路径 D · 本地兜底 (FTS):cases_fts MATCH 兜底
+- **路径 E · NotebookLM 扩展查询** (`src/cli-diagnose/match-nlm.ts`):spawn 同事的 `scripts/notebooklm.mjs --op query-batch` · 优雅降级
+- **HTML 报告** (`src/report.ts` 整体重写):3 section(配置违反 / 触发的诊断流程 / 火焰图签名)+ 权威性图标 ★◆■○▲ + bucket 标签 + 折叠面板 + NotebookLM 深入分析占位
+- **cases-to-flat-md 投影** (`scripts/cases-to-flat-md.mjs`):distill-v2/cases → `data/{common,mongo}/*.md`(NotebookLM source upload 路径)· 输出 21 文件
+- **5 fixture 端到端 acceptance**:numa-misconfig / swap-thp / wt-cache-too-small / tcp-keepalive-cloud-lb / conn-pool-too-small
+
+#### Removed (Phase 1 死代码批删)
+
+- `src/shared/legacy-checks.ts` (2115 行) · `src/rule-engine.ts` (505 行) · `src/engines/mongo/checks.ts` (1245 行 · @deprecated)
+- `tools/` 老 KB 工具链 13 文件(kb-build / kb-validate / audit-citations / clean-rules-v5 / triple-gate / 等 4796 行)
+- `scripts/` 历史一次性脚本 11 文件(apply-round* / migrate-knowledge / migrate-rules 等)
+- `docs/` 老 spec 6 份(checks-catalog / patterns / hotspot-workflow / commands-whitelist + 2 份老 architecture spec)
+- `data/{common,mongo}/*.md` 老 hand-curated reference(改用 cases-to-flat-md 投影)
+- `.github/workflows/{kb-reverse-check,lint-kb-quotes}.yml` 老 KB 校验 CI
+- 仓库根 `rules.md`
+- **共删除 ~6500 LOC + ~5MB 数据**
+
+#### Changed
+
+- `src/cli-diagnose.ts` 重写为 CLI 入口:`--snapshot` + `--kb` + `--query` + `--out` + `--html` + `--nlm`
+- `src/cli-kb.ts` 重写为 entry · re-export `buildKb`/`SCHEMA_SQL`/`embed` + CLI `build` op
+- `tests/perf-kp-sql.test.ts` 重写为端到端 acceptance · 跑 5 fixture
+- esbuild rebundle:`scripts/{kb,diagnose}.mjs`(用 `scripts/_build.mjs` 自动化)
+
+#### Stats
+
+- 测试覆盖:**92 pass / 0 fail**(M0-M7 全程 TDD red-green-refactor)
+- KB 规模:**202 case** (BP 93 + DF 96 + Flame 13)· bucket 分布 1=9 / 2=69 / 3=15 / 4=66 / 5=43
+- sqlite 物理大小:~10MB · plugin 安装包不含(由 `node scripts/kb.mjs build` 在装机时生成)
+- 蒸馏侧:`docs/data/distill-v2/PROMPT-{cases,best-practice,flame-distillation}.md` v5→v6 修订 · 集成 10 个决策段(NotebookLM 集成 / 语义去重 / bucket 路由 / path-guard / scope-database 配对 / yaml 必填 / 字段无信息丢失 / 子结构格式 / 不重复蒸 / fixture 一致性)
+
+---
+
 ## [1.1.0] — 2026-04-26
 
 Agent-agnostic refactor. All skills now follow the [Anthropic Agent Skills open

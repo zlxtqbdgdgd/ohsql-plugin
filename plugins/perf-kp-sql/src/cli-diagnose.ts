@@ -114,9 +114,7 @@ async function runCli(): Promise<void> {
   );
 }
 
-if (
-  import.meta.url === pathToFileURL(fileURLToPath(import.meta.url)).href &&
-  process.argv[1]?.endsWith("/cli-diagnose.ts")
-) {
+// 直接运行检测 (兼容 ts 直跑 + esbuild bundle 后 .mjs)
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   void runCli();
 }
