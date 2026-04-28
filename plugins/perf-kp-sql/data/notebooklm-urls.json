@@ -1,0 +1,201 @@
+{
+  "domains": [
+    {
+      "domain": "mongo",
+      "notebook_name": "ohsql-mongo-kb",
+      "language": "en",
+      "urls": [
+        {
+          "url": "https://www.mongodb.com/docs/manual/reference/operator/aggregation/lookup/",
+          "title": "$lookup (aggregation stage) - Database Manual - MongoDB Docs"
+        },
+        {
+          "url": "https://www.mongodb.com/docs/manual/core/aggregation-pipeline-optimization/",
+          "title": "Aggregation Pipeline Optimization - Database Manual - MongoDB Docs"
+        },
+        {
+          "url": "https://www.mongodb.com/docs/atlas/analyze-slow-queries/",
+          "title": "Analyze Slow Queries - Atlas - MongoDB Docs"
+        },
+        {
+          "url": "https://www.mongodb.com/docs/manual/data-modeling/best-practices/",
+          "title": "Best Practices for Data Modeling in MongoDB - Database Manual - MongoDB Docs"
+        },
+        {
+          "url": "https://www.mongodb.com/community/forums/t/build-advice-for-arm64-aarch64/16736",
+          "title": "Build advice for arm64/aarch64? - MongoDB Server Development - MongoDB Community Hub"
+        },
+        {
+          "url": "https://www.mongodb.com/docs/manual/core/bulk-write-operations/",
+          "title": "Bulk Write Operations - Database Manual - MongoDB Docs"
+        },
+        {
+          "url": "https://www.mongodb.com/docs/manual/core/capped-collections/",
+          "title": "Capped Collections - Database Manual - MongoDB Docs"
+        },
+        {
+          "url": "https://www.mongodb.com/docs/manual/core/sharding-choose-a-shard-key/",
+          "title": "Choose a Shard Key - Database Manual - MongoDB Docs"
+        },
+        {
+          "url": "https://www.mongodb.com/docs/manual/core/index-compound/",
+          "title": "Compound Indexes - Database Manual - MongoDB Docs"
+        },
+        {
+          "url": "https://www.mongodb.com/docs/manual/tutorial/manage-the-database-profiler/",
+          "title": "Database Profiler - Database Manual - MongoDB Docs"
+        },
+        {
+          "url": "https://www.mongodb.com/docs/manual/core/index-hashed/",
+          "title": "Hashed Indexes - Database Manual - MongoDB Docs"
+        },
+        {
+          "url": "https://www.mongodb.com/resources/products/capabilities/how-to-monitor-mongodb-and-what-metrics-to-monitor",
+          "title": "How To Monitor MongoDB And What Metrics To Monitor | MongoDB"
+        },
+        {
+          "url": "https://www.mongodb.com/docs/manual/core/journaling/",
+          "title": "Journaling - Database Manual - MongoDB Docs"
+        },
+        {
+          "url": "https://www.mongodb.com/docs/manual/reference/log-messages/",
+          "title": "Log Messages - Database Manual - MongoDB Docs"
+        },
+        {
+          "url": "https://www.mongodb.com/docs/manual/reference/limits/",
+          "title": "MongoDB Limits and Thresholds - Database Manual - MongoDB Docs"
+        },
+        {
+          "url": "https://www.mongodb.com/docs/manual/reference/parameters/",
+          "title": "MongoDB Server Parameters for a Self-Managed Deployment - Database Manual - MongoDB Docs"
+        },
+        {
+          "url": "https://www.mongodb.com/blog/post/performance-best-practices-series-sharding-cn",
+          "title": "MongoDB性能系列最佳实践-分片\n\n| MongoDB"
+        },
+        {
+          "url": "https://www.mongodb.com/docs/atlas/tutorial/query-profiler/",
+          "title": "Monitor Query Performance with the Query Profiler - Atlas - MongoDB Docs"
+        },
+        {
+          "url": "https://www.mongodb.com/docs/manual/core/index-multikey/",
+          "title": "Multikey Indexes - Database Manual - MongoDB Docs"
+        },
+        {
+          "url": "https://www.mongodb.com/company/blog/performance-best-practices-hardware-and-os-configuration",
+          "title": "Performance Best Practices: Hardware and OS Configuration | MongoDB"
+        },
+        {
+          "url": "https://www.mongodb.com/company/blog/mongodb/performance-best-practices-sharding",
+          "title": "Performance Best Practices: Sharding | MongoDB"
+        },
+        {
+          "url": "https://www.mongodb.com/company/blog/technical/performance-best-practices-transactions-and-read-write-concerns",
+          "title": "Performance Best Practices: Transactions And Read / Write Concerns | MongoDB"
+        },
+        {
+          "url": "https://www.mongodb.com/docs/manual/administration/performance-tuning/",
+          "title": "Performance Tuning - Database Manual - MongoDB Docs"
+        },
+        {
+          "url": "https://www.mongodb.com/docs/manual/administration/production-notes/",
+          "title": "Production Notes for Self-Managed Deployments - Database Manual - MongoDB Docs"
+        },
+        {
+          "url": "https://www.mongodb.com/docs/manual/core/query-optimization/",
+          "title": "Query Optimization - Database Manual - MongoDB Docs"
+        },
+        {
+          "url": "https://www.mongodb.com/docs/manual/core/read-isolation-consistency-recency/",
+          "title": "Read Isolation, Consistency, and Recency - Database Manual - MongoDB Docs"
+        },
+        {
+          "url": "https://www.mongodb.com/docs/manual/core/read-preference/",
+          "title": "Read Preference - Database Manual - MongoDB Docs"
+        },
+        {
+          "url": "https://www.mongodb.com/docs/manual/core/replica-set-oplog/",
+          "title": "Replica Set Oplog - Database Manual - MongoDB Docs"
+        },
+        {
+          "url": "https://www.mongodb.com/docs/manual/reference/configuration-options/",
+          "title": "Self-Managed Configuration File Options - Database Manual - MongoDB Docs"
+        },
+        {
+          "url": "https://www.mongodb.com/docs/manual/sharding/",
+          "title": "Sharding - Database Manual - MongoDB Docs"
+        },
+        {
+          "url": "https://www.mongodb.com/docs/manual/core/index-text/",
+          "title": "Text Indexes on Self-Managed Deployments - Database Manual - MongoDB Docs"
+        },
+        {
+          "url": "https://www.mongodb.com/docs/manual/core/transactions/",
+          "title": "Transactions - Database Manual - MongoDB Docs"
+        },
+        {
+          "url": "https://www.mongodb.com/docs/manual/reference/command/balancerStart/",
+          "title": "balancerStart (database command) - Database Manual - MongoDB Docs"
+        }
+      ]
+    },
+    {
+      "domain": "kunpeng",
+      "notebook_name": "ohsql-kunpeng-kb",
+      "language": "zh",
+      "urls": [
+        {
+          "url": "https://www.hikunpeng.com/document/detail/en/perftuning/progtuneg/kunpengprogramming_05_0005.html",
+          "title": "Affinity and Core Binding-Multi-core and NUMA-Kunpeng Programming and Tuning Guide-Kunpeng Performance Tuning开发文档-鲲鹏社区"
+        },
+        {
+          "url": "https://www.hikunpeng.com/document/detail/zh/kunpengdbs/ecosystemEnable/MongoDB/kunpengdbstune_05_0011.html",
+          "title": "IO参数调优-操作系统调优-调优指南-MongoDB-开源使能-鲲鹏BoostKit数据库场景开发文档-鲲鹏社区"
+        },
+        {
+          "url": "https://www.hikunpeng.com/document/detail/en/perftuning/progtuneg/kunpengprogramming_05_0001.html",
+          "title": "Overview-Kunpeng Programming and Tuning Guide-Kunpeng Performance Tuning开发文档-鲲鹏社区"
+        },
+        {
+          "url": "https://www.hikunpeng.com/document/detail/zh/kunpengfaq/productfaq/boostkitfaq/boostkit_faq_0001.html",
+          "title": "基本概念-鲲鹏BoostKit-产品与技术常见问题-鲲鹏常见问题开发文档-鲲鹏社区"
+        }
+      ]
+    },
+    {
+      "domain": "os",
+      "notebook_name": "ohsql-os-kb",
+      "language": "en",
+      "urls": [
+        {
+          "url": "https://www.kernel.org/doc/Documentation/admin-guide/cgroup-v2.rst",
+          "title": "https://www.kernel.org/doc/Documentation/admin-guide/cgroup-v2.rst"
+        },
+        {
+          "url": "https://www.kernel.org/doc/Documentation/admin-guide/mm/hugetlbpage.rst",
+          "title": "https://www.kernel.org/doc/Documentation/admin-guide/mm/hugetlbpage.rst"
+        },
+        {
+          "url": "https://www.kernel.org/doc/Documentation/admin-guide/mm/transhuge.rst",
+          "title": "https://www.kernel.org/doc/Documentation/admin-guide/mm/transhuge.rst"
+        },
+        {
+          "url": "https://www.kernel.org/doc/Documentation/admin-guide/sysctl/kernel.rst",
+          "title": "https://www.kernel.org/doc/Documentation/admin-guide/sysctl/kernel.rst"
+        },
+        {
+          "url": "https://www.kernel.org/doc/Documentation/admin-guide/sysctl/net.rst",
+          "title": "https://www.kernel.org/doc/Documentation/admin-guide/sysctl/net.rst"
+        },
+        {
+          "url": "https://www.kernel.org/doc/Documentation/admin-guide/sysctl/vm.rst",
+          "title": "https://www.kernel.org/doc/Documentation/admin-guide/sysctl/vm.rst"
+        },
+        {
+          "url": "https://www.kernel.org/doc/Documentation/block/queue-sysfs.rst",
+          "title": "https://www.kernel.org/doc/Documentation/block/queue-sysfs.rst"
+        }
+      ]
+    }
+  ]
+}

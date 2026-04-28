@@ -822,11 +822,71 @@ Bash(command="node ${OHSQL_PLUGIN_ROOT}${CLAUDE_PLUGIN_ROOT}/scripts/render-scre
 
 (直接输出 → 聊天界面按 Markdown 渲染成原生表格)
 
+### 4.4 · NotebookLM 深入分析（诊断后增强）
+
+footer 渲染完毕后,根据 NotebookLM 配置状态自动切换三档行为:
+
+**检查状态**:
+
+```
+Bash(command="node ${OHSQL_PLUGIN_ROOT}${CLAUDE_PLUGIN_ROOT}/scripts/notebooklm.mjs --op check --json")
+```
+
+**三档行为**:
+
+| 状态 | 行为 |
+|---|---|
+| `installed=true` + `authenticated=true` + notebooks 非空 | **自动查询**:对每条 critical/warning 执行 query-batch,结果作为"深入分析"段直接附在 footer 下方 |
+| `installed=true` + `authenticated=false` | 一行提示: `⚠️ NotebookLM 认证已过期,深入分析暂不可用。运行 /perf-kp-sql-setup 重新配置。` |
+| `installed=false` 或 notebooks 为空 | 一行提示: `💡 运行 /perf-kp-sql-setup 启用 NotebookLM 知识增强,获取更详细的参数解释和优化建议。` |
+
+**自动查询路径**（仅状态一）:
+
+```
+Bash(command="node ${OHSQL_PLUGIN_ROOT}${CLAUDE_PLUGIN_ROOT}/scripts/notebooklm.mjs --op query-batch \
+       --from-diagnose <diag-json-path> \
+       --hw-arch <kunpeng|x86_64> \
+       --json")
+```
+
+解析返回的 JSON,对每条有 answer 的 result,在 footer 下方按如下格式输出:
+
+```
+━ <参数名> · 深入分析 ━
+
+<answer 内容>
+
+引用:
+[1] <cited_text>
+[2] <cited_text>
+```
+
+查询超时或失败 → 静默跳过该条,不阻塞。
+
 ---
 
 ## Step 5 · 知识追问(follow-up)
 
-skill 加载后,任何非 `/` 命令的自然语言输入一律走 query-kb:
+skill 加载后,任何非 `/` 命令的自然语言输入优先走 NotebookLM,降级走本地 KB:
+
+**有 NotebookLM**（check 返回 installed + authenticated + notebooks 非空）:
+
+```
+Bash(command="node ${OHSQL_PLUGIN_ROOT}${CLAUDE_PLUGIN_ROOT}/scripts/notebooklm.mjs --op query \
+       --domain auto \
+       --query \"<原话>\" \
+       --json")
+```
+
+`--domain auto` 时脚本内部按关键词路由:
+- `vm.swappiness` / `dirty_ratio` / `hugepage` / `THP` / `sysctl` / `cgroup` → `os`
+- `wiredTiger` / `mongod` / `oplog` / `sharding` / `连接池` / `journal` → `mongo`
+- `鲲鹏` / `Kunpeng` / `ARM` / `NUMA` → `kunpeng`
+- 关键词未命中 → 查询所有已注册 notebook,合并回答
+
+多 notebook 命中时,分别查询后合并回答,标注来源领域 + 引用原文片段。
+
+**无 NotebookLM**（降级走本地 KB）:
 
 ```
 Bash(node ${OHSQL_PLUGIN_ROOT}${CLAUDE_PLUGIN_ROOT}/scripts/kb.mjs --op query --q "<原话>" --engine <engine> --top-k 5)
@@ -842,6 +902,11 @@ results 空 → 模板 B:
 ```
 
 模板 B 不挂 `[参考N]`。涉及命令/代码/阈值的回答,要么 KB 背书带 [参考N],要么走模板 B 带 disclaimer。
+
+无 NotebookLM 时每次追问后附一行提示:
+```
+💡 如需更精准的参数解释,请运行 /perf-kp-sql-setup 配置 NotebookLM 知识增强。
+```
 
 ---
 

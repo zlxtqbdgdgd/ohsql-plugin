@@ -177,6 +177,76 @@ If everything is now 🟢, display the success banner from Step 3.
 
 If knowledge.sqlite is still missing or corrupt, recommend `/plugin reinstall perf-kp-sql` (the file is committed in the plugin repo and ships with the install).
 
+## Phase 3: NotebookLM 知识增强（可选）
+
+Phase 1-2 完成后,检查 health-check 输出中的 NotebookLM 状态。如果用户希望启用 NotebookLM 知识增强,继续以下步骤。如果用户跳过或 NotebookLM 相关项目全部 🟢,直接跳到成功 banner。
+
+### Step 8: 检测 notebooklm CLI
+
+Health-check 已在输出中包含 NotebookLM CLI 检测结果。如果显示 🟡 `notebooklm CLI not installed`,询问用户是否安装:
+
+```
+Question: 是否启用 NotebookLM 知识增强？诊断后可获取更详细的参数解释和优化建议（需要 Google 账号）。
+
+  Option 1 [recommended]: 是,安装并配置
+  Option 2: 跳过,不使用 NotebookLM
+```
+
+如果用户选择跳过,显示成功 banner 并结束。
+
+### Step 9: 自动安装
+
+```
+Bash(command="node ${OHSQL_PLUGIN_ROOT}${CLAUDE_PLUGIN_ROOT}/scripts/notebooklm.mjs --op setup --json")
+```
+
+`notebooklm.mjs --op setup` 内部自动完成:
+1. `pip install notebooklm-py[browser] rookiepy`（如缺失）
+2. `playwright install chromium`（如缺失）
+3. rookiepy 从 Chrome cookie 数据库提取 Google 认证信息
+
+安装失败不阻塞 — NotebookLM 是可选增强。
+
+### Step 10: 认证检查
+
+setup 脚本内部已执行 `notebooklm auth check --test`。
+
+如果认证失败,提示用户:
+
+```
+⚠️ NotebookLM 认证未通过。请先在 Chrome 浏览器中:
+1. 打开 https://notebooklm.google.com/
+2. 确认已登录 Google 账号
+3. 重跑 /perf-kp-sql-setup
+```
+
+认证失败不阻塞后续步骤 — 诊断核心流程不受影响。
+
+### Step 11: 创建 Notebooks + 添加 URL
+
+setup 脚本内部自动完成:
+- 按领域创建 notebooks（ohsql-mongo-kb / ohsql-kunpeng-kb / ohsql-os-kb）
+- 从 `data/notebooklm-urls.json` 读取各领域 URL 并添加为 notebook source
+- 增量同步:已存在的 URL 跳过,新增的添加,已删除的移除
+- 写入 `~/.perf-kp-sql/notebooklm.json` 持久化配置
+
+### Step 12: 等待就绪 + 验证
+
+setup 脚本内部等待所有 source 处理完成（每个 source timeout 120 秒）。
+
+完成后检查 setup 输出的 JSON:
+- `ok: true` → 显示成功 banner:
+
+```
+✅ NotebookLM 知识增强已就绪
+
+   ohsql-mongo-kb    🟢  N 篇文档
+   ohsql-kunpeng-kb  🟢  N 篇文档
+   ohsql-os-kb       🟢  N 篇文档
+```
+
+- `ok: false` → 显示部分成功的领域,提示失败原因,不阻塞
+
 # Invocation
 
 This skill takes no arguments. Invoke explicitly via:

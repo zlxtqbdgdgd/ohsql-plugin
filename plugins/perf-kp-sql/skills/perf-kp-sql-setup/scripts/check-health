@@ -175,6 +175,32 @@ else
   fi
 fi
 
+# ----- NotebookLM CLI (optional enhancement) -----
+nlm_installed=0
+if command -v notebooklm >/dev/null 2>&1; then
+  nlm_installed=1
+  ok "notebooklm CLI"
+  # check auth
+  nlm_auth="$(notebooklm auth check --test 2>&1)"
+  if [ $? -eq 0 ]; then
+    ok "notebooklm auth"
+  else
+    warn "notebooklm auth expired or not configured"
+    hint "fix: 在 Chrome 中登录 https://notebooklm.google.com/ 后重跑 /perf-kp-sql-setup"
+  fi
+  # check config
+  NLM_CFG="$HOME/.perf-kp-sql/notebooklm.json"
+  if [ -f "$NLM_CFG" ]; then
+    ok "notebooklm.json config present"
+  else
+    warn "notebooklm.json not found (notebooks not yet created)"
+    hint "fix: node '$PLUGIN_ROOT/scripts/notebooklm.mjs' --op setup --json"
+  fi
+else
+  warn "notebooklm CLI not installed (optional: NotebookLM 知识增强)"
+  hint "fix: pip install 'notebooklm-py[browser]' rookiepy"
+fi
+
 # ----- model cache (informational) -----
 HF_CACHE="${HF_HOME:-$HOME/.cache/huggingface}"
 if [ -d "$HF_CACHE" ] && find "$HF_CACHE" -name "*MiniLM*" -type d 2>/dev/null | grep -q .; then
