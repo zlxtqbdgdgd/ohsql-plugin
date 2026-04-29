@@ -73,7 +73,7 @@ function matchBpRecommendations(db, snapshot) {
         source_url: row.source_url,
         source_authority: row.source_authority,
         severity,
-        current_value: currentValue == null ? null : currentValue,
+        current_value: currentValue == null ? null : `${paramName}=${currentValue}`,
         recommended_value: recValue,
         reason_zh: reason,
         data
@@ -263,7 +263,9 @@ function callNotebookLm(args) {
   if (!existsSync(scriptPath)) {
     return { ok: false, expansions: /* @__PURE__ */ new Map(), reason: "notebooklm.mjs \u672A\u5B89\u88C5(\u7531\u5BF9\u63A5 NotebookLM \u7684\u540C\u4E8B\u7EF4\u62A4 \xB7 \u5F53\u524D\u9636\u6BB5\u53EF\u9009)" };
   }
-  const targets = diagnoseResult.matched.filter((r) => r.path !== "D");
+  const targets = diagnoseResult.matched.filter(
+    (r) => r.path !== "D" && (r.severity === "critical" || r.severity === "warning")
+  );
   if (targets.length === 0) {
     return { ok: true, expansions: /* @__PURE__ */ new Map(), reason: "\u65E0 critical/warning \u547D\u4E2D \xB7 \u8DF3\u8FC7 NotebookLM" };
   }
@@ -284,10 +286,11 @@ function callNotebookLm(args) {
   }
   rmSync(tmpDir, { recursive: true, force: true });
   if (result.status !== 0) {
+    const signal = result.signal ? ` \xB7 signal: ${result.signal}` : "";
     return {
       ok: false,
       expansions: /* @__PURE__ */ new Map(),
-      reason: `notebooklm.mjs \u9000\u51FA\u7801 ${result.status} \xB7 stderr: ${(result.stderr ?? "").slice(0, 300)}`
+      reason: `notebooklm.mjs \u9000\u51FA\u7801 ${result.status}${signal} \xB7 stderr: ${(result.stderr ?? "").slice(0, 300)}`
     };
   }
   let parsed;

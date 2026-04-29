@@ -159,9 +159,18 @@ else
   schema_err="$(node -e "
   const D = require('better-sqlite3');
   const db = new D('$KB', { readonly: true });
-  for (const t of ['knowledge','rules','flame_patterns']) {
-    const r = db.prepare(\`SELECT count(*) AS c FROM \${t}\`).get();
-    if (typeof r.c !== 'number') throw new Error(t + ' missing');
+  // 新 schema (cases 体系) 优先; 旧 schema (knowledge/rules/flame_patterns) 兼容
+  const tables = db.prepare(\"SELECT name FROM sqlite_master WHERE type='table'\").all().map(t=>t.name);
+  if (tables.includes('cases')) {
+    for (const t of ['cases','cases_fts','kb_meta']) {
+      const r = db.prepare(\`SELECT count(*) AS c FROM \${t}\`).get();
+      if (typeof r.c !== 'number') throw new Error(t + ' missing');
+    }
+  } else {
+    for (const t of ['knowledge','rules','flame_patterns']) {
+      const r = db.prepare(\`SELECT count(*) AS c FROM \${t}\`).get();
+      if (typeof r.c !== 'number') throw new Error(t + ' missing');
+    }
   }
   process.stdout.write('ok');
   " 2>&1)"
@@ -173,6 +182,32 @@ else
     hint "fix: /plugin reinstall perf-kp-sql"
     issues=$((issues + 1))
   fi
+fi
+
+# ----- NotebookLM CLI (optional enhancement) -----
+nlm_installed=0
+if command -v notebooklm >/dev/null 2>&1; then
+  nlm_installed=1
+  ok "notebooklm CLI"
+  # check auth
+  nlm_auth="$(notebooklm auth check --test 2>&1)"
+  if [ $? -eq 0 ]; then
+    ok "notebooklm auth"
+  else
+    warn "notebooklm auth expired or not configured"
+    hint "fix: 在 Chrome 中登录 https://notebooklm.google.com/ 后重跑 /perf-kp-sql-setup"
+  fi
+  # check config
+  NLM_CFG="$HOME/.perf-kp-sql/notebooklm.json"
+  if [ -f "$NLM_CFG" ]; then
+    ok "notebooklm.json config present"
+  else
+    warn "notebooklm.json not found (notebooks not yet created)"
+    hint "fix: node '$PLUGIN_ROOT/scripts/notebooklm.mjs' --op setup --json"
+  fi
+else
+  warn "notebooklm CLI not installed (optional: NotebookLM 知识增强)"
+  hint "fix: pip install 'notebooklm-py[browser]' rookiepy"
 fi
 
 # ----- model cache (informational) -----
