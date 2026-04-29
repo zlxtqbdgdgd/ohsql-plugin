@@ -185,11 +185,41 @@ async function opSetup(urlsFile) {
     });
   }
 
-  // Step 10: cookie extraction via rookiepy
-  console.error("→ 提取 Chrome cookie (rookiepy)...");
+  // Step 10: cookie extraction via rookiepy (auto-detect browser)
+  console.error("→ 提取浏览器 cookie (rookiepy · 自动探测)...");
   const cookieScript = `
-import rookiepy, json, os
-cookies = rookiepy.chrome(domains=['.google.com', 'notebooklm.google.com', 'accounts.google.com'])
+import rookiepy, json, os, sys
+
+domains = ['.google.com', 'notebooklm.google.com', 'accounts.google.com']
+# 按优先级尝试: 自动探测 → 逐个常见浏览器
+browsers = [
+    ("any_browser", rookiepy.load),
+    ("chrome",      lambda **kw: rookiepy.chrome(**kw)),
+    ("edge",        lambda **kw: rookiepy.edge(**kw)),
+    ("brave",       lambda **kw: rookiepy.brave(**kw)),
+    ("chromium",    lambda **kw: rookiepy.chromium(**kw)),
+    ("firefox",     lambda **kw: rookiepy.firefox(**kw)),
+    ("safari",      lambda **kw: rookiepy.safari(**kw)),
+    ("vivaldi",     lambda **kw: rookiepy.vivaldi(**kw)),
+    ("opera",       lambda **kw: rookiepy.opera(**kw)),
+    ("arc",         lambda **kw: rookiepy.arc(**kw)),
+    ("librewolf",   lambda **kw: rookiepy.librewolf(**kw)),
+]
+cookies = []
+used = "none"
+for name, fn in browsers:
+    try:
+        cookies = fn(domains=domains)
+        if cookies:
+            used = name
+            break
+    except Exception:
+        continue
+
+if not cookies:
+    print(json.dumps({"ok": False, "error": "no_cookies", "browser": "none"}))
+    sys.exit(1)
+
 storage_state = {
     'cookies': [
         {
@@ -206,7 +236,7 @@ path = os.path.expanduser('~/.notebooklm/storage_state.json')
 os.makedirs(os.path.dirname(path), exist_ok=True)
 with open(path, 'w') as f:
     json.dump(storage_state, f)
-print(json.dumps({"ok": True, "cookie_count": len(cookies)}))
+print(json.dumps({"ok": True, "cookie_count": len(cookies), "browser": used}))
 `;
   const py = spawnSync("python3", ["-c", cookieScript], {
     encoding: "utf8",
@@ -214,7 +244,12 @@ print(json.dumps({"ok": True, "cookie_count": len(cookies)}))
   });
   if (py.status !== 0) {
     console.error(`cookie 提取失败: ${py.stderr}`);
-    console.error("请确保已在 Chrome 中登录 https://notebooklm.google.com/");
+    console.error("请确保已在任意浏览器中登录 https://notebooklm.google.com/");
+  } else {
+    try {
+      const r = JSON.parse(py.stdout);
+      if (r.ok) console.error(`→ 从 ${r.browser} 提取到 ${r.cookie_count} 条 cookie`);
+    } catch {}
   }
 
   // Step 10b: verify auth
@@ -463,10 +498,13 @@ function opQueryBatch(fromDiagnose, hwArch) {
   }
 
   const diagData = JSON.parse(readFileSync(resolve(fromDiagnose), "utf8"));
-  const checks = diagData.matched ?? [];
+  // 只对 critical/warning 问题项跑 NotebookLM · 排除 path D (FTS) 和 info/ok
+  const checks = (diagData.matched ?? []).filter(
+    (r) => r.path !== "D" && (r.severity === "critical" || r.severity === "warning")
+  );
 
   if (checks.length === 0) {
-    return out({ ok: true, results: [] });
+    return out({ ok: true, results: [], reason: "无 critical/warning 命中 · 跳过 NotebookLM" });
   }
 
   // group by notebook

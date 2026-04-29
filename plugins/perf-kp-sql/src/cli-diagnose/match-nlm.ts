@@ -45,8 +45,10 @@ export function callNotebookLm(args: NlmCallArgs): NlmResult {
     return { ok: false, expansions: new Map(), reason: "notebooklm.mjs 未安装(由对接 NotebookLM 的同事维护 · 当前阶段可选)" };
   }
 
-  // 仅对 critical/warning 命中跑 batch (path A/B/C · 不含 D rag_context)
-  const targets: CheckResult[] = diagnoseResult.matched.filter((r) => r.path !== "D");
+  // 仅对 critical/warning 命中跑 batch (path A/B/C · 不含 D rag_context · 不含 info/ok)
+  const targets: CheckResult[] = diagnoseResult.matched.filter(
+    (r) => r.path !== "D" && (r.severity === "critical" || r.severity === "warning"),
+  );
   if (targets.length === 0) {
     return { ok: true, expansions: new Map(), reason: "无 critical/warning 命中 · 跳过 NotebookLM" };
   }
