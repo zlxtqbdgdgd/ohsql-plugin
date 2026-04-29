@@ -38,7 +38,7 @@ export interface NlmCallArgs {
 }
 
 export function callNotebookLm(args: NlmCallArgs): NlmResult {
-  const { scriptPath, diagnoseResult, hwArch, timeoutMs = 60_000 } = args;
+  const { scriptPath, diagnoseResult, hwArch, timeoutMs = 600_000 } = args;
 
   // 先检查 notebooklm.mjs 是否存在
   if (!existsSync(scriptPath)) {

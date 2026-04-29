@@ -259,7 +259,7 @@ import { existsSync, writeFileSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 function callNotebookLm(args) {
-  const { scriptPath, diagnoseResult, hwArch, timeoutMs = 6e4 } = args;
+  const { scriptPath, diagnoseResult, hwArch, timeoutMs = 6e5 } = args;
   if (!existsSync(scriptPath)) {
     return { ok: false, expansions: /* @__PURE__ */ new Map(), reason: "notebooklm.mjs \u672A\u5B89\u88C5(\u7531\u5BF9\u63A5 NotebookLM \u7684\u540C\u4E8B\u7EF4\u62A4 \xB7 \u5F53\u524D\u9636\u6BB5\u53EF\u9009)" };
   }
