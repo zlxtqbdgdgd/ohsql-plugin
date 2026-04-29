@@ -59,7 +59,7 @@ argument-hint: "host=<ip> user=<user> (privateKeyPath=<path>|password=<pw>) [eng
 | `data/kb/cases/KB.md` | DF + Flame 完整字段 | Phase 2.3 用 Read offset+limit 拿单 case · Phase 6 同 |
 | `data/kb/best-practice/INDEX.md` | BP 巡检表 (~6.0K tokens) | Phase 3 nothing 模式才加载 |
 | `data/kb/best-practice/KB.md` | BP 完整字段 | Phase 3 巡检 / Phase 6 同 |
-| `data/collect-cmds.json` | Phase 1 环境画像固定命令集 | Phase 1 启动加载 |
+| `data/collect-cmds.json` | (legacy · Phase 1 不依赖 · 内嵌固定 8 条命令 · 文件保留作历史参考)| — |
 
 **工具**:
 
@@ -396,10 +396,10 @@ INDEX 含两段:
 case 确认后,从 INDEX 拿到 `KB line` 行号:
 
 ```
-Read(file_path="<PLUGIN_ROOT>/data/kb/cases/KB.md", offset=<line>, limit=80)
+Read(file_path="<PLUGIN_ROOT>/data/kb/cases/KB.md", offset=<line>, limit=100)
 ```
 
-`limit=80` 是经验值 · 单 case 平均 50-80 行 · 极长可读两次(offset=line + 80 · limit=80)。
+`limit=100` 经实测覆盖全部 109 case(最长 91 行)。若 LLM 读出来发现末尾还在 case 中部(没看到下一个 `## case_id:` 边界),用 `offset=<line+100>, limit=50` 再读一次拼接。
 
 LLM 解析单 case 完整字段(in-memory 记 · 后续 phase 用):
 
@@ -554,6 +554,8 @@ JSON 格式:
 
 4.B.2 · batch 调:
 
+> ⚠️ **TODO(M4 未实装)**:`--from-bp-list` 入口尚未加到 `notebooklm.mjs`。当前调用会报 unknown option 报错。M4 完成前 · LLM 走"NLM 不可用降级"路径(skip 4.B 整段 · 直接进 4.B.3 用 KB-only 判定 + 报告标 NLM 缺失)。
+
 ```
 Bash(command="node <PLUGIN_ROOT>/scripts/notebooklm.mjs --op query-batch \
        --from-bp-list /Users/<yourlogin>/.perf-kp-sql/tmp/perf-kp-sql-bp-list-<TS>.json \
@@ -696,6 +698,7 @@ NLM 不可用时只走 KB · 回答末尾附:
 - **Phase 2-3 之间禁止任何探测性 SSH**(`command -v perf` / `pgrep` / `ss -lntp` 等):环境画像在 Phase 1 已做、Phase 3 命令直接来自 case 的 collection_method_quote 适配
 - 不用 `/tmp/` 落盘 · 用 `~/.perf-kp-sql/`
 - 不跳过 Phase 1 环境画像 · 不跳过 Phase 5 报告落盘
+- **不许先声明带"待确认"占位的 task list** · task list 在 Phase 0 收齐参数后立即声明 · Phase 1 执行后才 mark phase 1 completed(不许预先声明再回头补)
 - task tool 可用时(Claude Code / Codex CLI / ohsql),**只许调 task tool**,不许另外用纯文本渲染 `━ 6 阶段任务清单 ━` / `◻ phase 1 · ...` 重复列出
 - **不向用户输出内部实现术语**(详见下方独立一节《用户可见消息 · 禁用元词清单》)
 - 工具失败 → 静默重试 1 次,第 2 次仍失败 → 一行 diagnostic 跳过,cap=2
