@@ -488,8 +488,45 @@ function buildQueryPrompt(cr) {
   return `${paramName} 当前值为 ${currentVal}，${reason}。\n请从以下角度分析：\n1. 该参数的作用机制\n2. 默认值与推荐值范围\n3. 当前值的风险点\n4. 生产环境最佳实践与调优建议`;
 }
 
-function opQueryBatch(fromDiagnose, hwArch) {
-  if (!fromDiagnose) fatal("--from-diagnose required");
+// M4 · best-practice 巡检 prompt(对齐设计书 §4 · NLM 刷新最新推荐)
+function buildBpPrompt(bp) {
+  const paramName = bp.param_name || bp.case_id;
+  const current = bp.current_value != null ? String(bp.current_value) : "未获取";
+  const kbRec = bp.kb_recommendation != null ? String(bp.kb_recommendation) : "未给";
+  const scenario = bp.scenario_quote || "";
+  return `参数 ${paramName} · 当前值 ${current} · KB 推荐值 ${kbRec}\n场景: ${scenario}\n请回答:\n1. 该参数的最新官方推荐值(若与 KB 不一致请明确指出)\n2. 推荐理由 + 适用场景\n3. 当前值的风险评估`;
+}
+
+// M4 · best-practice scope → notebook 路由
+function routeBpToNotebooks(bp, hwArch, cfg) {
+  const scope = bp.scope || "";
+  const notebooks = [];
+
+  // OS 层(linux-*)→ os notebook
+  if (/^linux-/.test(scope)) {
+    if (cfg.notebooks?.os) notebooks.push("os");
+  }
+  // 鲲鹏 / ARM / BIOS → kunpeng notebook(若 hwArch=kunpeng)
+  if (scope === "arch" || scope === "bios-firmware") {
+    if (hwArch === "kunpeng" && cfg.notebooks?.kunpeng) notebooks.push("kunpeng");
+    else if (cfg.notebooks?.os && !notebooks.includes("os")) notebooks.push("os");
+  }
+  // 引擎 / mongo 配置 / 应用层 → mongo notebook
+  if (/^storage-engine-/.test(scope) || /^mongodb-/.test(scope) || scope === "app-query-layer") {
+    if (cfg.notebooks?.mongo) notebooks.push("mongo");
+  }
+  // fallback: 第一个可用 notebook
+  if (notebooks.length === 0) {
+    const firstAvail = Object.keys(cfg.notebooks ?? {})[0];
+    if (firstAvail) notebooks.push(firstAvail);
+  }
+  return notebooks;
+}
+
+// M4 · 通用 batch · 接 fromDiagnose | fromBpList · chunk size 5 控制单 ask 长度
+function opQueryBatch({ fromDiagnose, fromBpList, hwArch }) {
+  if (!fromDiagnose && !fromBpList) fatal("--from-diagnose 或 --from-bp-list 必须提供其一");
+  if (fromDiagnose && fromBpList) fatal("--from-diagnose 和 --from-bp-list 不能同时给");
   if (!isCliInstalled()) fatal("notebooklm CLI 未安装");
 
   const cfg = loadConfig();
@@ -497,68 +534,90 @@ function opQueryBatch(fromDiagnose, hwArch) {
     fatal("NotebookLM 未配置,请先运行 --op setup");
   }
 
-  const diagData = JSON.parse(readFileSync(resolve(fromDiagnose), "utf8"));
-  // 只对 critical/warning 问题项跑 NotebookLM · 排除 path D (FTS) 和 info/ok
-  const checks = (diagData.matched ?? []).filter(
-    (r) => r.path !== "D" && (r.severity === "critical" || r.severity === "warning")
-  );
+  // 统一 items 列表 [{ case_id, prompt, route: [domain, ...] }]
+  let items = [];
 
-  if (checks.length === 0) {
-    return out({ ok: true, results: [], reason: "无 critical/warning 命中 · 跳过 NotebookLM" });
+  if (fromDiagnose) {
+    const diagData = JSON.parse(readFileSync(resolve(fromDiagnose), "utf8"));
+    // 只对 critical/warning 问题项跑 NotebookLM · 排除 path D (FTS) 和 info/ok
+    const checks = (diagData.matched ?? []).filter(
+      (r) => r.path !== "D" && (r.severity === "critical" || r.severity === "warning")
+    );
+    items = checks.map((cr) => ({
+      case_id: cr.case_id,
+      prompt: buildQueryPrompt(cr),
+      route: routeToNotebooks(cr, hwArch, cfg),
+    }));
+  } else {
+    const bpList = JSON.parse(readFileSync(resolve(fromBpList), "utf8"));
+    if (!Array.isArray(bpList)) fatal("--from-bp-list 文件须是 JSON 数组");
+    items = bpList.map((bp) => ({
+      case_id: bp.case_id,
+      prompt: buildBpPrompt(bp),
+      route: routeBpToNotebooks(bp, hwArch, cfg),
+    }));
+  }
+
+  if (items.length === 0) {
+    return out({ ok: true, results: [], reason: "无项目进入 NotebookLM batch · 跳过" });
   }
 
   // group by notebook
-  const grouped = {}; // notebook_domain -> [{ cr, prompt }]
-  for (const cr of checks) {
-    const targets = routeToNotebooks(cr, hwArch, cfg);
-    const prompt = buildQueryPrompt(cr);
-    for (const t of targets) {
+  const grouped = {}; // notebook_domain -> [{ case_id, prompt }]
+  for (const item of items) {
+    for (const t of item.route) {
       if (!grouped[t]) grouped[t] = [];
-      grouped[t].push({ cr, prompt });
+      grouped[t].push(item);
     }
   }
 
-  // batch query: merge prompts per notebook into single ask
+  // chunk + batch query · CHUNK_SIZE=5 防 prompt 超 NLM 输入限
+  const CHUNK_SIZE = 5;
   const results = [];
-  for (const [domain, items] of Object.entries(grouped)) {
+
+  for (const [domain, domainItems] of Object.entries(grouped)) {
     const nb = cfg.notebooks[domain];
     if (!nb?.id) continue;
 
     nlmExec(["use", nb.id]);
 
-    // merge prompts for single ask (performance: 5 items ~25s vs ~90s one-by-one)
-    const mergedPrompt = items
-      .map((item, i) => `【问题 ${i + 1}】${item.prompt}`)
-      .join("\n\n");
+    for (let i = 0; i < domainItems.length; i += CHUNK_SIZE) {
+      const chunk = domainItems.slice(i, i + CHUNK_SIZE);
+      const mergedPrompt = chunk
+        .map((item, j) => `【问题 ${j + 1}】${item.prompt}`)
+        .join("\n\n");
 
-    const r = nlmJson(["ask", mergedPrompt], { timeoutMs: 90_000 });
+      const r = nlmJson(["ask", mergedPrompt], { timeoutMs: 90_000 });
 
-    if (r.ok) {
-      const answer = r.data?.answer ?? r.data?.response ?? "";
-      const references = r.data?.references ?? r.data?.citations ?? [];
-
-      // try to split merged answer back to individual items
-      for (const item of items) {
-        results.push({
-          case_id: item.cr.case_id,
-          answer,
-          references,
-          domain,
-          notebook_id: nb.id,
-        });
+      if (r.ok) {
+        const answer = r.data?.answer ?? r.data?.response ?? "";
+        const references = r.data?.references ?? r.data?.citations ?? [];
+        for (const item of chunk) {
+          results.push({
+            case_id: item.case_id,
+            answer,
+            references,
+            domain,
+            notebook_id: nb.id,
+          });
+        }
+      } else {
+        console.error(`查询 ${domain} chunk[${i}-${i + chunk.length - 1}] 失败: ${r.raw.stderr}`);
+        for (const item of chunk) {
+          results.push({
+            case_id: item.case_id,
+            answer: "",
+            references: [],
+            domain,
+            notebook_id: nb.id,
+            error: r.raw.stderr || "查询失败",
+          });
+        }
       }
-    } else {
-      console.error(`查询 ${domain} 失败: ${r.raw.stderr}`);
-      // individual fallback
-      for (const item of items) {
-        results.push({
-          case_id: item.cr.case_id,
-          answer: "",
-          references: [],
-          domain,
-          notebook_id: nb.id,
-          error: r.raw.stderr || "查询失败",
-        });
+
+      // throttle between chunks (2s within same notebook)
+      if (i + CHUNK_SIZE < domainItems.length) {
+        spawnSync("sleep", ["2"]);
       }
     }
 
@@ -689,6 +748,7 @@ const { values } = parseArgs({
     domain: { type: "string" },
     query: { type: "string" },
     "from-diagnose": { type: "string" },
+    "from-bp-list": { type: "string" },
     "hw-arch": { type: "string" },
     "urls-file": { type: "string" },
   },
@@ -707,7 +767,11 @@ const { values } = parseArgs({
         opQuery(values.domain, values.query);
         break;
       case "query-batch":
-        opQueryBatch(values["from-diagnose"], values["hw-arch"]);
+        opQueryBatch({
+          fromDiagnose: values["from-diagnose"],
+          fromBpList: values["from-bp-list"],
+          hwArch: values["hw-arch"],
+        });
         break;
       case "add-domain":
         await opAddDomain(values.domain, values["urls-file"]);

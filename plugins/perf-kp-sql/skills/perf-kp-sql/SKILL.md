@@ -545,6 +545,7 @@ JSON 格式:
   {
     "case_id": "bp-os-mm-vm-swappiness-1",
     "param_name": "vm.swappiness",
+    "scope": "linux-mm",
     "current_value": "60",
     "kb_recommendation": "1",
     "scenario_quote": "..."
@@ -552,9 +553,9 @@ JSON 格式:
 ]
 ```
 
-4.B.2 · batch 调:
+`scope` 用 BP 在 best-practice/INDEX.md 里的字段值 · notebooklm.mjs 按 scope 路由到对应 notebook(linux-* → os · storage-engine-/mongodb- → mongo · arch/bios-firmware → kunpeng if hwArch=kunpeng)。
 
-> ⚠️ **TODO(M4 未实装)**:`--from-bp-list` 入口尚未加到 `notebooklm.mjs`。当前调用会报 unknown option 报错。M4 完成前 · LLM 走"NLM 不可用降级"路径(skip 4.B 整段 · 直接进 4.B.3 用 KB-only 判定 + 报告标 NLM 缺失)。
+4.B.2 · batch 调:
 
 ```
 Bash(command="node <PLUGIN_ROOT>/scripts/notebooklm.mjs --op query-batch \
@@ -563,7 +564,7 @@ Bash(command="node <PLUGIN_ROOT>/scripts/notebooklm.mjs --op query-batch \
        --json", timeout=600000)
 ```
 
-(M4 实装时给 notebooklm.mjs 加 `--from-bp-list` 入口 · 复用现有 per-notebook merged ask + chunk size 5)
+内部按 BP scope 路由到 notebook(linux-* → os · storage-engine-/mongodb- → mongo · arch/bios → kunpeng)· chunk size 5 控制单 ask prompt 长度 · chunk 间 + notebook 间各 2s 节流。
 
 实测 93 BP / 3 notebook ≈ 7 min。
 
