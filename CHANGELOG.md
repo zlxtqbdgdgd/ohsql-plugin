@@ -2,6 +2,72 @@
 
 All notable changes to the ohsql-plugin marketplace.
 
+## [1.3.0] — 2026-04-29
+
+### perf-kp-sql 0.25.3 → 0.26.0 — Phase 2 LLM-orchestrated 6-phase 重构
+
+**老 SQL JOIN 引擎(cli-diagnose 4 路径 + cli-kb sqlite 入库)整体替换为 LLM-orchestrated 6-phase pipeline,prompt-driven 现象路由 + Read 工具按需读单 case + NotebookLM 主路径之一。0 native dep at runtime。**
+
+#### Architecture(运行时变化)
+
+- **5-step CLI-driven flow → 6 phase LLM-orchestrated**:Phase 0 凭据 + Phase 1 环境画像 + Phase 2 现象路由(LLM 加载 INDEX 匹配)+ Phase 3 批量采集(从 case `collection_method_quote` 适配)+ Phase 4 推断(KB 阈值直判 / NotebookLM 兜底)+ Phase 5 markdown 报告 + md-to-html · Phase 6 深入对话
+- **KB 数据**:`data/kb/cases/{KB.md,INDEX.md}`(DF 96 + Flame 13)+ `data/kb/best-practice/{KB.md,INDEX.md}`(BP 93)· canonical 数据源 `docs/refactor/kb-snapshot_v4.xlsx`
+- **NotebookLM 升格主路径之一**:Phase 4.B 全量 BP 巡检经 NLM 刷新最新推荐(`--from-bp-list` batch · per-notebook merged ask · chunk size 5 · 实测 93 BP / 3 notebook ≈ 7 min)
+- **报告改 markdown + HTML 双轨**:LLM Write `report.md` → `md-to-html.mjs` 转 `report.html`(含 [参考N] 角标 + 脚注卡片)
+
+#### Removed (~3700 LOC + 10 MB sqlite)
+
+- **native dep**:`better-sqlite3` + `@types/better-sqlite3` + `sqlite-vec` + `@xenova/transformers` 全套退役(累计 -141 MB node_modules + -30 MB MiniLM 模型)
+- **src/cli-diagnose.ts + cli-diagnose/**:7 文件(老 SQL JOIN 4 路径 + match-nlm + types)
+- **src/cli-kb.ts + cli-kb/**:build / parser / schema(老 sqlite 入库)
+- **src/{baseline-store,report,models,kb-enrich,rule-engine-v2}.ts** + `engines/`(死代码)
+- **scripts/**:diagnose.mjs / kb.mjs / render-html-report.mjs / render-report.mjs / render-footnotes.mjs / render-screen-footer.mjs / discover.mjs / load-history.mjs / save-history.mjs / cases-to-flat-md.mjs / kb-stats.mjs / ssh-exec.mjs / unescape-reports.mjs
+- **data/knowledge.sqlite** + sqlite-shm/wal · `data/{mongo,common}/` 老 hand-curated KB md
+- **tests/phase-1/{kb-build.acceptance,diagnose-paths,case-md-parser,render-report,scope-to-bucket}.test.ts** + `tests/perf-kp-sql.test.ts` + `tests/fixtures/`(老 5 fixture 程序化跑)
+
+#### Added
+
+- **`src/cli-ssh.ts` + `src/cli-history.ts`**:SSH wrapper(ControlMaster + SSH_ASKPASS)+ 历史复用 · 保留并继续 bundle 到 `scripts/{ssh,history}.mjs`
+- **`scripts/_build-kb-from-xlsx.mjs`**:从 xlsx 生成 KB.md + INDEX.md 双文件双区(cases / best-practice 各成对)
+- **`scripts/notebooklm.mjs --op query-batch --from-bp-list`**:接 BP 待查列表 · scope-based notebook 路由 · chunk size 5 · 实装决策 d'
+- **`scripts/md-to-html.mjs`**:复用现有 markdown → HTML wrapper(零额外配置 · 含 [参考N] 自动角标转换)
+- **`tests/kb/index-integrity.test.ts`**:11 测试 · KB 数据完整性(202 case / KB line 行号精确对应 / case_id unique)
+- **`tests/kb/golden-validity.test.ts`**:12 测试 · 黄金集 schema 验证 + expected_case_ids 引用 cases/INDEX.md 一致性
+- **`tests/golden/symptom-routing.json`**:30 条种子(team 扩剩 70 → 100)· 6 bucket 全覆盖
+
+#### Changed
+
+- **主 SKILL.md**:1018 行 → 800 行 · 整段重写为 6 phase prompt 编排(保留 Phase 0 凭据 know-how + 红线 + 禁用元词清单)
+- **setup SKILL.md** + `check-health`:去 sqlite probe / better-sqlite3 install + rebuild · 加 `data/kb/` 4 文件存在性检查
+- **占位符设计**:`${OHSQL_PLUGIN_ROOT}${CLAUDE_PLUGIN_ROOT}` → 字面尖括号 `<PLUGIN_ROOT>`(agent 字符串替换 · 修 ohsql Bash dollar-brace 静态屏蔽问题)
+- **plugin.json descriptions**:sqlite 措辞 → markdown KB + 6-phase LLM-orchestrated
+- **README.md** + `plugins/perf-kp-sql/README.md`:同步描述
+
+#### Stats
+
+- 测试:33 GREEN(7 cli-ssh + 11 KB integrity + 12 golden validity + 3 cpu-flame)· LLM 路由命中率走 M5 dry-run 真跑
+- 净变化:**+9000 行新增 / -17000 行删除**(累计 ~10 commit)
+- 安装包体积:**-141 MB**(`@xenova/transformers` 135 MB + `sqlite-vec` 6 MB)+ KB 数据 -10 MB(sqlite)
+- runtime native dep 数:**1 → 0**(`better-sqlite3` 退役)
+
+#### Decisions(详见 `docs/refactor/decisions.md`)
+
+| # | 主题 | 结论 |
+|---|---|---|
+| 1 | 报告输出 | b · 双轨(markdown + HTML)· 复用 `md-to-html.mjs` |
+| 2 | NLM 节流 | d' · per-notebook merged ask · chunk size 5 · 不带 cache |
+| 3 | sqlite 命运 | a · 整个 retire(better-sqlite3 也走) |
+| 4 | 黄金集规模 | c · 100 个对外发布 SLA |
+| 5 | 置信度等级 | a · 高/中(边缘 case 推下一版 TODO) |
+
+#### TODO(下一版本)
+
+- 黄金集扩 30 → 100 (M1.2 团队继续)
+- 边缘 case 处理:数据缺失 / NLM 不可用 / 多命中收窄失败 → 报告"未知"等级(决策 5)
+- LLM 路由命中率 < 85% 时加 symptom_category pre-filter 混合方案
+
+---
+
 ## [1.2.0] — 2026-04-28
 
 ### perf-kp-sql 0.24.0 → 0.25.0 — Phase 1 KB 重构
