@@ -656,24 +656,29 @@ const { values } = parseArgs({
   },
 });
 
-void (async () => {
-  switch (values.op) {
-    case "check":
-      opCheck();
-      break;
-    case "setup":
-      await opSetup(values["urls-file"]);
-      break;
-    case "query":
-      opQuery(values.domain, values.query);
-      break;
-    case "query-batch":
-      opQueryBatch(values["from-diagnose"], values["hw-arch"]);
-      break;
-    case "add-domain":
-      await opAddDomain(values.domain, values["urls-file"]);
-      break;
-    default:
-      fatal(`未知 op: ${values.op}。支持: check | setup | query | query-batch | add-domain`);
+(async () => {
+  try {
+    switch (values.op) {
+      case "check":
+        opCheck();
+        break;
+      case "setup":
+        await opSetup(values["urls-file"]);
+        break;
+      case "query":
+        opQuery(values.domain, values.query);
+        break;
+      case "query-batch":
+        opQueryBatch(values["from-diagnose"], values["hw-arch"]);
+        break;
+      case "add-domain":
+        await opAddDomain(values.domain, values["urls-file"]);
+        break;
+      default:
+        fatal(`未知 op: ${values.op}。支持: check | setup | query | query-batch | add-domain`);
+    }
+  } catch (e) {
+    out({ ok: false, error: e instanceof Error ? e.message : String(e) });
+    process.exit(1);
   }
 })();

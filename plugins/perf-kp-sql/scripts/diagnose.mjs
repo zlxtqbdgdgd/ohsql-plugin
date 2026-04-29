@@ -284,10 +284,11 @@ function callNotebookLm(args) {
   }
   rmSync(tmpDir, { recursive: true, force: true });
   if (result.status !== 0) {
+    const signal = result.signal ? ` \xB7 signal: ${result.signal}` : "";
     return {
       ok: false,
       expansions: /* @__PURE__ */ new Map(),
-      reason: `notebooklm.mjs \u9000\u51FA\u7801 ${result.status} \xB7 stderr: ${(result.stderr ?? "").slice(0, 300)}`
+      reason: `notebooklm.mjs \u9000\u51FA\u7801 ${result.status}${signal} \xB7 stderr: ${(result.stderr ?? "").slice(0, 300)}`
     };
   }
   let parsed;

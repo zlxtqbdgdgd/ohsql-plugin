@@ -72,10 +72,11 @@ export function callNotebookLm(args: NlmCallArgs): NlmResult {
   rmSync(tmpDir, { recursive: true, force: true });
 
   if (result.status !== 0) {
+    const signal = result.signal ? ` · signal: ${result.signal}` : "";
     return {
       ok: false,
       expansions: new Map(),
-      reason: `notebooklm.mjs 退出码 ${result.status} · stderr: ${(result.stderr ?? "").slice(0, 300)}`,
+      reason: `notebooklm.mjs 退出码 ${result.status}${signal} · stderr: ${(result.stderr ?? "").slice(0, 300)}`,
     };
   }
 
