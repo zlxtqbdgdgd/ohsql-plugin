@@ -11,7 +11,7 @@ All skills follow the [Anthropic Agent Skills open standard](https://github.com/
 | Plugin | Version | Hosts | What it does |
 |---|---|---|---|
 | [`cpu-flamegraph`](./plugins/cpu-flamegraph/) | 0.2.1 | Claude Code · Codex CLI · ohsql · any agent with shell + read/write | Remote `perf` over SSH → on-CPU / off-CPU flamegraph SVG → top-N hotspot extraction. Pure local `ssh` + Perl `flamegraph.pl`, zero kernel-tool dependency. |
-| [`perf-kp-sql`](./plugins/perf-kp-sql/) | 0.6.1 | Claude Code · Codex CLI · ohsql · any standard-compliant agent | Kunpeng ARM64 + MongoDB / MySQL / Redis joint perf diagnosis. SSH-based collection → 411 baseline rules → sqlite RAG knowledge base (FTS5) → impact-ranked HTML report. |
+| [`perf-kp-sql`](./plugins/perf-kp-sql/) | 0.6.1 | Claude Code · Codex CLI · ohsql · any standard-compliant agent | Kunpeng ARM64 + MongoDB joint perf diagnosis. SSH-based collection → 6-phase LLM-orchestrated pipeline against 202-case markdown KB → NotebookLM authoritative refresh → impact-ranked markdown + HTML report. |
 
 ---
 
@@ -23,7 +23,7 @@ All skills follow the [Anthropic Agent Skills open standard](https://github.com/
 /plugin marketplace add zlxtqbdgdgd/ohsql-plugin
 /plugin install cpu-flamegraph                  # ready immediately
 /plugin install perf-kp-sql                     # auto-installs cpu-flamegraph dep
-/perf-kp-sql-setup                              # install native deps once (better-sqlite3)
+/perf-kp-sql-setup                              # install marked + register NotebookLM
 ```
 
 After `perf-kp-sql-setup` completes:
@@ -104,7 +104,7 @@ End-to-end diagnosis with `perf-kp-sql`:
 /perf-kp-sql host=10.0.0.1 user=root privateKeyPath=~/.ssh/id_ed25519 engine=mongo
 ```
 
-The skill collects 50 OS metrics + 18 mongo runtime metrics over SSH, runs them against 59 enabled rules + queries the sqlite RAG knowledge base, optionally invokes `cpu-flamegraph` for hotspot data, and produces an impact-ranked HTML + screen report.
+The skill runs a 6-phase LLM-orchestrated pipeline: SSH 环境画像 → 现象路由(LLM 匹配 cases/INDEX.md)→ 批量采集(per-case collection_method_quote)→ 推断(KB 阈值直判 + NotebookLM 兜底刷新)→ markdown 报告 + HTML 转换。Optionally invokes `cpu-flamegraph` for hotspot stack analysis.
 
 ---
 

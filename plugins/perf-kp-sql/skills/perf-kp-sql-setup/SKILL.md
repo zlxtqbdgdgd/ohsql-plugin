@@ -1,12 +1,12 @@
 ---
 name: perf-kp-sql-setup
-description: Diagnose and install perf-kp-sql runtime dependencies (better-sqlite3, marked) and verify knowledge.sqlite schema. Use ONLY when invoked explicitly via `/perf-kp-sql-setup`, after first install of perf-kp-sql, or when perf-kp-sql diagnosis fails with native-addon / ABI / 'module not found' / 'NODE_MODULE_VERSION mismatch' errors. Do NOT auto-invoke based on general user requests.
+description: Diagnose and install perf-kp-sql runtime dependencies (marked) and verify NotebookLM CLI registration. Use ONLY when invoked explicitly via `/perf-kp-sql-setup`, after first install of perf-kp-sql, or when perf-kp-sql diagnosis fails with native-addon / 'module not found' errors. Do NOT auto-invoke based on general user requests.
 compatibility: |
   Requires Node.js >= 18 and `npm` on the local machine + 本地 OpenSSH `ssh`
-  CLI(Linux/macOS 自带 · Windows 走 WSL/OpenSSH-Win)。Installs native module
-  (better-sqlite3) plus the markdown renderer (marked) into the plugin's
-  per-plugin `node_modules` directory via `npm install --prefix`. Works on
-  Claude Code, OpenAI Codex CLI, and ohsql. v0.12.0 起 ssh2 native module
+  CLI(Linux/macOS 自带 · Windows 走 WSL/OpenSSH-Win)。Installs the markdown
+  renderer (marked) into the plugin's per-plugin `node_modules` directory via
+  `npm install --prefix`(0 native dep · 0.26.0 起退役 better-sqlite3)。Works
+  on Claude Code, OpenAI Codex CLI, and ohsql. v0.12.0 起 ssh2 native module
   已下线 · cli-ssh 改走 spawn(本地 ssh)+ SSH_ASKPASS。
 metadata:
   generator: "manual"
@@ -59,9 +59,8 @@ Bash(command="bash <PLUGIN_ROOT>/skills/perf-kp-sql-setup/scripts/check-health")
 The script outputs a colored report covering:
 
 - Node.js version
-- `better-sqlite3` (require + ABI)
 - `marked` (markdown renderer)
-- `data/knowledge.sqlite` (file exists + readable + schema)
+- `data/kb/cases/{KB.md,INDEX.md}` 与 `data/kb/best-practice/{KB.md,INDEX.md}` 存在性
 
 Display the script's output verbatim.
 
@@ -72,9 +71,8 @@ Parse the script output. If every item is 🟢, display the success banner and s
 ```
 ✅ perf-kp-sql setup complete
 
-   better-sqlite3   🟢
    marked           🟢
-   knowledge.sqlite 🟢
+   data/kb/         🟢
 
    Run /perf-kp-sql-setup anytime to re-check.
 ```
@@ -120,15 +118,7 @@ Bash(command="cd '<PLUGIN_ROOT>' && npm install --no-audit --no-fund --loglevel=
 
 Display stdout/stderr to the user.
 
-### Step 5: Handle ABI mismatches
-
-If `better-sqlite3` is installed but the health check reports `NODE_MODULE_VERSION X != Y`, the user upgraded Node since last install. Run:
-
-```
-Bash(command="cd '<PLUGIN_ROOT>' && npm rebuild better-sqlite3")
-```
-
-### Step 6: Re-run health check + finish
+### Step 5: Re-run health check + finish
 
 ```
 Bash(command="bash <PLUGIN_ROOT>/skills/perf-kp-sql-setup/scripts/check-health")
@@ -136,7 +126,7 @@ Bash(command="bash <PLUGIN_ROOT>/skills/perf-kp-sql-setup/scripts/check-health")
 
 If everything is now 🟢, display the success banner from Step 3.
 
-If knowledge.sqlite is still missing or corrupt, recommend `/plugin reinstall perf-kp-sql` (the file is committed in the plugin repo and ships with the install).
+If `data/kb/` 文件缺失,recommend `/plugin reinstall perf-kp-sql` (KB 文件随 plugin install 发布)。
 
 ## Phase 3: NotebookLM 知识增强（可选）
 
@@ -218,6 +208,5 @@ This skill takes no arguments. Invoke explicitly via:
 
 Do NOT auto-invoke based on general user requests. Only fire when:
 - The user explicitly types `/perf-kp-sql-setup`
-- A perf-kp-sql diagnosis fails with `Cannot find module 'better-sqlite3'`,
-  `NODE_MODULE_VERSION X != Y`, or similar native-addon / ABI errors
+- A perf-kp-sql diagnosis fails with `Cannot find module 'marked'` 等 native-addon / 'module not found' 错误
 - Right after first install of perf-kp-sql (one-time setup)

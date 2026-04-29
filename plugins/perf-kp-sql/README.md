@@ -2,7 +2,7 @@
 
 > **harness-agnostic** (since v0.6.0) — runs on Claude Code, OpenAI Codex CLI, and OpenHarness-SQL ≥ 0.38.0. Follows the [Anthropic Agent Skills open standard](https://github.com/anthropics/skills).
 
-Kunpeng + MongoDB/MySQL/Redis joint performance diagnosis. SSH-based collection (50 OS metrics + per-engine runtime) + 411 baseline rules + sqlite RAG knowledge base (FTS5 trigram) + flamegraph integration.
+Kunpeng + MongoDB joint performance diagnosis. SSH-based collection (8-cmd 环境画像 + per-case 命令拉指标) + 6-phase LLM-orchestrated pipeline against 202-case markdown KB (cases/INDEX.md + best-practice/INDEX.md routing) + NotebookLM authoritative refresh + flamegraph integration. 0 native dep at runtime.
 
 ## Install · Claude Code
 
@@ -13,8 +13,9 @@ Kunpeng + MongoDB/MySQL/Redis joint performance diagnosis. SSH-based collection 
 # → echoes:  "请运行 /perf-kp-sql-setup 完成 native 依赖安装"
 
 /perf-kp-sql-setup
-# → installs better-sqlite3
-# → verifies knowledge.sqlite schema
+# → installs marked (markdown renderer)
+# → verifies data/kb/ KB markdown files
+# → optionally registers NotebookLM (Google account · pip install notebooklm-py[browser])
 ```
 
 ## Install · OpenAI Codex CLI
@@ -49,12 +50,12 @@ Native deps (installed by `/perf-kp-sql-setup`):
 
 | Package | Why |
 |---|---|
-| `better-sqlite3@^11.7` | knowledge.sqlite + skills.db reads |
+| `marked@^18` | markdown → HTML 报告渲染(scripts/md-to-html.mjs) |
 
 SSH 走本地 OpenSSH `ssh` CLI(v0.12.0 起 ssh2 native module 已下线)· 通过 `node scripts/ssh.mjs` wrapper 统一进入,带 ControlMaster 多路复用与 SSH_ASKPASS 密码注入。
 
 ## Knowledge base
 
-`data/knowledge.sqlite` (~10MB, committed): 2257 fact rows × 7 fact types across 371 MongoDB topics, 411 baseline rules (mongo / any / mysql / redis), 9 flame-pattern regexes. FTS5 trigram retrieval with zero-hallucination guard.
+`data/kb/` (~800KB, committed): 202 distilled cases — 93 best-practice + 96 diagnostic-flow + 13 flame-signature。两组 `KB.md` (完整字段) + `INDEX.md` (路由表) · LLM 加载 INDEX 路由匹配 + Read offset+limit 拿单 case 完整字段 · NotebookLM 兜底刷新最新推荐。
 
-The plugin **does not run** without the sqlite file — `/perf-kp-sql-setup` checks for it.
+The plugin **does not run** without `data/kb/` files — `/perf-kp-sql-setup` checks for them.

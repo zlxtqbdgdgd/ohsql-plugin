@@ -3,9 +3,8 @@
 #
 # Probes:
 #   - Node.js >= 18
-#   - better-sqlite3 (require + ABI compat)
-#   - marked (require — used by render-html-report.mjs)
-#   - data/knowledge.sqlite (file + readable + schema)
+#   - marked (require — used by md-to-html.mjs)
+#   - data/kb/{cases,best-practice}/{KB.md,INDEX.md} 存在性
 #
 # v0.12.0: ssh2 已下线 — cli-ssh.ts 改走 spawn(本地 OpenSSH ssh CLI) +
 # SSH_ASKPASS,不再需要 ssh2 native module。
@@ -85,26 +84,7 @@ fi
 
 header "Native dependencies"
 
-# ----- better-sqlite3 -----
-err="$(node -e "require('better-sqlite3')" 2>&1)"
-if [ -z "$err" ]; then
-  abi_err="$(node -e "const D=require('better-sqlite3'); new D(':memory:').prepare('SELECT 1').get();" 2>&1)"
-  if [ -z "$abi_err" ]; then
-    ok "better-sqlite3"
-  else
-    fail "better-sqlite3 ABI mismatch"
-    hint "$abi_err"
-    hint "fix: cd '$PLUGIN_ROOT' && npm rebuild better-sqlite3"
-    issues=$((issues + 1))
-  fi
-else
-  fail "better-sqlite3 missing"
-  hint "fix: cd '$PLUGIN_ROOT' && npm install better-sqlite3@^11.7"
-  needed_install+=("better-sqlite3@^11.7")
-  issues=$((issues + 1))
-fi
-
-# ----- marked (used by scripts/render-html-report.mjs) -----
+# ----- marked (used by scripts/md-to-html.mjs) -----
 err="$(node --input-type=module -e "import('marked').then(()=>{process.stdout.write('ok')}).catch(e=>{process.stderr.write(String(e));process.exit(1)})" 2>&1)"
 if [ "$err" = "ok" ]; then
   ok "marked"
@@ -117,39 +97,18 @@ fi
 
 header "Data"
 
-# ----- knowledge.sqlite -----
-KB="$PLUGIN_ROOT/data/knowledge.sqlite"
-if [ ! -f "$KB" ]; then
-  fail "data/knowledge.sqlite missing"
-  hint "fix: /plugin reinstall perf-kp-sql"
-  issues=$((issues + 1))
-else
-  schema_err="$(node -e "
-  const D = require('better-sqlite3');
-  const db = new D('$KB', { readonly: true });
-  // 新 schema (cases 体系) 优先; 旧 schema (knowledge/rules/flame_patterns) 兼容
-  const tables = db.prepare(\"SELECT name FROM sqlite_master WHERE type='table'\").all().map(t=>t.name);
-  if (tables.includes('cases')) {
-    for (const t of ['cases','cases_fts','kb_meta']) {
-      const r = db.prepare(\`SELECT count(*) AS c FROM \${t}\`).get();
-      if (typeof r.c !== 'number') throw new Error(t + ' missing');
-    }
-  } else {
-    for (const t of ['knowledge','rules','flame_patterns']) {
-      const r = db.prepare(\`SELECT count(*) AS c FROM \${t}\`).get();
-      if (typeof r.c !== 'number') throw new Error(t + ' missing');
-    }
-  }
-  process.stdout.write('ok');
-  " 2>&1)"
-  if [ "$schema_err" = "ok" ]; then
-    ok "knowledge.sqlite (schema verified)"
-  else
-    fail "knowledge.sqlite corrupt or schema mismatch"
-    hint "$schema_err"
+# ----- KB markdown files (cases + best-practice) -----
+all_kb_ok=1
+for kb_file in "data/kb/cases/KB.md" "data/kb/cases/INDEX.md" "data/kb/best-practice/KB.md" "data/kb/best-practice/INDEX.md"; do
+  if [ ! -f "$PLUGIN_ROOT/$kb_file" ]; then
+    fail "$kb_file missing"
     hint "fix: /plugin reinstall perf-kp-sql"
     issues=$((issues + 1))
+    all_kb_ok=0
   fi
+done
+if [ "$all_kb_ok" = 1 ]; then
+  ok "data/kb/ (4 files present)"
 fi
 
 # ----- NotebookLM CLI (optional enhancement) -----

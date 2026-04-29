@@ -9,14 +9,13 @@
     "validate:strict": "node tools/build/validate.mjs --strict",
     "test": "npm run test:validate && npm run test:perf-kp-sql && npm run test:cpu-flamegraph",
     "test:validate": "node --test tools/build/validate.test.mjs",
-    "test:perf-kp-sql": "node --import tsx --test plugins/perf-kp-sql/tests/cli-ssh.test.ts plugins/perf-kp-sql/tests/perf-kp-sql.test.ts plugins/perf-kp-sql/tests/phase-1/scope-to-bucket.test.ts plugins/perf-kp-sql/tests/phase-1/case-md-parser.test.ts plugins/perf-kp-sql/tests/phase-1/kb-build.acceptance.test.ts plugins/perf-kp-sql/tests/phase-1/diagnose-paths.test.ts plugins/perf-kp-sql/tests/phase-1/render-report.test.ts",
+    "test:perf-kp-sql": "node --import tsx --test plugins/perf-kp-sql/tests/cli-ssh.test.ts",
     "test:cpu-flamegraph": "node --import tsx --test plugins/cpu-flamegraph/skills/cpu-flamegraph/tests/captureRunner.test.ts plugins/cpu-flamegraph/skills/cpu-flamegraph/tests/interpretHotspot.test.ts plugins/cpu-flamegraph/skills/cpu-flamegraph/tests/parsePerfScript.test.ts"
   },
   "engines": {
     "node": ">=18.0.0"
   },
   "devDependencies": {
-    "@types/better-sqlite3": "^7.6.12",
     "@types/node": "^22.13.10",
     "cheerio": "^1.2.0",
     "esbuild": "^0.27.4",
@@ -29,7 +28,6 @@
   },
   "dependencies": {
     "@types/js-yaml": "^4.0.9",
-    "better-sqlite3": "^11.7.0",
     "js-yaml": "^4.1.1"
   }
 }

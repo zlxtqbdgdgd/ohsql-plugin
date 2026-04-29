@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Phase 1 · M7 · esbuild bundle src/*.ts → scripts/*.mjs
+// esbuild bundle src/*.ts → scripts/*.mjs
 //
 // 用法:
 //   node plugins/perf-kp-sql/scripts/_build.mjs
@@ -18,12 +18,11 @@ import { dirname as __pathDirname } from "path";
 const require = createRequire(import.meta.url);`;
 
 const targets = [
-  { in: "src/cli-kb.ts", out: "scripts/kb.mjs" },
-  { in: "src/cli-diagnose.ts", out: "scripts/diagnose.mjs" },
+  { in: "src/cli-ssh.ts", out: "scripts/ssh.mjs" },
+  { in: "src/cli-history.ts", out: "scripts/history.mjs" },
 ];
 
 const external = [
-  "better-sqlite3",
   "js-yaml",
 ];
 
