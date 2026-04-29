@@ -6,7 +6,6 @@ const require = createRequire(import.meta.url);
 
 // plugins/perf-kp-sql/src/cli-diagnose/index.ts
 import Database from "better-sqlite3";
-import * as sqliteVec from "sqlite-vec";
 
 // plugins/perf-kp-sql/src/cli-diagnose/types.ts
 function flattenConfigDump(cd) {
@@ -230,10 +229,6 @@ function matchLocalFts(db, query, topK = DEFAULT_TOP_K) {
 // plugins/perf-kp-sql/src/cli-diagnose/index.ts
 function diagnose(args) {
   const db = new Database(args.dbPath, { readonly: true, fileMustExist: true });
-  try {
-    sqliteVec.load(db);
-  } catch {
-  }
   const matched = [
     ...matchBpRecommendations(db, args.snapshot),
     ...matchDfCauses(db, args.snapshot),

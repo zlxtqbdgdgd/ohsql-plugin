@@ -1,15 +1,13 @@
 ---
 name: perf-kp-sql-setup
-description: Diagnose and install perf-kp-sql runtime dependencies (better-sqlite3, sqlite-vec, @xenova/transformers, marked) and verify knowledge.sqlite schema. Use ONLY when invoked explicitly via `/perf-kp-sql-setup`, after first install of perf-kp-sql, or when perf-kp-sql diagnosis fails with native-addon / ABI / 'module not found' / 'NODE_MODULE_VERSION mismatch' errors. Do NOT auto-invoke based on general user requests.
+description: Diagnose and install perf-kp-sql runtime dependencies (better-sqlite3, marked) and verify knowledge.sqlite schema. Use ONLY when invoked explicitly via `/perf-kp-sql-setup`, after first install of perf-kp-sql, or when perf-kp-sql diagnosis fails with native-addon / ABI / 'module not found' / 'NODE_MODULE_VERSION mismatch' errors. Do NOT auto-invoke based on general user requests.
 compatibility: |
   Requires Node.js >= 18 and `npm` on the local machine + 本地 OpenSSH `ssh`
-  CLI(Linux/macOS 自带 · Windows 走 WSL/OpenSSH-Win)。Installs native modules
-  (better-sqlite3, sqlite-vec, @xenova/transformers) plus the markdown
-  renderer (marked) into the plugin's per-plugin `node_modules` directory via
-  `npm install --prefix`. Optionally warms up the HuggingFace MiniLM-L6-v2 model
-  (~25MB download) for KB semantic search readiness. Works on Claude Code,
-  OpenAI Codex CLI, and ohsql. v0.12.0 起 ssh2 native module 已下线 ·
-  cli-ssh 改走 spawn(本地 ssh)+ SSH_ASKPASS。
+  CLI(Linux/macOS 自带 · Windows 走 WSL/OpenSSH-Win)。Installs native module
+  (better-sqlite3) plus the markdown renderer (marked) into the plugin's
+  per-plugin `node_modules` directory via `npm install --prefix`. Works on
+  Claude Code, OpenAI Codex CLI, and ohsql. v0.12.0 起 ssh2 native module
+  已下线 · cli-ssh 改走 spawn(本地 ssh)+ SSH_ASKPASS。
 metadata:
   generator: "manual"
   generated_at: "2026-04-26"
@@ -78,8 +76,7 @@ The script outputs a colored report covering:
 
 - Node.js version
 - `better-sqlite3` (require + ABI)
-- `sqlite-vec` (require + extension load + `vec_version()`)
-- `@xenova/transformers` (import)
+- `marked` (markdown renderer)
 - `data/knowledge.sqlite` (file exists + readable + schema)
 
 Display the script's output verbatim.
@@ -92,8 +89,7 @@ Parse the script output. If every item is 🟢, display the success banner and s
 ✅ perf-kp-sql setup complete
 
    better-sqlite3   🟢
-   sqlite-vec       🟢
-   transformers     🟢
+   marked           🟢
    knowledge.sqlite 🟢
 
    Run /perf-kp-sql-setup anytime to re-check.
@@ -119,7 +115,7 @@ If stdout is empty:
 ✅ 所有 runtime 依赖已就位,无需 npm install
 ```
 
-Skip Step 4 install and proceed to Step 5 (ABI rebuild check) / Step 6 (model warmup).
+Skip Step 4 install and proceed to Step 5 (ABI rebuild check).
 
 If stdout is non-empty, ask the user whether to install **only** the listed subset. Use the agent's native Q&A facility: structured options on Claude Code, plain stop-and-wait conversational ask on Codex CLI / others.
 
@@ -145,29 +141,10 @@ Display stdout/stderr to the user.
 If `better-sqlite3` is installed but the health check reports `NODE_MODULE_VERSION X != Y`, the user upgraded Node since last install. Run:
 
 ```
-Bash(command="cd '${OHSQL_PLUGIN_ROOT}${CLAUDE_PLUGIN_ROOT}' && npm rebuild better-sqlite3 sqlite-vec")
+Bash(command="cd '${OHSQL_PLUGIN_ROOT}${CLAUDE_PLUGIN_ROOT}' && npm rebuild better-sqlite3")
 ```
 
-### Step 6: Warm the model cache (optional)
-
-`@xenova/transformers` lazily downloads the MiniLM-L6-v2 model (~25 MB) the first time `kb.mjs` runs an embedding query. Pre-download it now to avoid blocking the first diagnosis:
-
-```
-Question: 提前下载 MiniLM-L6-v2 模型 (~25MB) 缓存到 ~/.cache/huggingface？
-
-  Option 1 [recommended]: 是,触发一次 warmup
-  Option 2: 跳过,首次诊断时再下
-```
-
-If accepted:
-
-```
-Bash(command="node '${OHSQL_PLUGIN_ROOT}${CLAUDE_PLUGIN_ROOT}/scripts/kb.mjs' --op query --q warmup --engine mongo --top-k 1", timeout=120000)
-```
-
-(`--op query --q <text>` 内部会触发 `embed()` 加载 MiniLM-L6-v2 → 触发首次模型下载并缓存。`--engine mongo --top-k 1` 是为了让查询有效但极轻量。返回 JSON 里包含 `qVector` 384 维即说明模型已就位。脚本里没有 `--op embed` / `--text` 参数,旧文档残留勿用。)
-
-### Step 7: Re-run health check + finish
+### Step 6: Re-run health check + finish
 
 ```
 Bash(command="bash ${OHSQL_PLUGIN_ROOT}${CLAUDE_PLUGIN_ROOT}/skills/perf-kp-sql-setup/scripts/check-health")

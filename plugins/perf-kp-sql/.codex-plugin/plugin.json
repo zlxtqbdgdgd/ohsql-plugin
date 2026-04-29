@@ -1,7 +1,7 @@
 {
   "name": "perf-kp-sql",
-  "version": "0.25.3",
-  "description": "Kunpeng + MongoDB joint perf diagnosis. SSH-based collection + 202-case distilled knowledge base (sqlite cases + FTS5 trigram + sqlite-vec 384-dim) + flamegraph stack pattern matching + NotebookLM-extension hook. Harness-agnostic (Anthropic Agent Skills standard).",
+  "version": "0.25.4",
+  "description": "Kunpeng + MongoDB joint perf diagnosis. SSH-based collection + 202-case distilled knowledge base (sqlite cases + FTS5 trigram) + flamegraph stack pattern matching + NotebookLM-extension hook. Harness-agnostic (Anthropic Agent Skills standard).",
   "author": {
     "name": "zlxtqbdgdgd",
     "url": "https://github.com/zlxtqbdgdgd"
@@ -19,7 +19,7 @@
   "interface": {
     "displayName": "Kunpeng SQL Perf",
     "shortDescription": "Kunpeng ARM64 + MongoDB perf diagnosis",
-    "longDescription": "SSH-based remote collection (50 OS metrics + 18 mongo runtime), evaluates 44 audited baseline rules against a sqlite knowledge base (FTS5 trigram + sqlite-vec 384-dim semantic search), and emits an impact-ranked HTML report with authoritative citations (军规 1+2+3+4 全 enforced · OpenAI 反向校验 75% pass rate). First-time use: run /perf-kp-sql-setup to install native deps.",
+    "longDescription": "SSH-based remote collection (50 OS metrics + 18 mongo runtime), evaluates 44 audited baseline rules against a sqlite knowledge base (FTS5 trigram), and emits an impact-ranked HTML report with authoritative citations (军规 1+2+3+4 全 enforced · OpenAI 反向校验 75% pass rate). First-time use: run /perf-kp-sql-setup to install native deps.",
     "developerName": "zlxtqbdgdgd",
     "category": "Developer Tools",
     "capabilities": ["Interactive", "Write"],

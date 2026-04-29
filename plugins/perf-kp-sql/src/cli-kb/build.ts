@@ -4,7 +4,6 @@
 // 详见 PHASE-1-SCHEMA-AND-USAGE.md §4。
 
 import Database from "better-sqlite3";
-import * as sqliteVec from "sqlite-vec";
 import { readdirSync, readFileSync, statSync, mkdirSync } from "node:fs";
 import { resolve, dirname, basename } from "node:path";
 
@@ -19,13 +18,11 @@ import {
   type CaseBlock,
 } from "./parser.js";
 import { scopeToBucket, type Bucket, type EntryKind } from "../shared/scope-to-bucket.js";
-import { embed, embeddingToBlob } from "./embed.js";
-import { SCHEMA_SQL, FTS_SCHEMA_SQL, VEC_SCHEMA_SQL, SCHEMA_VERSION } from "./schema.js";
+import { SCHEMA_SQL, FTS_SCHEMA_SQL, SCHEMA_VERSION } from "./schema.js";
 
 export interface BuildKbArgs {
   casesRoot: string;
   out: string;
-  modelDir?: string;
 }
 
 export type BuildKbErrorKind =
@@ -51,7 +48,6 @@ export interface BuildKbResult {
     caseInferredFields: number;
     caseLinks: number;
     casesFts: number;
-    casesVec: number;
   };
   errors: BuildKbError[];
 }
@@ -86,7 +82,6 @@ interface PreparedCase {
   keywords: string[];
   inferred_fields: string[];
   links: Array<{ to: string; type: "cross_reference" | "linked_case" }>;
-  embedding_text: string;
 }
 
 function listMdFiles(dir: string): string[] {
@@ -103,38 +98,6 @@ function nullable(v: string | null | undefined): string | null {
   if (!v) return null;
   if (typeof v === "string" && /^\(NULL[\s)·]/.test(v)) return null;
   return v;
-}
-
-function buildEmbeddingText(prep: PreparedCase): string {
-  // 用 title + scope + 关键 quote 拼一段 ~300 字的代表文本喂 embedding
-  const parts: string[] = [prep.title];
-  if (prep.scope) parts.push(prep.scope);
-  if (prep.bp_data) {
-    try {
-      const o = JSON.parse(prep.bp_data);
-      if (o.scenario?.description_quote) parts.push(o.scenario.description_quote);
-      if (o.recommendation?.value) parts.push(o.recommendation.value);
-      if (o.recommendation?.quote) parts.push(o.recommendation.quote);
-      if (o.rationale?.zh) parts.push(o.rationale.zh);
-    } catch {}
-  }
-  if (prep.df_data) {
-    try {
-      const o = JSON.parse(prep.df_data);
-      if (o.symptom?.description_quote) parts.push(o.symptom.description_quote);
-      if (Array.isArray(o.diagnostic_steps) && o.diagnostic_steps[0]?.abnormal_pattern_quote) {
-        parts.push(o.diagnostic_steps[0].abnormal_pattern_quote);
-      }
-    } catch {}
-  }
-  if (prep.flame_data) {
-    try {
-      const o = JSON.parse(prep.flame_data);
-      if (o.pattern_quote) parts.push(o.pattern_quote);
-      if (o.mechanism?.zh) parts.push(o.mechanism.zh);
-    } catch {}
-  }
-  return parts.join(" · ").slice(0, 1000);
 }
 
 function preparesOne(
@@ -280,9 +243,7 @@ function preparesOne(
     keywords: [...new Set(keywords)],
     inferred_fields: inferredFields,
     links,
-    embedding_text: "",
   };
-  prep.embedding_text = buildEmbeddingText(prep);
   return prep;
 }
 
@@ -321,22 +282,14 @@ export async function buildKb(args: BuildKbArgs): Promise<BuildKbResult> {
     }
   }
 
-  // 2. 算 embedding (在事务外 · 因为 transformers 是 async)
-  for (const p of prepared) {
-    const v = await embed(p.embedding_text, args.modelDir);
-    (p as PreparedCase & { _embedding: Buffer })._embedding = embeddingToBlob(v);
-  }
-
-  // 3. 打开 sqlite + 加载 vec0 + 建表
+  // 2. 打开 sqlite + 建表
   mkdirSync(dirname(resolve(args.out)), { recursive: true });
   const db = new Database(args.out);
-  sqliteVec.load(db);
   db.pragma("journal_mode = WAL");
   db.pragma("foreign_keys = ON");
 
   db.exec(SCHEMA_SQL);
   db.exec(FTS_SCHEMA_SQL);
-  db.exec(VEC_SCHEMA_SQL);
 
   db.prepare(`INSERT OR REPLACE INTO kb_meta (key, value) VALUES (?, ?)`).run(
     "schema_version",
@@ -347,7 +300,7 @@ export async function buildKb(args: BuildKbArgs): Promise<BuildKbResult> {
     new Date().toISOString(),
   );
 
-  // 4. 一个事务批量入库
+  // 3. 一个事务批量入库
   const insertCase = db.prepare(`
     INSERT INTO cases (
       case_id, entry_kind, database, platform, scope, case_pattern,
@@ -378,7 +331,6 @@ export async function buildKb(args: BuildKbArgs): Promise<BuildKbResult> {
     `INSERT OR IGNORE INTO case_links (case_id_from, case_id_to, link_type) VALUES (?, ?, ?)`,
   );
   const insertFts = db.prepare(`INSERT INTO cases_fts (case_id, fts_text) VALUES (?, ?)`);
-  const insertVec = db.prepare(`INSERT INTO cases_vec (case_id, embedding) VALUES (?, ?)`);
 
   const tx = db.transaction((all: PreparedCase[]) => {
     for (const p of all) {
@@ -423,14 +375,11 @@ export async function buildKb(args: BuildKbArgs): Promise<BuildKbResult> {
         .prepare(`SELECT fts_text FROM cases WHERE case_id = ?`)
         .get(p.caseId) as { fts_text: string } | undefined;
       insertFts.run(p.caseId, ftsRow?.fts_text ?? p.title);
-
-      const blob = (p as PreparedCase & { _embedding: Buffer })._embedding;
-      insertVec.run(p.caseId, blob);
     }
   });
   tx(prepared);
 
-  // 5. 统计
+  // 4. 统计
   const totals = {
     cases: (db.prepare(`SELECT COUNT(*) AS n FROM cases`).get() as { n: number }).n,
     byEntryKind: {
@@ -444,7 +393,6 @@ export async function buildKb(args: BuildKbArgs): Promise<BuildKbResult> {
     caseInferredFields: (db.prepare(`SELECT COUNT(*) AS n FROM case_inferred_fields`).get() as { n: number }).n,
     caseLinks: (db.prepare(`SELECT COUNT(*) AS n FROM case_links`).get() as { n: number }).n,
     casesFts: (db.prepare(`SELECT COUNT(*) AS n FROM cases_fts`).get() as { n: number }).n,
-    casesVec: (db.prepare(`SELECT COUNT(*) AS n FROM cases_vec`).get() as { n: number }).n,
   };
   for (const ek of ENTRY_KINDS) {
     const r = db

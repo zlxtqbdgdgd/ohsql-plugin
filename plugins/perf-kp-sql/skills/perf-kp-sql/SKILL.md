@@ -1,6 +1,6 @@
 ---
 name: perf-kp-sql
-description: Kunpeng ARM64 + MongoDB joint performance diagnosis. Runs SSH-based remote collection (50 OS metrics + 18 mongo runtime), evaluates 44 audited baseline rules from a sqlite knowledge base (FTS5 trigram + sqlite-vec 384-dim semantic search · 全部规则点开 [参考N] 字面命中权威文档), and emits an impact-ranked HTML report. Use when users report MongoDB slowness, CPU spikes, latency jitter, or are doing Kunpeng migration / config audit. Triggers include '数据库慢' / 'CPU 高' / '抖动' / 'mongo perf' / 'Kunpeng 性能' / similar phrases. First-time use:run `/perf-kp-sql-setup` to install native deps.
+description: Kunpeng ARM64 + MongoDB joint performance diagnosis. Runs SSH-based remote collection (50 OS metrics + 18 mongo runtime), evaluates 44 audited baseline rules from a sqlite knowledge base (FTS5 trigram · 全部规则点开 [参考N] 字面命中权威文档), and emits an impact-ranked HTML report. Use when users report MongoDB slowness, CPU spikes, latency jitter, or are doing Kunpeng migration / config audit. Triggers include '数据库慢' / 'CPU 高' / '抖动' / 'mongo perf' / 'Kunpeng 性能' / similar phrases. First-time use:run `/perf-kp-sql-setup` to install native deps.
 compatibility: |
   Requires SSH access to the target host + local OpenSSH `ssh` CLI (Linux/macOS
   自带 · Windows 走 WSL 或 OpenSSH-Win)。两种认证方式都通过 `node ssh.mjs`
@@ -11,8 +11,7 @@ compatibility: |
   同主机的多次 SSH 调用通过 OpenSSH ControlMaster 复用一条已认证 TCP(socket
   在 /tmp/perf-kp-sql-cm-<hash>.sock)· 服务端只看到 1 个连接 · 避开 PAM
   faillock / fail2ban / sshd MaxStartups 限速。
-  Native deps installed via `/perf-kp-sql-setup`: better-sqlite3, sqlite-vec,
-  ssh2, @xenova/transformers (~30MB total + 25MB MiniLM model).
+  Native deps installed via `/perf-kp-sql-setup`: better-sqlite3, marked.
   Supported database engine: mongo (MongoDB 3.6-7.x).
   Knowledge base: 44 audited baseline rules + 54 distinct authoritative
   documents (MongoDB official + WiredTiger + Ampere + Kunpeng + ...).
@@ -24,7 +23,7 @@ argument-hint: "host=<ip> user=<user> (privateKeyPath=<path>|password=<pw>) [eng
 
 # Pre-flight
 
-> **首次安装后**:跑 `/perf-kp-sql-setup` 完成 native 依赖检查与安装(better-sqlite3 / sqlite-vec / @xenova/transformers + knowledge.sqlite 完整性)。setup skill 会在缺依赖时给出 `npm install` 命令并自动执行。
+> **首次安装后**:跑 `/perf-kp-sql-setup` 完成 native 依赖检查与安装(better-sqlite3 + knowledge.sqlite 完整性)。setup skill 会在缺依赖时给出 `npm install` 命令并自动执行。
 
 每次本 skill 触发,直接进入 Step 1 — `/perf-kp-sql-setup` 已经把 build 产物和 native 依赖都校验过了。运行时若仍出现 `Cannot find module 'better-sqlite3'` 或 `NODE_MODULE_VERSION X != Y`,提示用户重跑 `/perf-kp-sql-setup`。
 

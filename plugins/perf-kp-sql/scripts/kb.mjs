@@ -314,36 +314,8 @@ var init_scope_to_bucket = __esm({
   }
 });
 
-// plugins/perf-kp-sql/src/cli-kb/embed.ts
-async function embed(text, modelDir) {
-  if (!_extractor) {
-    const transformers = await import("@xenova/transformers");
-    if (modelDir) {
-      transformers.env.localModelPath = modelDir;
-      transformers.env.cacheDir = modelDir;
-    }
-    _extractor = await transformers.pipeline("feature-extraction", "Xenova/all-MiniLM-L6-v2");
-  }
-  const extractor = _extractor;
-  const output = await extractor(text, { pooling: "mean", normalize: true });
-  return Array.from(output.data);
-}
-function embeddingToBlob(embedding) {
-  const buf = Buffer.alloc(embedding.length * 4);
-  for (let i = 0; i < embedding.length; i++) {
-    buf.writeFloatLE(embedding[i], i * 4);
-  }
-  return buf;
-}
-var _extractor;
-var init_embed = __esm({
-  "plugins/perf-kp-sql/src/cli-kb/embed.ts"() {
-    "use strict";
-  }
-});
-
 // plugins/perf-kp-sql/src/cli-kb/schema.ts
-var SCHEMA_VERSION, SCHEMA_SQL, FTS_SCHEMA_SQL, VEC_SCHEMA_SQL;
+var SCHEMA_VERSION, SCHEMA_SQL, FTS_SCHEMA_SQL;
 var init_schema = __esm({
   "plugins/perf-kp-sql/src/cli-kb/schema.ts"() {
     "use strict";
@@ -443,12 +415,6 @@ CREATE VIRTUAL TABLE IF NOT EXISTS cases_fts USING fts5(
   tokenize='trigram'
 );
 `;
-    VEC_SCHEMA_SQL = `
-CREATE VIRTUAL TABLE IF NOT EXISTS cases_vec USING vec0(
-  case_id TEXT PRIMARY KEY,
-  embedding FLOAT[384]
-);
-`;
   }
 });
 
@@ -458,7 +424,6 @@ __export(build_exports, {
   buildKb: () => buildKb
 });
 import Database from "better-sqlite3";
-import * as sqliteVec from "sqlite-vec";
 import { readdirSync, readFileSync, mkdirSync } from "node:fs";
 import { resolve, dirname, basename } from "node:path";
 function listMdFiles(dir) {
@@ -472,39 +437,6 @@ function nullable2(v) {
   if (!v) return null;
   if (typeof v === "string" && /^\(NULL[\s)·]/.test(v)) return null;
   return v;
-}
-function buildEmbeddingText(prep) {
-  const parts = [prep.title];
-  if (prep.scope) parts.push(prep.scope);
-  if (prep.bp_data) {
-    try {
-      const o = JSON.parse(prep.bp_data);
-      if (o.scenario?.description_quote) parts.push(o.scenario.description_quote);
-      if (o.recommendation?.value) parts.push(o.recommendation.value);
-      if (o.recommendation?.quote) parts.push(o.recommendation.quote);
-      if (o.rationale?.zh) parts.push(o.rationale.zh);
-    } catch {
-    }
-  }
-  if (prep.df_data) {
-    try {
-      const o = JSON.parse(prep.df_data);
-      if (o.symptom?.description_quote) parts.push(o.symptom.description_quote);
-      if (Array.isArray(o.diagnostic_steps) && o.diagnostic_steps[0]?.abnormal_pattern_quote) {
-        parts.push(o.diagnostic_steps[0].abnormal_pattern_quote);
-      }
-    } catch {
-    }
-  }
-  if (prep.flame_data) {
-    try {
-      const o = JSON.parse(prep.flame_data);
-      if (o.pattern_quote) parts.push(o.pattern_quote);
-      if (o.mechanism?.zh) parts.push(o.mechanism.zh);
-    } catch {
-    }
-  }
-  return parts.join(" \xB7 ").slice(0, 1e3);
 }
 function preparesOne(c, fm, entryKind, dbDir, errors) {
   const { fields } = parseCaseFields(c.content);
@@ -621,10 +553,8 @@ function preparesOne(c, fm, entryKind, dbDir, errors) {
     param_names: paramNames,
     keywords: [...new Set(keywords)],
     inferred_fields: inferredFields,
-    links,
-    embedding_text: ""
+    links
   };
-  prep.embedding_text = buildEmbeddingText(prep);
   return prep;
 }
 async function buildKb(args) {
@@ -658,18 +588,12 @@ async function buildKb(args) {
       }
     }
   }
-  for (const p of prepared) {
-    const v = await embed(p.embedding_text, args.modelDir);
-    p._embedding = embeddingToBlob(v);
-  }
   mkdirSync(dirname(resolve(args.out)), { recursive: true });
   const db = new Database(args.out);
-  sqliteVec.load(db);
   db.pragma("journal_mode = WAL");
   db.pragma("foreign_keys = ON");
   db.exec(SCHEMA_SQL);
   db.exec(FTS_SCHEMA_SQL);
-  db.exec(VEC_SCHEMA_SQL);
   db.prepare(`INSERT OR REPLACE INTO kb_meta (key, value) VALUES (?, ?)`).run(
     "schema_version",
     SCHEMA_VERSION
@@ -708,7 +632,6 @@ async function buildKb(args) {
     `INSERT OR IGNORE INTO case_links (case_id_from, case_id_to, link_type) VALUES (?, ?, ?)`
   );
   const insertFts = db.prepare(`INSERT INTO cases_fts (case_id, fts_text) VALUES (?, ?)`);
-  const insertVec = db.prepare(`INSERT INTO cases_vec (case_id, embedding) VALUES (?, ?)`);
   const tx = db.transaction((all) => {
     for (const p of all) {
       try {
@@ -748,8 +671,6 @@ async function buildKb(args) {
       for (const l of p.links) insertLink.run(p.caseId, l.to, l.type);
       const ftsRow = db.prepare(`SELECT fts_text FROM cases WHERE case_id = ?`).get(p.caseId);
       insertFts.run(p.caseId, ftsRow?.fts_text ?? p.title);
-      const blob = p._embedding;
-      insertVec.run(p.caseId, blob);
     }
   });
   tx(prepared);
@@ -765,8 +686,7 @@ async function buildKb(args) {
     caseKeywords: db.prepare(`SELECT COUNT(*) AS n FROM case_keywords`).get().n,
     caseInferredFields: db.prepare(`SELECT COUNT(*) AS n FROM case_inferred_fields`).get().n,
     caseLinks: db.prepare(`SELECT COUNT(*) AS n FROM case_links`).get().n,
-    casesFts: db.prepare(`SELECT COUNT(*) AS n FROM cases_fts`).get().n,
-    casesVec: db.prepare(`SELECT COUNT(*) AS n FROM cases_vec`).get().n
+    casesFts: db.prepare(`SELECT COUNT(*) AS n FROM cases_fts`).get().n
   };
   for (const ek of ENTRY_KINDS) {
     const r = db.prepare(`SELECT COUNT(*) AS n FROM cases WHERE entry_kind = ?`).get(ek);
@@ -785,7 +705,6 @@ var init_build = __esm({
     "use strict";
     init_parser();
     init_scope_to_bucket();
-    init_embed();
     init_schema();
     ENTRY_KINDS = ["best-practice", "diagnostic-flow", "flame-signature"];
     DB_DIRS = ["_common", "mongodb"];
@@ -796,7 +715,6 @@ var init_build = __esm({
 // plugins/perf-kp-sql/src/cli-kb.ts
 init_build();
 init_schema();
-init_embed();
 import { pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
 import { resolve as resolve2 } from "node:path";
@@ -804,8 +722,7 @@ async function runCli() {
   const { values, positionals } = parseArgs({
     options: {
       from: { type: "string" },
-      out: { type: "string" },
-      modelDir: { type: "string" }
+      out: { type: "string" }
     },
     allowPositionals: true
   });
@@ -820,8 +737,7 @@ async function runCli() {
     const { buildKb: buildKb2 } = await Promise.resolve().then(() => (init_build(), build_exports));
     const result = await buildKb2({
       casesRoot: resolve2(casesRoot),
-      out: resolve2(out),
-      modelDir: values.modelDir
+      out: resolve2(out)
     });
     console.log(JSON.stringify(result, null, 2));
     if (result.errors.length > 0) process.exit(1);
@@ -837,8 +753,5 @@ export {
   FTS_SCHEMA_SQL,
   SCHEMA_SQL,
   SCHEMA_VERSION,
-  VEC_SCHEMA_SQL,
-  buildKb,
-  embed,
-  embeddingToBlob
+  buildKb
 };

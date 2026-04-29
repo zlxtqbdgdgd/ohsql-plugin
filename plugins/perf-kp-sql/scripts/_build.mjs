@@ -24,8 +24,6 @@ const targets = [
 
 const external = [
   "better-sqlite3",
-  "sqlite-vec",
-  "@xenova/transformers",
   "js-yaml",
 ];
 

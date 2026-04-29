@@ -1,6 +1,6 @@
 // Phase 1 · M3 · sqlite KB schema
 //
-// 单 cases 表 + 4 张扁平子表 + cases_fts (FTS5 trigram) + cases_vec (sqlite-vec 384 dim)。
+// 单 cases 表 + 4 张扁平子表 + cases_fts (FTS5 trigram)。
 // 详见 PHASE-1-SCHEMA-AND-USAGE.md §2。
 
 export const SCHEMA_VERSION = "1";
@@ -99,12 +99,5 @@ CREATE VIRTUAL TABLE IF NOT EXISTS cases_fts USING fts5(
   case_id UNINDEXED,
   fts_text,
   tokenize='trigram'
-);
-`;
-
-export const VEC_SCHEMA_SQL = `
-CREATE VIRTUAL TABLE IF NOT EXISTS cases_vec USING vec0(
-  case_id TEXT PRIMARY KEY,
-  embedding FLOAT[384]
 );
 `;

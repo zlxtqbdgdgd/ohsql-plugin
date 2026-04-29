@@ -4,7 +4,7 @@
 // 算法: cases_fts MATCH ? · 取 top-K · 转 CheckResult
 // 输出: CheckResult[] (path='D' · 用于 rag_context)
 //
-// M5/M7 阶段加 sqlite-vec 余弦相似 · 主路径走 NotebookLM (路径 E) · 此处仅离线 fallback。
+// 主路径走 NotebookLM (路径 E) · 此处仅离线 fallback。
 
 import type Database from "better-sqlite3";
 import type { CaseRow, CheckResult } from "./types.js";

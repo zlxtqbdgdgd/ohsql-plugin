@@ -83,10 +83,6 @@ describe("M3 · cli-kb build 把 distill-v2 cases md 入 sqlite", () => {
     assert.equal(result.totals.casesFts, 202);
   });
 
-  it("sqlite-vec 表 cases_vec 行数 = 202", () => {
-    assert.equal(result.totals.casesVec, 202);
-  });
-
   it("PRIMARY KEY case_id 全局唯一 · 入库不应有冲突", () => {
     assert.equal(result.errors.filter((e) => e.kind === "duplicate_case_id").length, 0);
   });

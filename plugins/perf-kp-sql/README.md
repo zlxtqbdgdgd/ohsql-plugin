@@ -2,7 +2,7 @@
 
 > **harness-agnostic** (since v0.6.0) — runs on Claude Code, OpenAI Codex CLI, and OpenHarness-SQL ≥ 0.38.0. Follows the [Anthropic Agent Skills open standard](https://github.com/anthropics/skills).
 
-Kunpeng + MongoDB/MySQL/Redis joint performance diagnosis. SSH-based collection (50 OS metrics + per-engine runtime) + 411 baseline rules + sqlite RAG knowledge base (FTS5 trigram + vec0 384-dim semantic search with RRF fusion) + flamegraph integration.
+Kunpeng + MongoDB/MySQL/Redis joint performance diagnosis. SSH-based collection (50 OS metrics + per-engine runtime) + 411 baseline rules + sqlite RAG knowledge base (FTS5 trigram) + flamegraph integration.
 
 ## Install · Claude Code
 
@@ -13,8 +13,7 @@ Kunpeng + MongoDB/MySQL/Redis joint performance diagnosis. SSH-based collection 
 # → echoes:  "请运行 /perf-kp-sql-setup 完成 native 依赖安装"
 
 /perf-kp-sql-setup
-# → installs better-sqlite3, sqlite-vec, @xenova/transformers
-# → triggers MiniLM-L6-v2 model warmup (~25MB download)
+# → installs better-sqlite3
 # → verifies knowledge.sqlite schema
 ```
 
@@ -51,13 +50,11 @@ Native deps (installed by `/perf-kp-sql-setup`):
 | Package | Why |
 |---|---|
 | `better-sqlite3@^11.7` | knowledge.sqlite + skills.db reads |
-| `sqlite-vec@^0.1` | 384-dim vector ANN over MongoDB facts |
-| `@xenova/transformers@^2.17` | MiniLM-L6-v2 sentence embeddings |
 
 SSH 走本地 OpenSSH `ssh` CLI(v0.12.0 起 ssh2 native module 已下线)· 通过 `node scripts/ssh.mjs` wrapper 统一进入,带 ControlMaster 多路复用与 SSH_ASKPASS 密码注入。
 
 ## Knowledge base
 
-`data/knowledge.sqlite` (~10MB, committed): 2257 fact rows × 7 fact types across 371 MongoDB topics, 411 baseline rules (mongo / any / mysql / redis), 9 flame-pattern regexes. FTS5 trigram + vec0 RRF-fused retrieval with zero-hallucination guard.
+`data/knowledge.sqlite` (~10MB, committed): 2257 fact rows × 7 fact types across 371 MongoDB topics, 411 baseline rules (mongo / any / mysql / redis), 9 flame-pattern regexes. FTS5 trigram retrieval with zero-hallucination guard.
 
 The plugin **does not run** without the sqlite file — `/perf-kp-sql-setup` checks for it.

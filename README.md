@@ -11,7 +11,7 @@ All skills follow the [Anthropic Agent Skills open standard](https://github.com/
 | Plugin | Version | Hosts | What it does |
 |---|---|---|---|
 | [`cpu-flamegraph`](./plugins/cpu-flamegraph/) | 0.2.1 | Claude Code · Codex CLI · ohsql · any agent with shell + read/write | Remote `perf` over SSH → on-CPU / off-CPU flamegraph SVG → top-N hotspot extraction. Pure local `ssh` + Perl `flamegraph.pl`, zero kernel-tool dependency. |
-| [`perf-kp-sql`](./plugins/perf-kp-sql/) | 0.6.1 | Claude Code · Codex CLI · ohsql · any standard-compliant agent | Kunpeng ARM64 + MongoDB / MySQL / Redis joint perf diagnosis. SSH-based collection → 411 baseline rules → sqlite RAG knowledge base (FTS5 + vec0 384-dim) → impact-ranked HTML report. |
+| [`perf-kp-sql`](./plugins/perf-kp-sql/) | 0.6.1 | Claude Code · Codex CLI · ohsql · any standard-compliant agent | Kunpeng ARM64 + MongoDB / MySQL / Redis joint perf diagnosis. SSH-based collection → 411 baseline rules → sqlite RAG knowledge base (FTS5) → impact-ranked HTML report. |
 
 ---
 
@@ -23,7 +23,7 @@ All skills follow the [Anthropic Agent Skills open standard](https://github.com/
 /plugin marketplace add zlxtqbdgdgd/ohsql-plugin
 /plugin install cpu-flamegraph                  # ready immediately
 /plugin install perf-kp-sql                     # auto-installs cpu-flamegraph dep
-/perf-kp-sql-setup                              # install native deps once (better-sqlite3 + sqlite-vec + ssh2 + transformers)
+/perf-kp-sql-setup                              # install native deps once (better-sqlite3)
 ```
 
 After `perf-kp-sql-setup` completes:
