@@ -73,7 +73,7 @@ function matchBpRecommendations(db, snapshot) {
         source_url: row.source_url,
         source_authority: row.source_authority,
         severity,
-        current_value: currentValue == null ? null : currentValue,
+        current_value: currentValue == null ? null : `${paramName}=${currentValue}`,
         recommended_value: recValue,
         reason_zh: reason,
         data
