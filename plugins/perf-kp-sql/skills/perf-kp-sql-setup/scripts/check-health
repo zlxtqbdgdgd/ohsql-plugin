@@ -159,9 +159,18 @@ else
   schema_err="$(node -e "
   const D = require('better-sqlite3');
   const db = new D('$KB', { readonly: true });
-  for (const t of ['knowledge','rules','flame_patterns']) {
-    const r = db.prepare(\`SELECT count(*) AS c FROM \${t}\`).get();
-    if (typeof r.c !== 'number') throw new Error(t + ' missing');
+  // 新 schema (cases 体系) 优先; 旧 schema (knowledge/rules/flame_patterns) 兼容
+  const tables = db.prepare(\"SELECT name FROM sqlite_master WHERE type='table'\").all().map(t=>t.name);
+  if (tables.includes('cases')) {
+    for (const t of ['cases','cases_fts','kb_meta']) {
+      const r = db.prepare(\`SELECT count(*) AS c FROM \${t}\`).get();
+      if (typeof r.c !== 'number') throw new Error(t + ' missing');
+    }
+  } else {
+    for (const t of ['knowledge','rules','flame_patterns']) {
+      const r = db.prepare(\`SELECT count(*) AS c FROM \${t}\`).get();
+      if (typeof r.c !== 'number') throw new Error(t + ' missing');
+    }
   }
   process.stdout.write('ok');
   " 2>&1)"

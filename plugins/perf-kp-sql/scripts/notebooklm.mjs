@@ -252,7 +252,18 @@ print(json.dumps({"ok": True, "cookie_count": len(cookies)}))
       }
     }
 
-    // create notebook if needed
+    // create notebook if needed — 先查同名，避免重复创建
+    if (!notebookId) {
+      const listR = nlmJson(["list"]);
+      if (listR.ok) {
+        const nbs = listR.data?.notebooks ?? (Array.isArray(listR.data) ? listR.data : []);
+        const existing = nbs.find((nb) => nb.title === notebook_name && nb.is_owner !== false);
+        if (existing) {
+          notebookId = existing.id;
+          console.error(`    复用已有 notebook: ${notebookId}`);
+        }
+      }
+    }
     if (!notebookId) {
       const createR = nlmJson(["create", notebook_name]);
       if (!createR.ok) {
@@ -262,7 +273,6 @@ print(json.dumps({"ok": True, "cookie_count": len(cookies)}))
       }
       notebookId = createR.data?.notebook?.id ?? createR.data?.id ?? createR.data?.notebook_id;
       if (!notebookId) {
-        // fallback: search by name in list
         const fallbackList = nlmJson(["list"]);
         if (fallbackList.ok) {
           const nbs = fallbackList.data?.notebooks ?? (Array.isArray(fallbackList.data) ? fallbackList.data : []);
@@ -540,24 +550,30 @@ async function opAddDomain(domain, urlsFile) {
   const urls = domainDef.urls || [];
   let notebookId = cfg.notebooks[domain]?.id;
 
-  // check existence
+  // check existence — 先查 config id 是否有效，再查同名
   if (notebookId) {
     const listR = nlmJson(["list"]);
     if (listR.ok) {
-      const nbs = Array.isArray(listR.data) ? listR.data : listR.data?.notebooks ?? [];
+      const nbs = listR.data?.notebooks ?? (Array.isArray(listR.data) ? listR.data : []);
       if (!nbs.some((nb) => nb.id === notebookId || nb.notebook_id === notebookId)) {
         notebookId = null;
       }
     }
   }
-
-  // create if needed
+  if (!notebookId) {
+    // 查同名 notebook，避免重复创建
+    const listR = nlmJson(["list"]);
+    if (listR.ok) {
+      const nbs = listR.data?.notebooks ?? (Array.isArray(listR.data) ? listR.data : []);
+      const existing = nbs.find((nb) => nb.title === notebook_name && nb.is_owner !== false);
+      if (existing) notebookId = existing.id;
+    }
+  }
   if (!notebookId) {
     const createR = nlmJson(["create", notebook_name]);
     if (!createR.ok) fatal(`创建 notebook '${notebook_name}' 失败: ${createR.raw.stderr}`);
     notebookId = createR.data?.notebook?.id ?? createR.data?.id ?? createR.data?.notebook_id;
     if (!notebookId) {
-      // fallback: search by name in list
       const fallbackList = nlmJson(["list"]);
       if (fallbackList.ok) {
         const nbs = fallbackList.data?.notebooks ?? (Array.isArray(fallbackList.data) ? fallbackList.data : []);
