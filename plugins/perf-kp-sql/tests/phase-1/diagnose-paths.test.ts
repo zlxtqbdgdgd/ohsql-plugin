@@ -80,7 +80,7 @@ describe("路径 A · 配置审计 (BP)", () => {
     });
     const hit = result.matched.find((r) => r.path === "A" && r.case_id.includes("swappiness"));
     assert.ok(hit);
-    assert.equal(String(hit!.current_value), "60");
+    assert.equal(String(hit!.current_value), "vm.swappiness=60");
     assert.ok(hit!.recommended_value);
     assert.ok(hit!.reason_zh && hit!.reason_zh.length > 0);
   });
