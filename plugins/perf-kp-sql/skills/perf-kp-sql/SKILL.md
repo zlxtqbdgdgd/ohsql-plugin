@@ -899,6 +899,33 @@ mark phase 4 completed → mark phase 5 in_progress。
 
 设计书 §6.1 单层 6 列表 · 报告骨架:
 
+#### 表格单元格 `<br>` 换行规范(终端渲染必需)
+
+Claude Code / ohsql 终端宽度通常 80-120 列。6 列 pipe table 如果单行超过终端宽度 · 渲染器会降级成"字段: 值"竖排卡片 · 表结构丢失。
+
+**强制规则**:每个单元格内容**必须用 `<br>` 拆成多个短行** · 每行显示宽度 ≤ 20 个字符(CJK 算 2 宽)。具体:
+
+- **确认的根因**:≤ 20 字符/行 · 用 `<br>` 断
+- **判定依据**:每个证据点一行 · `<br>` 分隔 · 每行 ≤ 20 字符
+- **建议措施**:止损 / 长期各一行 · 命令单独一行 · 命令可适当长(终端会自动折行)但前缀文字要短
+- **风险等级 / 置信度 / 参考来源**:本身短 · 不需要 `<br>`
+
+**示例**(正确):
+```
+| 确认的根因 | 判定依据 | 建议措施 | 风险等级 | 置信度 | 参考来源 |
+|---|---|---|---|---|---|
+| WT eviction<br>dirty_target<br>与负载不匹配 | cache used=94.7%<br>接近阈值 95%<br>dirty ratio=18%<br>远超 target 5% | 调低 target=3%:<br>`db.adminCommand(…)` | high | 高 | [参考1] |
+| vm.swappiness<br>过高 | 当前值=60<br>KB 推荐=1<br>NLM 确认=1 | `sysctl -w`<br>`vm.swappiness=1`<br>写入 sysctl.conf | warning | 中 | [参考2] |
+```
+
+**反例**(错误 · 会触发竖排降级):
+```
+| eviction_dirty_target 与业务负载不匹配 | cache used=94.7% 接近阈值95% + dirty ratio=18% 远超 target 5% | 调低 eviction_dirty_target=3%:`db.adminCommand({setParameter:1, wiredTigerEngineRuntimeConfig:"eviction_dirty_target=3"})` | high | 高 | [参考1] |
+```
+(单行 549 显示字符 · 远超 80 列终端 · 必然降级)
+
+#### 报告骨架
+
 ```markdown
 # perf-kp-sql · 性能诊断报告
 
@@ -910,8 +937,8 @@ mark phase 4 completed → mark phase 5 in_progress。
 
 | 确认的根因 | 判定依据 | 建议措施 | 风险等级 | 置信度 | 参考来源 |
 |---|---|---|---|---|---|
-| eviction_dirty_target 与业务负载不匹配 | cache used=94.7% 接近阈值95% + dirty ratio=18% 远超 target 5% | 调低 eviction_dirty_target=3%:`db.adminCommand({setParameter:1, wiredTigerEngineRuntimeConfig:"eviction_dirty_target=3"})` | high | 高 | [参考1] |
-| vm.swappiness 过高 | 当前值=60, KB 推荐=1, NotebookLM 确认推荐=1 | `sysctl -w vm.swappiness=1` 并写入 /etc/sysctl.conf | warning | 中 | [参考2] |
+| WT eviction<br>dirty_target<br>与负载不匹配 | cache used=94.7%<br>接近阈值 95%<br>dirty ratio=18%<br>远超 target 5% | 调低 target=3%:<br>`db.adminCommand(…)` | high | 高 | [参考1] |
+| vm.swappiness<br>过高 | 当前值=60<br>KB 推荐=1<br>NLM 确认=1 | `sysctl -w`<br>`vm.swappiness=1`<br>写入 sysctl.conf | warning | 中 | [参考2] |
 
 ## 火焰图分析(若 Phase 3.A.3 采到)
 
