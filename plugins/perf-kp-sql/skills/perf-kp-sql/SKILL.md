@@ -672,6 +672,19 @@ Bash(command="node <PLUGIN_ROOT>/scripts/capture-flamegraph.mjs \
        --process=mongod --type=oncpu --duration=3 --engine=mongo")
 ```
 
+**`--duration` 硬约束**:诊断场景**固定 3s** · `99 Hz × 3s ≈ 297 个采样` 已足够命中 stack-pattern。**禁止擅自拉到 5/10/30/60s** — 30s/60s 这种长窗口会显著扰动生产 mongod · 数据量随时长线性增长 · 还可能顶到 ssh.mjs 的 timeout。
+
+wrapper 已在脚本侧硬 clamp:
+- 没传 `--duration` → 默认注入 `--duration=3` 并打印提示
+- `--duration > 10` 且未加 `--allow-long-duration` → **直接 exit 2 拒绝** · 报错 JSON 含原值/上限/解释
+- 真需要长窗口(用户**明确要求** / off-cpu 长尾分析) → 加 `--allow-long-duration` 显式 opt-in · 并在报告里说明理由
+
+**❌ 反例 · LLM 自由发挥拉到 30s**:
+```
+... --process=mongod --type=oncpu --duration=30 --engine=mongo")
+```
+narration 写"开始拉指标 + 30s 火焰图(并行)"。**违规** — wrapper 会拒绝;就算让它过(凭 `--allow-long-duration`) · 也是给生产 mongod 加 10× 干扰、产 10× 数据量、用户白等 27s · 完全不必要。诊断默认 3s 已经够命中 stack-pattern。
+
 (`capture-flamegraph.mjs` 是 wrapper · 内部自定位**姐妹 skill `cpu-flamegraph`** 后透传给 ta 的 `scripts/capture.mjs` 真正干活 · 跨 harness 兼容 · 依赖关系详见 Architecture 段「外部依赖」)
 
 3.A.4 · 拼合并 cmd 文件 · 5-10 条命令 / 文件:
