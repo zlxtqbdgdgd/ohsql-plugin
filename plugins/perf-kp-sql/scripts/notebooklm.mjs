@@ -87,6 +87,48 @@ function nlmJson(args, opts) {
   }
 }
 
+// 鉴权失败识别 — stdout JSON error 字段 / stderr 关键字 任一命中即算认证类失败
+// 命中后立即返回原结果 → 让上层走 NLM-relogin 流程 · 不做 retry
+const AUTH_STDOUT_RE = /auth_expired|unauthorized|cookie_invalid|cookie expired|认证未通过/i;
+const AUTH_STDERR_RE = /401|403|Authentication failed|认证未通过|cookie/i;
+
+function isAuthFailure(r) {
+  if (!r || r.ok) return false;
+  const stdout = r.raw?.stdout ?? "";
+  const stderr = r.raw?.stderr ?? "";
+  // stdout JSON 含 error 字段
+  if (stdout) {
+    try {
+      const parsed = JSON.parse(stdout);
+      const err = parsed?.error;
+      if (typeof err === "string" && AUTH_STDOUT_RE.test(err)) return true;
+      // 也允许 error 是 object · 取其 code / message
+      if (err && typeof err === "object") {
+        const blob = JSON.stringify(err);
+        if (AUTH_STDOUT_RE.test(blob)) return true;
+      }
+    } catch {
+      // 非 JSON · 直接对原文字符串扫
+      if (AUTH_STDOUT_RE.test(stdout)) return true;
+    }
+  }
+  if (stderr && AUTH_STDERR_RE.test(stderr)) return true;
+  return false;
+}
+
+// nlmJson(["ask", ...]) 的 retry 包装 · 透明地完成第一次失败后的 1 次 retry
+// LLM 只 call 一次 · 内部失败时(非鉴权)等 2s 再打一次 · 只有两次都挂才返回失败
+// 返回结果对象里加 attempts: 1 | 2 字段 · 方便上层 / 报告诊断
+function nlmAskWithRetry(args, opts) {
+  const first = nlmJson(args, opts);
+  if (first.ok) return { ...first, attempts: 1 };
+  if (isAuthFailure(first)) return { ...first, attempts: 1 };
+  // 非鉴权失败 · 等 2s 再打一次
+  spawnSync("sleep", ["2"]);
+  const second = nlmJson(args, opts);
+  return { ...second, attempts: 2 };
+}
+
 /** async spawn — 返回 Promise<{status, stdout, stderr}> */
 function nlmExecAsync(args, { timeoutMs = 60_000 } = {}) {
   return new Promise((resolve) => {
@@ -494,13 +536,22 @@ function opQuery(domain, query) {
       const nb = cfg.notebooks?.[d];
       if (!nb?.id) continue;
       nlmExec(["use", nb.id]);
-      const r = nlmJson(["ask", query], { timeoutMs: 60_000 });
+      const r = nlmAskWithRetry(["ask", query], { timeoutMs: 60_000 });
       if (r.ok) {
         allResults.push({
           domain: d,
           notebook_id: nb.id,
           answer: r.data?.answer ?? r.data?.response ?? "",
           references: r.data?.references ?? r.data?.citations ?? [],
+          attempts: r.attempts,
+        });
+      } else {
+        allResults.push({
+          domain: d,
+          notebook_id: nb.id,
+          ok: false,
+          error: r.raw?.stderr || r.raw?.stdout || "查询失败",
+          attempts: r.attempts,
         });
       }
       // throttle between notebooks
@@ -514,13 +565,14 @@ function opQuery(domain, query) {
   const notebookId = cfg.notebooks[domain].id;
   nlmExec(["use", notebookId]);
 
-  const r = nlmJson(["ask", query], { timeoutMs: 60_000 });
+  const r = nlmAskWithRetry(["ask", query], { timeoutMs: 60_000 });
   if (!r.ok) {
     return out({
       ok: false,
       error: `查询失败: ${r.raw.stderr || r.raw.stdout}`,
       domain,
       notebook_id: notebookId,
+      attempts: r.attempts,
     });
   }
 
@@ -530,6 +582,7 @@ function opQuery(domain, query) {
     references: r.data?.references ?? r.data?.citations ?? [],
     domain,
     notebook_id: notebookId,
+    attempts: r.attempts,
   });
 }
 
@@ -667,7 +720,7 @@ function opQueryBatch({ fromDiagnose, fromBpList, hwArch }) {
         .map((item, j) => `【问题 ${j + 1}】${item.prompt}`)
         .join("\n\n");
 
-      const r = nlmJson(["ask", mergedPrompt], { timeoutMs: 90_000 });
+      const r = nlmAskWithRetry(["ask", mergedPrompt], { timeoutMs: 90_000 });
 
       if (r.ok) {
         const answer = r.data?.answer ?? r.data?.response ?? "";
@@ -679,6 +732,7 @@ function opQueryBatch({ fromDiagnose, fromBpList, hwArch }) {
             references,
             domain,
             notebook_id: nb.id,
+            attempts: r.attempts,
           });
         }
       } else {
@@ -691,6 +745,7 @@ function opQueryBatch({ fromDiagnose, fromBpList, hwArch }) {
             domain,
             notebook_id: nb.id,
             error: r.raw.stderr || "查询失败",
+            attempts: r.attempts,
           });
         }
       }
