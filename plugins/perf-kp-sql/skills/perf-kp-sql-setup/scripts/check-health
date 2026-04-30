@@ -117,44 +117,35 @@ if command -v notebooklm >/dev/null 2>&1; then
   nlm_installed=1
   ok "notebooklm CLI"
   # check auth · 两层 (本地 cookie sanity + 真打 API 验 Google 侧 session)
-  # 真 API 调用走 notebooklm.mjs --op check · 它内部已实现两层验证
   nlm_check_json="$(node "$PLUGIN_ROOT/scripts/notebooklm.mjs" --op check --json 2>/dev/null)"
   nlm_authed="$(echo "$nlm_check_json" | python3 -c "import sys,json; d=json.load(sys.stdin); print('1' if d.get('authenticated') else '0')" 2>/dev/null || echo 0)"
   if [ "$nlm_authed" = "1" ]; then
     ok "notebooklm auth (Google API 验证通过)"
   else
     warn "notebooklm auth: Google 侧 cookie 过期 / 失效"
-    hint "fix: 跑 'notebooklm login' 弹 Chromium 重新登录 Google 账号"
-    hint "(本地 cookie 文件 sanity 可能通过 · 但 Google 侧 session 已过期)"
+    hint "fix: 在任意浏览器中登录 https://notebooklm.google.com/ 后重跑 /perf-kp-sql-setup"
   fi
-  # 检测 notebooklm CLI 用的 Python(可能在 venv) · 用同一个 Python 验 Playwright
-  # BSD sed 不认 \s · 用 [ \t] 兼容 macOS
-  nlm_python="$(head -1 "$(which notebooklm)" 2>/dev/null | sed -nE 's|^#![ 	]*([^ 	]+).*|\1|p')"
-  if [ -z "$nlm_python" ] || [ ! -x "$nlm_python" ]; then
-    nlm_python="python3"
-  fi
-  pw_check="$("$nlm_python" -c "from playwright.sync_api import sync_playwright" 2>&1)"
-  if [ -z "$pw_check" ]; then
-    ok "playwright Python module (用 $nlm_python 验证)"
-    # check chromium installed
-    pw_chromium="$("$nlm_python" -c "from playwright.sync_api import sync_playwright; p=sync_playwright().start(); b=p.chromium.launch(); b.close(); p.stop(); print('ok')" 2>&1)"
-    if [ "$(echo "$pw_chromium" | tail -1)" = "ok" ]; then
-      ok "playwright chromium browser"
-    else
-      warn "playwright chromium not installed"
-      # 推断 venv 对应的 playwright 命令
-      nlm_pw="$(dirname "$nlm_python")/playwright"
-      [ -x "$nlm_pw" ] || nlm_pw="playwright"
-      hint "fix: $nlm_pw install chromium"
-      hint "(notebooklm login 需要 chromium · Google 侧 cookie 过期时无法重新登录)"
-    fi
+  # rookiepy 可用性检查
+  rookiepy_ok="$(python3 -c "import rookiepy; print('ok')" 2>&1)"
+  if [ "$rookiepy_ok" = "ok" ]; then
+    ok "rookiepy (浏览器 cookie 提取)"
   else
-    warn "playwright Python module not installed in $nlm_python"
+    warn "rookiepy not installed"
     # 推断 venv 对应的 pip
+    nlm_python="$(head -1 "$(which notebooklm)" 2>/dev/null | sed -nE 's|^#![ 	]*([^ 	]+).*|\1|p')"
+    if [ -z "$nlm_python" ] || [ ! -x "$nlm_python" ]; then nlm_python="python3"; fi
     nlm_pip="$(echo "$nlm_python" | sed -E 's|/python[0-9.]*$|/pip|')"
     [ -x "$nlm_pip" ] || nlm_pip="pip3"
-    hint "fix: $nlm_pip install 'notebooklm-py[browser]'"
-    hint "(notebooklm CLI shebang 指向 $nlm_python · 必须用同一个 venv 的 pip)"
+    hint "fix: $nlm_pip install rookiepy"
+  fi
+  # Playwright 降为可选提示(不再是必需)
+  nlm_python="$(head -1 "$(which notebooklm)" 2>/dev/null | sed -nE 's|^#![ 	]*([^ 	]+).*|\1|p')"
+  if [ -z "$nlm_python" ] || [ ! -x "$nlm_python" ]; then nlm_python="python3"; fi
+  pw_check="$("$nlm_python" -c "from playwright.sync_api import sync_playwright" 2>&1)"
+  if [ -z "$pw_check" ]; then
+    ok "playwright (可选 · 备用登录路径)"
+  else
+    hint "playwright 未安装 (可选 · 不影响主流程 · rookiepy 已覆盖鉴权恢复)"
   fi
   # check config
   NLM_CFG="$HOME/.perf-kp-sql/notebooklm.json"
@@ -166,7 +157,7 @@ if command -v notebooklm >/dev/null 2>&1; then
   fi
 else
   warn "notebooklm CLI not installed (optional: NotebookLM 知识增强)"
-  hint "fix: pip install 'notebooklm-py[browser]' rookiepy && playwright install chromium"
+  hint "fix: pip install notebooklm-py rookiepy"
 fi
 
 # ----- --list-missing 模式: 只 emit 待装 spec, 一行一个; exit 0 -----
