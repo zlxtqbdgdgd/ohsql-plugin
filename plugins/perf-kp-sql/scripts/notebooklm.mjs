@@ -313,13 +313,9 @@ async function opSetup(urlsFile) {
     console.error(`  使用 ${detectedEnv.pip ?? "fallback pip3"} 装包`);
   }
 
-  // Step 9: 安装/升级 pip packages
-  // 不能只看 isCliInstalled() · 因为老的基础版 notebooklm 也会让它返 true ·
-  // 但缺 [browser] extras → Playwright 没装 → notebooklm login 跑不了。
-  // 始终跑 pip install -U notebooklm-py[browser] rookiepy 确保 extras 在。
-  // 优先用 detected venv pip · 没检测到才 fallback 到全局 pip3 / pip。
-  console.error("→ 安装/升级 notebooklm-py[browser] + rookiepy...");
-  const pipArgs = ["install", "-U", "notebooklm-py[browser]", "rookiepy"];
+  // Step 9: 安装/升级 pip packages (notebooklm-py + rookiepy · 不再装 Playwright)
+  console.error("→ 安装/升级 notebooklm-py + rookiepy...");
+  const pipArgs = ["install", "-U", "notebooklm-py", "rookiepy"];
   const pipCandidates = detectedEnv?.pip
     ? [detectedEnv.pip, "pip3", "pip"]
     : ["pip3", "pip"];
@@ -341,39 +337,9 @@ async function opSetup(urlsFile) {
     return out({
       ok: false,
       error: detectedEnv?.pip
-        ? `pip install 失败 · 请手动跑:${detectedEnv.pip} install -U 'notebooklm-py[browser]' rookiepy`
-        : "pip install notebooklm-py[browser] rookiepy 失败 · 请手动跑:pip install -U 'notebooklm-py[browser]' rookiepy",
+        ? `pip install 失败 · 请手动跑:${detectedEnv.pip} install -U notebooklm-py rookiepy`
+        : "pip install notebooklm-py rookiepy 失败 · 请手动跑:pip install -U notebooklm-py rookiepy",
     });
-  }
-
-  // 验 Playwright Python 包真装上 · 用 detected venv Python 验
-  console.error("→ 验证 Playwright Python 包...");
-  const pythonCmd = detectedEnv?.python ?? "python3";
-  const pwCheck = spawnSync(pythonCmd, ["-c", "from playwright.sync_api import sync_playwright"], {
-    encoding: "utf8",
-    timeout: 15_000,
-    stdio: ["pipe", "pipe", "pipe"],
-  });
-  if (pwCheck.status !== 0) {
-    return out({
-      ok: false,
-      error: `Playwright 仍缺(用 ${pythonCmd} 验证) · 请手动跑:${detectedEnv?.pip ?? "pip3"} install playwright`,
-      detail: (pwCheck.stderr ?? "").slice(0, 300),
-    });
-  }
-
-  // 装 chromium browser(notebooklm login 必需)· 用 detected venv playwright
-  console.error("→ 安装 Playwright Chromium...");
-  const playwrightCmd = detectedEnv?.playwright ?? "playwright";
-  const chromR = spawnSync(playwrightCmd, ["install", "chromium"], {
-    encoding: "utf8",
-    timeout: 180_000,
-    stdio: ["pipe", "pipe", "pipe"],
-  });
-  if (chromR.status !== 0) {
-    // 不致命 · 但提示
-    console.error(`playwright install chromium 失败:${(chromR.stderr ?? "").slice(0, 300)}`);
-    console.error(`→ 后续 notebooklm login 可能跑不起来 · 请手动跑:${playwrightCmd} install chromium`);
   }
 
   // Step 10: cookie extraction via rookiepy (auto-detect browser)
