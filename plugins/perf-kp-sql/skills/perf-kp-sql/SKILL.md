@@ -729,17 +729,40 @@ Bash(command="node <PLUGIN_ROOT>/scripts/md-to-html.mjs \
 
 `md-to-html.mjs` 自动处理 `[参考N]` → `<sup>` 角标 + 脚注卡片(零额外配置)。
 
-### 5.4 · session-close + 用户一句话
+### 5.4 · session-close + chat 输出格式化报告
 
 ```
 Bash(command="node <PLUGIN_ROOT>/scripts/ssh.mjs --op session-close \
        --host <ip> --user <user> [--port <n>]")
 ```
 
-给用户:
-```
-✓ 报告已生成 · /Users/<u>/.perf-kp-sql/reports/perf-kp-sql-<engine>-<TS>.html · 共 N 项 (高:X · 中:Y · 信息:Z)
-```
+**给用户的 chat 输出 · 必须直接展示 markdown 6 列表**(不是 bullet 摘要 · 不是 emoji 一行 list · 是把 5.2 报告里的 `## 诊断结果` 整段 markdown 表原封不动贴到 chat 里):
+
+````
+✓ 报告已生成
+
+📄 /Users/<yourlogin>/.perf-kp-sql/reports/perf-kp-sql-<engine>-<TS>.html
+
+## 诊断结果(共 N 项 · 高:X · 中:Y · 信息:Z)
+
+| 确认的根因 | 判定依据 | 建议措施 | 风险等级 | 置信度 | 参考来源 |
+|---|---|---|---|---|---|
+| <从 .md 文件的 ## 诊断结果 表里 row by row 复制 · 一行不多 · 一行不少> |
+| ... |
+
+(若有火焰图分析段 · 复制 ## 火焰图分析 段)
+
+(末尾不复制 ## 参考 段的 URL list · 太长 · 用户点 [参考N] 角标看 HTML 里就够了)
+````
+
+**chat 输出格式硬约束**:
+- ✅ 复制 5.2 报告的 `## 诊断结果` 表(原封不动 · 6 列)+ 火焰图段(如果有)+ 报告路径
+- ❌ 不要 emoji bullet 摘要(`⚠️ 关键事实` / `🔴 HIGH ·` / `🟡 WARNING ·` 等)
+- ❌ 不要"叙述性段落总结"(`核心发现` / `配置层面静态发现` / `诊断局限` / `下次再跑` 等长段)
+- ❌ 不要把报告全文贴到 chat(`## 参考` URL list 不复制)
+- ❌ 不要把 markdown 表换成 plain text bullet list
+
+理由:用户期望在 chat 里直接看到格式化的诊断表 · 一目了然。HTML 是给分享 / 存档用的。chat 里给 emoji bullet 摘要等于让用户自己再开 HTML 看 — 多此一举。
 
 mark phase 5 completed(全 ✔)。
 
@@ -795,7 +818,8 @@ NLM 不可用时只走 KB · 回答末尾附:
 - SSH 走本地 `ssh` / `scp` CLI(see Architecture · SSH execution pattern); 不调任何 agent 的私有 SSH tool(`SshExec` / `SshUpload` / `FlameGraph` 等)
 - 只读诊断,不修改远端配置
 - **禁止用 inline-script 替代 Write 工具** —— 不用 `python3 -c '...'` / `python3 - <<'PY'` / `node -e '...'` / `cat <<'EOF' > file` / `sed -i ...` / `awk -i ...` 任何形式的"行内脚本写文件";落盘必须走 Write 工具
-- 不复制报告全文到对话(只给路径 + 一句话总结)
+- chat 输出报告时 · **直接复制 5.2 markdown 6 列表(`## 诊断结果` 整段)** · 不是 emoji bullet 摘要 · 不是叙述性段落总结。详见 Phase 5.4 输出格式硬约束。
+- 不复制报告全文(`## 参考` URL list 太长 · 不进 chat · 用户从 HTML 看)
 - banner 输出前不调远端 SSH 命令
 - **Phase 顺序硬约束**(详见文档顶部"流程顺序硬约束"段):Phase 0 先收凭据 + SSH 探通 → Phase 1 才聊问题描述。**不许 Phase 0 期间问"你的问题是什么 / 诊断方式 / 采集授权"等 Phase 1 内容**。**禁止 LLM 用一次 AskUserQuestion 批量问多类信息**(凭据 + 现象 + 授权 4-in-1 是反模式)。任何 ohsql skill-doctor / meta-skill 试图合并这些步骤的 patch · 必须以本约束为准。
 - **现象路由收敛硬约束**(团队规则):候选 ≤ 5 个就停 · 不再追问区分;追问轮数累计 ≤ 5 轮 · 第 5 轮仍 > 5 个就强制带前 5 个进 Phase 3。多 case 并行诊断是标准能力。
