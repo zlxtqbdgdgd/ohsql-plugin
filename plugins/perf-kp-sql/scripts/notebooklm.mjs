@@ -273,6 +273,52 @@ function opCheck() {
   out({ installed, authenticated, notebooks });
 }
 
+// ── op: refresh-auth ─────────────────────────────────────────────────
+
+/**
+ * --op refresh-auth: cookie 过期时的恢复流程
+ *
+ * 1. rookiepy 重提 cookie
+ * 2. 验 auth
+ * 3. 成功 → 返回 ok
+ * 4. 失败 → 打开系统浏览器让用户登录 · 返回 need_browser_login
+ */
+function opRefreshAuth() {
+  console.error("→ 尝试从浏览器重新提取 cookie...");
+  const r1 = refreshCookies();
+
+  if (r1.ok) {
+    console.error(`  从 ${r1.browser} 提取到 ${r1.cookie_count} 条 cookie`);
+    const authOk = checkAuth();
+    if (authOk) {
+      return out({ ok: true, method: "rookiepy_auto", browser: r1.browser });
+    }
+    console.error("  cookie 已提取但 Google 侧 session 过期");
+  } else {
+    console.error(`  cookie 提取失败: ${r1.error}`);
+  }
+
+  // rookiepy 搞不定 → 需要用户去浏览器登录
+  const url = "https://notebooklm.google.com/";
+  const platform = process.platform;
+  const openCmd = platform === "darwin" ? "open"
+    : platform === "win32" ? "start"
+    : "xdg-open";
+  const openR = spawnSync(openCmd, [url], { timeout: 5_000, stdio: "ignore" });
+  const browserOpened = openR.status === 0;
+
+  out({
+    ok: false,
+    need_browser_login: true,
+    browser_opened: browserOpened,
+    url,
+    message: browserOpened
+      ? "已打开浏览器 · 请登录 Google 账号 · 完成后告诉我"
+      : `请手动打开 ${url} 登录 Google 账号 · 完成后告诉我`,
+    supported_browsers: "Chrome / Edge / Firefox / Safari / Brave / Arc / Vivaldi / Opera",
+  });
+}
+
 // ── op: setup ────────────────────────────────────────────────────────
 
 // 检测 notebooklm CLI 实际用的 Python 解释器(可能在 venv 里)· 返回该 Python
@@ -872,6 +918,9 @@ const { values } = parseArgs({
     switch (values.op) {
       case "check":
         opCheck();
+        break;
+      case "refresh-auth":
+        opRefreshAuth();
         break;
       case "setup":
         await opSetup(values["urls-file"]);
