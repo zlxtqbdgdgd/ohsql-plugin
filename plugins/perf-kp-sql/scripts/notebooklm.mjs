@@ -182,6 +182,75 @@ function checkAuth() {
   return true;
 }
 
+// ── refreshCookies: rookiepy 从浏览器重提 cookie ─────────────────────
+
+/**
+ * 用 rookiepy 从本机浏览器重新提取 Google cookie → 写入 ~/.notebooklm/storage_state.json
+ * @returns {{ ok: boolean, cookie_count?: number, browser?: string, error?: string }}
+ */
+function refreshCookies() {
+  const cookieScript = `
+import rookiepy, json, os, sys
+
+domains = ['.google.com', 'notebooklm.google.com', 'accounts.google.com']
+browsers = [
+    ("any_browser", rookiepy.load),
+    ("chrome",      lambda **kw: rookiepy.chrome(**kw)),
+    ("edge",        lambda **kw: rookiepy.edge(**kw)),
+    ("brave",       lambda **kw: rookiepy.brave(**kw)),
+    ("chromium",    lambda **kw: rookiepy.chromium(**kw)),
+    ("firefox",     lambda **kw: rookiepy.firefox(**kw)),
+    ("safari",      lambda **kw: rookiepy.safari(**kw)),
+    ("vivaldi",     lambda **kw: rookiepy.vivaldi(**kw)),
+    ("opera",       lambda **kw: rookiepy.opera(**kw)),
+    ("arc",         lambda **kw: rookiepy.arc(**kw)),
+    ("librewolf",   lambda **kw: rookiepy.librewolf(**kw)),
+]
+cookies = []
+used = "none"
+for name, fn in browsers:
+    try:
+        cookies = fn(domains=domains)
+        if cookies:
+            used = name
+            break
+    except Exception:
+        continue
+
+if not cookies:
+    print(json.dumps({"ok": False, "error": "no_cookies", "browser": "none"}))
+    sys.exit(0)
+
+storage_state = {
+    'cookies': [
+        {
+            'name': c['name'], 'value': c['value'], 'domain': c['domain'],
+            'path': c.get('path', '/'), 'expires': c.get('expires', -1),
+            'httpOnly': c.get('httpOnly', False), 'secure': c.get('secure', False),
+            'sameSite': 'None' if c.get('secure') else 'Lax',
+        }
+        for c in cookies
+    ],
+    'origins': []
+}
+path = os.path.expanduser('~/.notebooklm/storage_state.json')
+os.makedirs(os.path.dirname(path), exist_ok=True)
+with open(path, 'w') as f:
+    json.dump(storage_state, f)
+os.chmod(path, 0o600)
+print(json.dumps({"ok": True, "cookie_count": len(cookies), "browser": used}))
+`;
+  const py = spawnSync("python3", ["-c", cookieScript], {
+    encoding: "utf8",
+    timeout: 30_000,
+  });
+  try {
+    return JSON.parse(py.stdout);
+  } catch {
+    return { ok: false, error: "rookiepy_spawn_failed", detail: (py.stderr ?? "").slice(0, 300) };
+  }
+}
+
 // ── op: check ────────────────────────────────────────────────────────
 
 function opCheck() {
@@ -202,6 +271,52 @@ function opCheck() {
     }
   }
   out({ installed, authenticated, notebooks });
+}
+
+// ── op: refresh-auth ─────────────────────────────────────────────────
+
+/**
+ * --op refresh-auth: cookie 过期时的恢复流程
+ *
+ * 1. rookiepy 重提 cookie
+ * 2. 验 auth
+ * 3. 成功 → 返回 ok
+ * 4. 失败 → 打开系统浏览器让用户登录 · 返回 need_browser_login
+ */
+function opRefreshAuth() {
+  console.error("→ 尝试从浏览器重新提取 cookie...");
+  const r1 = refreshCookies();
+
+  if (r1.ok) {
+    console.error(`  从 ${r1.browser} 提取到 ${r1.cookie_count} 条 cookie`);
+    const authOk = checkAuth();
+    if (authOk) {
+      return out({ ok: true, method: "rookiepy_auto", browser: r1.browser });
+    }
+    console.error("  cookie 已提取但 Google 侧 session 过期");
+  } else {
+    console.error(`  cookie 提取失败: ${r1.error}`);
+  }
+
+  // rookiepy 搞不定 → 需要用户去浏览器登录
+  const url = "https://notebooklm.google.com/";
+  const platform = process.platform;
+  const openCmd = platform === "darwin" ? "open"
+    : platform === "win32" ? "start"
+    : "xdg-open";
+  const openR = spawnSync(openCmd, [url], { timeout: 5_000, stdio: "ignore" });
+  const browserOpened = openR.status === 0;
+
+  out({
+    ok: false,
+    need_browser_login: true,
+    browser_opened: browserOpened,
+    url,
+    message: browserOpened
+      ? "已打开浏览器 · 请登录 Google 账号 · 完成后告诉我"
+      : `请手动打开 ${url} 登录 Google 账号 · 完成后告诉我`,
+    supported_browsers: "Chrome / Edge / Firefox / Safari / Brave / Arc / Vivaldi / Opera",
+  });
 }
 
 // ── op: setup ────────────────────────────────────────────────────────
@@ -244,13 +359,9 @@ async function opSetup(urlsFile) {
     console.error(`  使用 ${detectedEnv.pip ?? "fallback pip3"} 装包`);
   }
 
-  // Step 9: 安装/升级 pip packages
-  // 不能只看 isCliInstalled() · 因为老的基础版 notebooklm 也会让它返 true ·
-  // 但缺 [browser] extras → Playwright 没装 → notebooklm login 跑不了。
-  // 始终跑 pip install -U notebooklm-py[browser] rookiepy 确保 extras 在。
-  // 优先用 detected venv pip · 没检测到才 fallback 到全局 pip3 / pip。
-  console.error("→ 安装/升级 notebooklm-py[browser] + rookiepy...");
-  const pipArgs = ["install", "-U", "notebooklm-py[browser]", "rookiepy"];
+  // Step 9: 安装/升级 pip packages (notebooklm-py + rookiepy · 不再装 Playwright)
+  console.error("→ 安装/升级 notebooklm-py + rookiepy...");
+  const pipArgs = ["install", "-U", "notebooklm-py", "rookiepy"];
   const pipCandidates = detectedEnv?.pip
     ? [detectedEnv.pip, "pip3", "pip"]
     : ["pip3", "pip"];
@@ -272,106 +383,19 @@ async function opSetup(urlsFile) {
     return out({
       ok: false,
       error: detectedEnv?.pip
-        ? `pip install 失败 · 请手动跑:${detectedEnv.pip} install -U 'notebooklm-py[browser]' rookiepy`
-        : "pip install notebooklm-py[browser] rookiepy 失败 · 请手动跑:pip install -U 'notebooklm-py[browser]' rookiepy",
+        ? `pip install 失败 · 请手动跑:${detectedEnv.pip} install -U notebooklm-py rookiepy`
+        : "pip install notebooklm-py rookiepy 失败 · 请手动跑:pip install -U notebooklm-py rookiepy",
     });
-  }
-
-  // 验 Playwright Python 包真装上 · 用 detected venv Python 验
-  console.error("→ 验证 Playwright Python 包...");
-  const pythonCmd = detectedEnv?.python ?? "python3";
-  const pwCheck = spawnSync(pythonCmd, ["-c", "from playwright.sync_api import sync_playwright"], {
-    encoding: "utf8",
-    timeout: 15_000,
-    stdio: ["pipe", "pipe", "pipe"],
-  });
-  if (pwCheck.status !== 0) {
-    return out({
-      ok: false,
-      error: `Playwright 仍缺(用 ${pythonCmd} 验证) · 请手动跑:${detectedEnv?.pip ?? "pip3"} install playwright`,
-      detail: (pwCheck.stderr ?? "").slice(0, 300),
-    });
-  }
-
-  // 装 chromium browser(notebooklm login 必需)· 用 detected venv playwright
-  console.error("→ 安装 Playwright Chromium...");
-  const playwrightCmd = detectedEnv?.playwright ?? "playwright";
-  const chromR = spawnSync(playwrightCmd, ["install", "chromium"], {
-    encoding: "utf8",
-    timeout: 180_000,
-    stdio: ["pipe", "pipe", "pipe"],
-  });
-  if (chromR.status !== 0) {
-    // 不致命 · 但提示
-    console.error(`playwright install chromium 失败:${(chromR.stderr ?? "").slice(0, 300)}`);
-    console.error(`→ 后续 notebooklm login 可能跑不起来 · 请手动跑:${playwrightCmd} install chromium`);
   }
 
   // Step 10: cookie extraction via rookiepy (auto-detect browser)
   console.error("→ 提取浏览器 cookie (rookiepy · 自动探测)...");
-  const cookieScript = `
-import rookiepy, json, os, sys
-
-domains = ['.google.com', 'notebooklm.google.com', 'accounts.google.com']
-# 按优先级尝试: 自动探测 → 逐个常见浏览器
-browsers = [
-    ("any_browser", rookiepy.load),
-    ("chrome",      lambda **kw: rookiepy.chrome(**kw)),
-    ("edge",        lambda **kw: rookiepy.edge(**kw)),
-    ("brave",       lambda **kw: rookiepy.brave(**kw)),
-    ("chromium",    lambda **kw: rookiepy.chromium(**kw)),
-    ("firefox",     lambda **kw: rookiepy.firefox(**kw)),
-    ("safari",      lambda **kw: rookiepy.safari(**kw)),
-    ("vivaldi",     lambda **kw: rookiepy.vivaldi(**kw)),
-    ("opera",       lambda **kw: rookiepy.opera(**kw)),
-    ("arc",         lambda **kw: rookiepy.arc(**kw)),
-    ("librewolf",   lambda **kw: rookiepy.librewolf(**kw)),
-]
-cookies = []
-used = "none"
-for name, fn in browsers:
-    try:
-        cookies = fn(domains=domains)
-        if cookies:
-            used = name
-            break
-    except Exception:
-        continue
-
-if not cookies:
-    print(json.dumps({"ok": False, "error": "no_cookies", "browser": "none"}))
-    sys.exit(1)
-
-storage_state = {
-    'cookies': [
-        {
-            'name': c['name'], 'value': c['value'], 'domain': c['domain'],
-            'path': c.get('path', '/'), 'expires': c.get('expires', -1),
-            'httpOnly': c.get('httpOnly', False), 'secure': c.get('secure', False),
-            'sameSite': 'None' if c.get('secure') else 'Lax',
-        }
-        for c in cookies
-    ],
-    'origins': []
-}
-path = os.path.expanduser('~/.notebooklm/storage_state.json')
-os.makedirs(os.path.dirname(path), exist_ok=True)
-with open(path, 'w') as f:
-    json.dump(storage_state, f)
-print(json.dumps({"ok": True, "cookie_count": len(cookies), "browser": used}))
-`;
-  const py = spawnSync("python3", ["-c", cookieScript], {
-    encoding: "utf8",
-    timeout: 30_000,
-  });
-  if (py.status !== 0) {
-    console.error(`cookie 提取失败: ${py.stderr}`);
+  const cookieResult = refreshCookies();
+  if (!cookieResult.ok) {
+    console.error(`cookie 提取失败: ${cookieResult.error}`);
     console.error("请确保已在任意浏览器中登录 https://notebooklm.google.com/");
   } else {
-    try {
-      const r = JSON.parse(py.stdout);
-      if (r.ok) console.error(`→ 从 ${r.browser} 提取到 ${r.cookie_count} 条 cookie`);
-    } catch {}
+    console.error(`→ 从 ${cookieResult.browser} 提取到 ${cookieResult.cookie_count} 条 cookie`);
   }
 
   // Step 10b: verify auth
@@ -894,6 +918,9 @@ const { values } = parseArgs({
     switch (values.op) {
       case "check":
         opCheck();
+        break;
+      case "refresh-auth":
+        opRefreshAuth();
         break;
       case "setup":
         await opSetup(values["urls-file"]);
