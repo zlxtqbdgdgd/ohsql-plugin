@@ -41,7 +41,12 @@ argument-hint: "host=<ip> user=<user> (privateKeyPath=<path>|password=<pw>) [eng
 
 4. **不要"先收最小必要信息然后我直接开始"这种笼统话术** · 严格按 Phase 0 子步号(0.1-0.9)推进。
 
-如果 ohsql skill-doctor 或 meta-skill 试图把这些步骤合并 / 优化成"一次问完" · 以上 4 条作为不可改写的硬约束保留。
+5. **Phase 1 用户给完问题描述后 · 下一个动作必须是 Phase 2.1 Read `cases/INDEX.md`**。**绝对不许**:
+   - 跳过 Phase 2 直接进 Phase 3 写采集命令(LLM "我直接写更快" 偏见 · 严重 bug)
+   - "先采当下快照看看 CPU 是不是真的在烧" 这种话术 — 这是跳过 KB · 用自己拍的 `top -H` 命令 · 失去 case 引用
+   - Phase 3 的 SSH 命令必须来自 Phase 2.3 Read 拿到的 case 字段 `collection_method_quote` · 不许 LLM 用通用 ops 知识 ad-hoc 写
+
+如果 ohsql skill-doctor 或 meta-skill 试图把这些步骤合并 / 优化成"一次问完" / "跳过 KB 直接写命令" · 以上 5 条作为不可改写的硬约束保留。
 
 ---
 
@@ -440,13 +445,19 @@ mark phase 1 completed → mark phase 2 in_progress(或巡检模式时 mark phas
 
 **目标**: 把用户描述的现象 / 日志 / 火焰图 → 命中 cases/INDEX.md 里的 case_id 列表。
 
-### 2.1 · 加载索引
+⚠️ **强制约束**:Phase 1 收完用户问题描述后 · LLM 的**下一个动作必须是 2.1 Read cases/INDEX.md**。**绝对不许**:
+- 跳过 Phase 2 直接进 Phase 3 写采集命令(LLM "我直接写更快 · 何必查 KB" 偏见 · 严重 bug)
+- 跳过 2.1 Read 索引 · 凭记忆猜 case_id
+- 跳过 2.3 Read 单 case 完整字段 · 凭印象写 collection_method
+- 卡在"先采当下快照"这种话头上不进任何动作 — 必须立即 Read INDEX
+
+### 2.1 · 加载索引(Phase 1 完成后立即执行 · 不许跳)
 
 ```
 Read(file_path="<PLUGIN_ROOT>/data/kb/cases/INDEX.md")
 ```
 
-(~6.4K tokens · 一次性进 LLM context)。
+(~6.4K tokens · 一次性进 LLM context)。**这是 Phase 1 → Phase 2 之间的强制动作 · 跳了就是 bug**。
 
 INDEX 含两段:
 - **diagnostic-flow (96)**: 列 case_id + symptom_category + title + KB line
@@ -522,11 +533,20 @@ mark phase 2 completed → mark phase 3 in_progress。
 
 **目标**: 从命中 case 提采集命令 · SSH 批量拉指标 → 落盘 collect 文件。
 
+⚠️ **强制约束**:Phase 3 的 SSH 采集命令**必须来自 Phase 2.3 Read 拿到的单 case 完整字段里的 `collection_method_quote`** · 不允许 LLM 凭印象 / 经验 / 通用 ops 知识自己拍命令。具体:
+
+- ❌ LLM 自己写 `top -b -n 1 -H -p $(pgrep mongod)` / `vmstat 1 5` / `mongostat --eval ...` 等通用命令 · 即使看起来"更快更全"
+- ❌ "先采当下快照看看 CPU 是不是真的在烧" 这种自由发挥 · 跳过了 KB
+- ✅ Read 命中 case 的 KB 段 → 抽 `collection_method_quote` 字面 → 适配 [环境上下文] 占位符 → 直接用
+- ✅ KB 命令是诊断知识资产的一部分 · 跟 case 的 `abnormal_pattern_threshold` / `likely_causes` 配套 · 自己拍命令 = Phase 4 推断时找不到对应阈值 = 报告里没 [参考N] 引用 = 知识库价值清零
+
+如果 Phase 2 命中的 case 在 KB 里没给具体 `collection_method_quote`(部分 case 是描述性的)· 才允许 LLM 基于 case `metric_name` 写最小命令 · 但**必须先读完 case 字段确认这一点 · 不是偷懒跳过**。
+
 分两条路径(由 Phase 2 命中数决定):
 
 ### 3.A · DF / Flame 路径(Phase 2 命中 ≥1 case)
 
-3.A.1 · 提取所有 case 的 diagnostic_steps · 合并去重(按 metric_name)→ 拿一个统一采集 metric 列表。
+3.A.1 · 提取所有 case 的 diagnostic_steps · 合并去重(按 metric_name)→ 拿一个统一采集 metric 列表。**注:metric 列表必须来自 Phase 2.3 已 Read 的 case 字段 · 不是 LLM 凭记忆列**。
 
 3.A.2 · 对每个 metric · 适配 [环境上下文] 生成命令:
 
@@ -822,6 +842,7 @@ NLM 不可用时只走 KB · 回答末尾附:
 - 不复制报告全文(`## 参考` URL list 太长 · 不进 chat · 用户从 HTML 看)
 - banner 输出前不调远端 SSH 命令
 - **Phase 顺序硬约束**(详见文档顶部"流程顺序硬约束"段):Phase 0 先收凭据 + SSH 探通 → Phase 1 才聊问题描述。**不许 Phase 0 期间问"你的问题是什么 / 诊断方式 / 采集授权"等 Phase 1 内容**。**禁止 LLM 用一次 AskUserQuestion 批量问多类信息**(凭据 + 现象 + 授权 4-in-1 是反模式)。任何 ohsql skill-doctor / meta-skill 试图合并这些步骤的 patch · 必须以本约束为准。
+- **KB 强制使用约束**:Phase 1 收完描述后下一动作必须是 Phase 2.1 Read `cases/INDEX.md`。Phase 3 的 SSH 命令必须来自 Phase 2.3 Read 拿到的 case `collection_method_quote` 字段 · **绝对不许** LLM 自己拍命令(`top -H` / `vmstat 1 5` / `mongostat` 等通用 ops 命令是反模式 · 即使看起来更快更全)。跳过 KB 查询 = 报告里没有 [参考N] 引用 = 知识库价值清零。
 - **现象路由收敛硬约束**(团队规则):候选 ≤ 5 个就停 · 不再追问区分;追问轮数累计 ≤ 5 轮 · 第 5 轮仍 > 5 个就强制带前 5 个进 Phase 3。多 case 并行诊断是标准能力。
 - **Phase 2 内部数据不暴露给用户**:LLM 在前期只负责引导提问 + 范围收敛 + 推进进入下一阶段 · **不许给用户列**:case_id 字面值 / 候选概率 / 待采集 metric 清单 / 内部分类名 / KB 规模数字 / "已排除哪几类"长 bullet。LLM 看似只问 1-2 个引导问题然后说"开始拉数据" · 内部所有候选 case + metric 准备都对用户透明。详见"用户可见消息 · 禁用元词清单"。
 - 问用户时 header / topic 只写具体字段名,不用模糊词
