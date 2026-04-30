@@ -128,7 +128,7 @@ NLM 返回的内容跟 KB 等价可信(Google 检索系统 · references 是真�
 ### 解析 PLUGIN_ROOT(本 skill 启动时一次)
 
 ```
-Bash(command="bash -c 'for d in \"$HOME\"/.ohsql/plugins/cache/perf-kp-sql@* \"$HOME\"/.claude-max/plugins/cache/*/perf-kp-sql/* \"$HOME\"/.claude/plugins/cache/*/perf-kp-sql/* \"$HOME\"/.codex/plugins/cache/*/perf-kp-sql/*; do test -d \"$d\" && echo \"$d\"; done | sort -V -r | head -1'")
+Bash(command="bash -c '[ -n \"$CLAUDE_PLUGIN_ROOT\" ] && [ -d \"$CLAUDE_PLUGIN_ROOT\" ] && { echo \"$CLAUDE_PLUGIN_ROOT\"; exit 0; }; [ -n \"$OHSQL_PLUGIN_ROOT\" ] && [ -d \"$OHSQL_PLUGIN_ROOT\" ] && { echo \"$OHSQL_PLUGIN_ROOT\"; exit 0; }; for d in \"$HOME\"/.ohsql/plugins/cache/perf-kp-sql@* \"$HOME\"/.claude-max/plugins/cache/*/perf-kp-sql/* \"$HOME\"/.claude/plugins/cache/*/perf-kp-sql/* \"$HOME\"/.codex/plugins/cache/*/perf-kp-sql/*; do [ -d \"$d\" ] || continue; ver=$(basename \"$d\" | grep -oE \"[0-9]+\\.[0-9]+\\.[0-9]+\" | head -1); [ -n \"$ver\" ] && printf \"%s\\t%s\\n\" \"$ver\" \"$d\"; done | sort -V -r | head -1 | cut -f2'")
 ```
 
 stdout 是字面绝对路径(形如 `/Users/<login>/.ohsql/plugins/cache/perf-kp-sql@0.25.7`)· 整个 skill 流程都用此值替换 `<PLUGIN_ROOT>`。stdout 空时跑 AskUserQuestion 让用户填(选项详见 `perf-kp-sql-setup/SKILL.md` Step 1 fallback)。

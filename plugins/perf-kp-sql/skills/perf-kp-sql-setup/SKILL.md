@@ -28,12 +28,17 @@ Bootstrap the native dependencies that `perf-kp-sql` relies on. Modeled after Ev
 #### 探测命令(仅用 `$HOME` / `$d` 等无 brace 形态 · ohsql/CC/Codex 三家都跑得通)
 
 ```
-Bash(command="bash -c 'for d in \"$HOME\"/.ohsql/plugins/cache/perf-kp-sql@* \"$HOME\"/.claude-max/plugins/cache/*/perf-kp-sql/* \"$HOME\"/.claude/plugins/cache/*/perf-kp-sql/* \"$HOME\"/.codex/plugins/cache/*/perf-kp-sql/*; do test -d \"$d\" && echo \"$d\"; done | sort -V -r | head -1'")
+Bash(command="bash -c '[ -n \"$CLAUDE_PLUGIN_ROOT\" ] && [ -d \"$CLAUDE_PLUGIN_ROOT\" ] && { echo \"$CLAUDE_PLUGIN_ROOT\"; exit 0; }; [ -n \"$OHSQL_PLUGIN_ROOT\" ] && [ -d \"$OHSQL_PLUGIN_ROOT\" ] && { echo \"$OHSQL_PLUGIN_ROOT\"; exit 0; }; for d in \"$HOME\"/.ohsql/plugins/cache/perf-kp-sql@* \"$HOME\"/.claude-max/plugins/cache/*/perf-kp-sql/* \"$HOME\"/.claude/plugins/cache/*/perf-kp-sql/* \"$HOME\"/.codex/plugins/cache/*/perf-kp-sql/*; do [ -d \"$d\" ] || continue; ver=$(basename \"$d\" | grep -oE \"[0-9]+\\.[0-9]+\\.[0-9]+\" | head -1); [ -n \"$ver\" ] && printf \"%s\\t%s\\n\" \"$ver\" \"$d\"; done | sort -V -r | head -1 | cut -f2'")
 ```
 
 stdout 是字面绝对路径(形如 `/Users/<login>/.ohsql/plugins/cache/perf-kp-sql@0.25.5`)· 记为 `PLUGIN_ROOT` · 整个 setup 流程都用此值替换 `<PLUGIN_ROOT>`。
 
-按 SemVer 倒序(`sort -V -r | head -1`)避免命中旧 cache。
+**探测优先级**:
+1. **`$CLAUDE_PLUGIN_ROOT`**(CC 注入 · 当前 harness 当前安装的 plugin · 准确)
+2. **`$OHSQL_PLUGIN_ROOT`**(ohsql 注入 · 同上)
+3. **fallback** glob 全扫 · 提取每个路径的版本号(`X.Y.Z`)· `sort -V -r | head -1` 选最高版本
+
+注意 fallback 不能直接 `sort -V -r` 整行 — 路径前缀 `.ohsql/` vs `.claude-max/` 字典序会扰乱版本比较。必须先提取版本号到第一列再 sort。
 
 #### Fallback · 探测命令 stdout 空 → 问用户
 
