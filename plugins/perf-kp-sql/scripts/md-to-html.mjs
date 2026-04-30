@@ -105,3 +105,41 @@ ${body}
 
 writeFileSync(htmlPath, html);
 console.log(`✓ rendered ${mdPath} → ${htmlPath} · ${html.length} bytes`);
+
+// 5. Extract chat-bound sections from md(verbatim · 不许 LLM 改写)
+//    SKILL.md Phase 5.4 引用 stdout 中的 <<<CHAT-OUTPUT ... CHAT-OUTPUT>>> 段
+//    LLM 必须字面复制其内容到 chat · 不重排 · 不改格式 · 不加 emoji
+const CHAT_SECTIONS = ["## 诊断结果", "## 火焰图分析"];
+const lines = md.split("\n");
+const extracted = [];
+for (const heading of CHAT_SECTIONS) {
+  const startIdx = lines.findIndex(
+    (l, i) => l.trim() === heading && (i === 0 || lines[i - 1].trim() !== heading)
+  );
+  if (startIdx < 0) continue;
+  let endIdx = lines.length;
+  for (let i = startIdx + 1; i < lines.length; i++) {
+    if (/^##\s/.test(lines[i])) { endIdx = i; break; }
+  }
+  extracted.push(lines.slice(startIdx, endIdx).join("\n").replace(/\s+$/, ""));
+}
+
+if (extracted.length === 0) {
+  console.error("⚠ md 内未找到 ## 诊断结果 段 · chat 块缺失");
+  process.exit(2);
+}
+
+const chatBlock = [
+  "✓ 报告已生成",
+  "",
+  `📄 ${htmlPath}`,
+  "",
+  extracted.join("\n\n"),
+  "",
+  "详细 [参考N] 引用见 HTML 文件。",
+].join("\n");
+
+console.log("");
+console.log("<<<CHAT-OUTPUT");
+console.log(chatBlock);
+console.log("CHAT-OUTPUT>>>");
