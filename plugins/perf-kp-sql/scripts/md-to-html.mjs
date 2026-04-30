@@ -139,6 +139,14 @@ const chatBlock = [
   "详细 [参考N] 引用见 HTML 文件。",
 ].join("\n");
 
+// 5.1 把 chat 段同步落盘到独立 .md 文件 · Phase 5.4 用 Read 工具读它
+//     这是为了从执行路径上消除 LLM "假装看了 stdout · 自己重组" 的偏见 ——
+//     强制把 chat 字面拉进 LLM context · 然后字面复制 · 不再依赖 LLM 翻 stdout。
+//     stdout 的 <<<CHAT-OUTPUT … CHAT-OUTPUT>>> 段保留作向后兼容 + 第二条 grounding 路径。
+const chatMdPath = htmlPath.replace(/\.html$/i, "-chat.md");
+writeFileSync(chatMdPath, chatBlock);
+console.log(`✓ chat 段已落盘: ${chatMdPath}`);
+
 console.log("");
 console.log("<<<CHAT-OUTPUT");
 console.log(chatBlock);
