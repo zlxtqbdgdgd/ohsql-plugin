@@ -39,18 +39,19 @@ argument-hint: "host=<ip> user=<user> (privateKeyPath=<path>|password=<pw>) [eng
 
 # Architecture
 
-诊断分 **6 phase 线性流水线**(外加入口分流 + Phase 0 准备)· LLM-orchestrated · 不调老的 cli-diagnose / render-html-report 程序:
+诊断分 **7 phase 线性流水线**(Phase 0-6)· LLM-orchestrated · 不调老的 cli-diagnose / render-html-report 程序:
 
 | phase | 名称 | 干啥 | 输入 → 输出 |
 |---|---|---|---|
-| 入口 | 入口分流 | 看 slash args 完整度决定流程(对话 / 直接诊断 / 巡检) | slash args → 路径选择 |
-| 0 | 参数 + 凭据 | 收 host/user/凭据 · 渲染 banner | slash args → 参数集 + banner |
-| 1 | 环境画像 | SSH 一次拉 OS/DB 版本/硬件/部署形态 | 远端 → `[环境上下文]` |
-| 2 | 现象路由 | LLM 加载 `cases/INDEX.md` 匹配用户描述 → 命中 case_id | 用户描述 → case 列表 + 单 case 完整字段 |
+| **0** | **获取环境信息**(凭据 + 连通性探测 + 环境画像)| 收 SSH 凭据 → SSH 一次拉 OS/DB 版本/硬件/部署形态 → 记 `[环境上下文]` · **不通则阻断 · 不进 Phase 1** | slash args → 参数 + banner + `[环境上下文]` |
+| **1** | **对话引导**(现象描述收集) | 在 Phase 0 连通性 OK 后 · 用 `[环境上下文]` 上下文化提问 → 收用户问题描述 / 巡检意图 | `[环境上下文]` + 对话 → 问题描述 |
+| 2 | 现象路由 | LLM 加载 `cases/INDEX.md` 匹配问题描述 → 命中 case_id(≤5 · 内部不暴露) | 问题描述 → 内部 case 列表 |
 | 3 | 批量采集 | 从命中 case 提 `collection_method_quote` · SSH 批量拉指标 | case → 采集结果 (txt) |
 | 4 | 推断与补充 | KB 阈值直判 / NotebookLM 兜底 | 采集结果 → 确认根因 |
 | 5 | 输出报告 | LLM 写 markdown 6 列表 + `md-to-html.mjs` 转 HTML | 根因 → 报告文件 (md + html) |
 | 6 | 深入对话(可选)| 用户追问 → KB Read 单 case / NLM 单条 | 追问 → 答案 |
+
+**Phase 0 → Phase 1 硬约束**:Phase 0 的 SSH 连通性探测必须成功(env probe 命令拿到合理 stdout)· 才能进 Phase 1 跟用户聊问题描述。**SSH 不通 / 凭据错 / 主机不通**等情况 · 一律在 Phase 0 阻断 · 给用户报错让 ta 修 · **不进入对话引导环节**。理由:聊半天问题描述但凭据是错的 · 等于白聊。
 
 **数据布局**:
 
@@ -173,96 +174,18 @@ Bash(command="mkdir -p ~/.perf-kp-sql/tmp ~/.perf-kp-sql/reports ~/.perf-kp-sql/
 
 # Workflow
 
-## 入口分流(Conversational Triage)
+> **流程顺序**:Phase 0 凭据 + 连通性 + 环境画像 → Phase 1 对话引导(用环境上下文聊问题描述)→ Phase 2 现象路由 → Phase 3-6。**Phase 0 连通性探测成功前 · 不进 Phase 1 跟用户聊问题**。
 
-skill 触发后,**先看用户给了多少信息再决定流程**。绝对不许一上来直接问 "host? user? 密码?" — 这破坏对话体验,也违背新设计"现象路由优先"的意图。
+## Phase 0 · 获取环境信息(凭据 + 连通性探测 + 环境画像)
 
-判断逻辑:
-
-### 情况 A · slash args 含完整 SSH 凭据
-
-形如 `/perf-kp-sql host=10.0.0.1 user=root privateKeyPath=~/.ssh/id_ed25519`(host + user + key/password 都齐):
-
-→ 用户明显要做完整诊断 · 直接进 Phase 0 凭据 banner · 走 Phase 1-6 完整流程 · **跳过 conversational triage**。
-
-### 情况 B · slash args 含现象描述但缺凭据
-
-形如 `/perf-kp-sql 我们鲲鹏 mongo cpu 一直 90%+`(自由文本现象):
-
-→ 先进 **Phase 2 现象路由 preview**(LLM 加载 `cases/INDEX.md` 匹配 · 内部按 Phase 2.2 收敛规则收到 ≤ 5 个 / 追问 ≤ 5 轮)· **内部记 case_id 候选 · 不向用户列出**。然后用人话简短反馈 + 问凭据:
-
-```
-根据你描述的现象 · 我大致定位到几个可能方向 · 接下来需要在你的机器上拉一些指标做验证。
-
-请提供 SSH 连接信息(host / user / privateKeyPath 或 password):
-```
-
-或者如果还有一个明显有区分度的追问问题(且追问轮次未到 5)· 先问一句:
-
-```
-为了缩小排查范围,先问一个问题:<最有区分度的 1 个问题>?
-(例:"是单机还是副本集?" / "现象是持续性还是间歇性?")
-```
-
-**严格禁止**(用户视角应当看不到内部数据):
-- 不列 `case_id` 字面值给用户(`kunpeng-nohz-clock-tick-overhead-03` 这种符号是内部坐标)
-- 不列内部概率百分比(`45% / 35% / 20%`)
-- 不列"我准备拉这些指标:db.serverStatus().wiredTiger.cache / ..."(这是 Phase 3 内部采集计划 · 用户给凭据后我自己 SSH 拉)
-- 不展开 KB 案例细节 / 内部 symptom_category 分类名
-- **用户视角**:LLM 看似只问了 1-2 个引导问题 · 然后说"开始拉数据" · 内部所有 case 收敛 / metric 准备都不暴露
-
-**用户选"实际诊断"** → 进 Phase 0 凭据收集 · 内部已收敛的 ≤ 5 个 case 直接带入 Phase 3 并行采集(用户无感)。
-**用户选"详细了解"** → 跳 Phase 6(知识问答模式 · 不连机器)。
-
-- 用户选 **1 详细了解** → 跳 Phase 6 直接(Read 单 case 字段 / NLM 答疑)· 不需要 SSH 凭据
-- 用户选 **2 实际诊断** → 进 Phase 0 凭据收集 → Phase 1-6 完整流程
-
-### 情况 C · slash args 全空
-
-形如 `/perf-kp-sql`(无任何参数):
-
-→ greeting + 询问 · **不立刻调 history.mjs · 不立刻问 host**:
-
-```
-你好 · 我是 perf-kp-sql 性能诊断助手。
-
-我的能力范围:Kunpeng ARM64 + MongoDB 性能问题诊断 + 调优建议。
-
-请问你遇到什么问题?简单描述就行 · 例如:
-  · "鲲鹏服务器 mongo CPU 一直 90%+"
-  · "secondary 落后 primary 10 分钟"
-  · "应用偶发 connection timeout · DB 侧无慢查询"
-  · "想做个整体巡检 · 看有没有配置问题"
-```
-
-等用户描述 · 描述清楚后按情况 B 流程走。
-
-### 情况 D · 用户描述模糊或想做巡检(nothing-mode)
-
-形如:"我感觉数据库不太对" / "想做个体检" / "新机器上线想审计配置":
-
-→ 问:
-
-```
-你的描述偏模糊 · 我可以做一次系统性的配置巡检(需要 SSH 连接到机器)。要做吗?
-  1. 是 · 提供 SSH 凭据进入巡检模式
-  2. 否 · 我重新描述一下具体现象
-```
-
-- 用户选 1 → 进 Phase 0 凭据 + 进入 Phase 3.B nothing 模式
-- 用户选 2 → 回到情况 C 重新对话
-
----
-
-**注意:Phase 2 现象路由 在情况 B/D 已经做了 INDEX 加载 + 匹配。Phase 2 正式开始时若候选已知 · 直接复用 · 不重复加载。**
-
-只有"情况 A"才跳过 conversational triage 直接进凭据 → SSH。**这是对话体验的硬约束**,不许在 A 之外的情况跳过 triage。
-
----
-
-## Phase 0 · 参数 + 凭据
+**这是流程第一步 · 也是关键 gate**:
+1. 收齐 SSH 凭据 + 渲染 banner
+2. SSH 一次跑 8 条命令拉环境画像(同时验证连通性)
+3. 拿到 `[环境上下文]` 后才进 Phase 1 跟用户聊问题描述
 
 **banner 必须在任何远端 SSH 命令之前渲染。** 本地参数收集(history load · prompts to user)不受限。
+
+**连通性硬约束**:0.7 SSH env probe 失败 → 阻断流程 · 给用户 troubleshooting · 等用户修凭据 / 网络后重发命令 · **不进 Phase 1 对话引导**。聊半天问题描述但凭据是错的 = 白聊。
 
 ### 0.1 · 历史复用
 
@@ -368,21 +291,15 @@ ask the user(topic = `数据库连接信息`):
 
 Stop and wait for the next turn。
 
-**用户选 1(补全)**:engine 默认 mongo · 收 mongo 凭据(`mongo_user` / `mongo_password` / `auth_db`)· 全收齐 → 进 Phase 1。
+**用户选 1(补全)**:engine 默认 mongo · 收 mongo 凭据(`mongo_user` / `mongo_password` / `auth_db`)· 全收齐 → 进 0.7。
 
-**用户选 2(跳过)**:直接进 Phase 1 · 凭据由 Phase 3 命令失败时反向问。
+**用户选 2(跳过)**:直接进 0.7 · 凭据由 Phase 3 命令失败时反向问。
 
 **用户直接给参数**(不答 1/2 而是直接补字段):并入参数集 · 等价于"选 1"路径。
 
----
+### 0.7 · SSH 连通性探测 + 环境画像(关键 gate · 不通不进 Phase 1)
 
-## Phase 1 · 环境画像
-
-**目标**: 一次 SSH 拉 OS / DB / 硬件 / 部署形态 → 记 `[环境上下文]` · 后续 phase 都引用。
-
-Mark phase 1 (`环境画像`) as in_progress。
-
-### 1.1 · 写命令文件
+凭据收齐 + banner 渲染后 · **立即跑一次 SSH** 拿环境画像 — 同时验证连通性。**这一步成功前不跟用户继续聊问题描述**。
 
 固定 8 条命令(不依赖 case · 不依赖 collect-cmds.json):
 
@@ -397,22 +314,36 @@ echo '###MONGOD_VERSION###' && (mongod --version 2>/dev/null || echo 'mongod not
 echo '###MONGOD_HELLO###' && (mongosh --quiet --eval 'JSON.stringify(db.hello())' 2>/dev/null || echo 'mongosh unavailable')
 echo '###CGROUP###' && (cat /proc/1/cgroup 2>/dev/null || echo 'non-container')
 """)
-```
-
-### 1.2 · SSH 一次性跑
-
-```
 Bash(command="node <PLUGIN_ROOT>/scripts/ssh.mjs --op exec \
        --host <ip> --user <user> [--privateKeyPath <path> | --password '<pw>'] [--port <n>] \
        --command-file /Users/<yourlogin>/.perf-kp-sql/tmp/perf-kp-sql-env-probe-<TS>.cmd \
        --output-file /Users/<yourlogin>/.perf-kp-sql/tmp/perf-kp-sql-env-<TS>.txt", timeout=60000)
-```
-
-### 1.3 · 解析 + 记 `[环境上下文]`
-
-```
 Read(file_path="/Users/<yourlogin>/.perf-kp-sql/tmp/perf-kp-sql-env-<TS>.txt")
 ```
+
+### 0.8 · 连通性判定(关键 gate)
+
+| ssh.mjs 返回 | 判定 |
+|---|---|
+| `exitCode=0 + stdout 非空 + 含 ###UNAME### 等标记` | ✅ 连通 · 进 0.9 解析 |
+| `err: SSH connection failed (255)` | ❌ 协议层失败(认证 / 路由)· 给用户 troubleshooting · stop wait 用户改凭据 · **不进 Phase 1** |
+| `stdout=stderr=""` | ❌ 走 Gate 4 自检(参见 0.6) · 失败重试不通 → stop wait 用户 · **不进 Phase 1** |
+
+troubleshooting 模板(连通性失败时给用户):
+
+```
+SSH 连接失败:<err 字面消息>
+
+请检查:
+  · host=<ip> · port=<port> 是否可达(本地能否 ping / nc 通)
+  · user=<user> 是否存在
+  · <key 模式>privateKeyPath=<path> 文件是否存在 + 权限 600
+  · <password 模式>密码是否正确(可能含特殊字符未脱敏)
+
+修好后重发 /perf-kp-sql 命令。
+```
+
+### 0.9 · 解析环境画像 + 记 `[环境上下文]`
 
 LLM 解析 ###标记### 切段 · 抽以下字段(in-memory 记):
 
@@ -433,7 +364,7 @@ LLM 解析 ###标记### 切段 · 抽以下字段(in-memory 记):
 
 `[环境上下文]` 是 LLM 后续 phase 的隐式参数 · 不需要落盘。
 
-### 1.4 · 公告环境画像活动行(给用户看)
+公告环境画像活动行(给用户看):
 
 ```
   · OS · <distro> <kernel> · <arch>
@@ -442,7 +373,45 @@ LLM 解析 ###标记### 切段 · 抽以下字段(in-memory 记):
   · MongoDB · <version> · <deploy_form>
 ```
 
-mark phase 1 completed → mark phase 2 in_progress。
+mark phase 0 completed → mark phase 1 in_progress → 进 Phase 1 对话引导。
+
+---
+
+## Phase 1 · 对话引导(现象描述收集)
+
+**前置**:Phase 0 已收齐凭据 + 连通性 OK + 拿到 `[环境上下文]`。
+
+**目标**:用环境上下文化的对话 · 收集用户的问题描述(或确认走巡检模式)· 不收齐不进 Phase 2。
+
+### 1.1 · 看用户在 Phase 0 之前给了啥
+
+| 用户首条消息 | 处理 |
+|---|---|
+| 已含问题描述(例:"我们鲲鹏 mongo cpu 一直 90%+") | 直接进 Phase 2 · 不重复问 |
+| 只给凭据没给描述 | 走 1.2 双问 |
+| `/perf-kp-sql` 无任何文本 | 走 1.2 双问 |
+
+### 1.2 · 上下文化询问(用 [环境上下文] 让对话更具体)
+
+```
+我已经连上你的机器(<distro> · <arch> · MongoDB <version> · <deploy_form>)。
+
+请简短描述你想诊断的问题 · 例如:
+  · "<arch=aarch64 时插这条:鲲鹏 ARM 上 mongod CPU 一直 90%+>"
+  · "<deploy_form=replica-set 时插这条:secondary 落后 primary 10 分钟>"
+  · "应用偶发 connection timeout · DB 侧无慢查询"
+  · "想做个整体配置巡检 · 看有没有问题"
+```
+
+stop and wait for next turn。
+
+### 1.3 · 描述收齐后
+
+- 描述清晰 → 进 Phase 2 现象路由
+- 描述模糊("我感觉慢" / "想做体检" / "新机上线想审")→ 进 Phase 3.B 巡检模式(BP 全量审计)· 跳过 Phase 2
+- 用户描述仍含糊但隐含具体方向 → Phase 2 内部命中 · 用户视角无感
+
+mark phase 1 completed → mark phase 2 in_progress(或巡检模式时 mark phase 2 skipped)。
 
 ---
 
