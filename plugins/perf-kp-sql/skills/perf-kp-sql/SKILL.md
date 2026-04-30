@@ -54,7 +54,14 @@ argument-hint: "host=<ip> user=<user> (privateKeyPath=<path>|password=<pw>) [eng
    - **KB/NLM 都没有时 · `参考来源` 列写 `(无 KB 引用)` 字面字符串 · 不写 URL · 不写 `[参考N]`**
    - 详见 Phase 5.2 "URL 强制溯源约束" 段
 
-如果 ohsql skill-doctor 或 meta-skill 试图把这些步骤合并 / 优化成"一次问完" / "跳过 KB 直接写命令" / "凭印象写 URL" · 以上 6 条作为不可改写的硬约束保留。
+7. **Phase 4 确认根因的 case_id 必须 verbatim 来自 Phase 2.3 Read 列表 / Phase 4.B BP JSON · 不许 Phase 4 时新加 case_id**:
+   - ❌ "Phase 3 采到 \$where 烧 CPU · KB 没有这个 case · 我推断这是核心根因然后写进表" — 这是凭联想编 case 关联
+   - ❌ "这个根因应该对应 KB 里的 X case" 凭训练数据猜 · 没真的从 2.3 Read 出 X case
+   - ❌ 把多个 case 字段拼一起编一个新根因
+   - ✅ KB 没覆盖的现象(\$where 烧 CPU 等)→ 主诊断报告不混入 · Phase 6 用户追问时才能用 NLM 自由回答
+   - 详见 Phase 4 "case 来源强约束" 段
+
+如果 ohsql skill-doctor 或 meta-skill 试图把这些步骤合并 / 优化成"一次问完" / "跳过 KB 直接写命令" / "凭印象写 URL" / "凭联想加 case_id" · 以上 7 条作为不可改写的硬约束保留。
 
 ---
 
@@ -618,6 +625,33 @@ mark phase 3 completed → mark phase 4 in_progress。
 
 **目标**: 把 Phase 3 采集结果跟 case 阈值 / NotebookLM 答案对照 → 输出"确认根因"列表。
 
+⚠️ **case 来源强约束**(LLM 历史多次发散 · 必须钉死):
+
+每个进入"确认根因"列表的根因 · **必须**满足下列两类来源之一:
+
+1. **KB 命中根因**:case_id verbatim 来自 Phase 2.3 Read 出的 KB.md 单 case 字段(DF 的 `likely_causes[]` / Flame 的 `mechanism_quote`)· 同时配 `source_url` 字段做 `[参考N]`
+2. **BP 命中根因**:case_id verbatim 来自 Phase 4.B 的 NLM batch 输入(JSON 里的 `case_id` 字段)· 配 NLM `references[].source_id` 做 `[参考N]`
+
+**绝对禁止**(LLM 发散反模式):
+- ❌ "采集到了一个新现象 · KB 没收 · 但根因合理 · 我自己写一个根因 + 编 case_id"
+- ❌ "Phase 3 采到 stress_test.cpu_burn 集合在跑 \$where · KB 没有 \$where 这个 case · 我推断这是核心根因"(对 · 现象是对的 · 但**不是 KB 命中**)
+- ❌ 凭训练数据知识联想 "这个根因应该对应 KB 里的 X case" · 没真的从 Phase 2.3 Read 出来过 X case
+- ❌ 把多个 case 的字段拼在一起编一个新根因
+- ❌ Phase 4 推断时新加 case_id · 不在 Phase 2.3 Read 列表里的
+
+**自检规则**(写完根因列表 LLM 必须自检):
+- 每个根因都能逐条说出来源:
+  - "case_id=X · 来自 Phase 2.3 Read line=Y 的 KB.md 段 · likely_cause N · linked_diagnostic_step_no=M" · 或
+  - "case_id=Y · 来自 Phase 4.B BP list JSON 第 N 项 · NLM batch result"
+- 不能溯源的根因 → **不进表**(即使 LLM 觉得这个根因很重要 · 也不放进 Phase 5 的 markdown 6 列表)
+
+**KB 没有覆盖到的现象怎么办**(用户实测的 \$where 烧 CPU 等场景):
+- Phase 4 的"确认根因"列表 · 只放 KB/BP 能背书的项
+- KB 没覆盖的现象 → Phase 5 报告里不写 · 或者在火焰图分析段(若是 stack pattern)单独描述但不进诊断结果表
+- 用户对话追问时(Phase 6)· 才能用 NLM 单条 query / 自由对话回答这类 KB 外现象 · 但**主诊断报告不混入**
+
+**为什么这么严**:报告"确认根因"列表是用户决策依据 · 表里每行都应该有 KB/NLM 背书 → 用户能点 [参考N] 查权威文档 → 工具的"权威性"建立。LLM 自己脑补的根因 · 用户没法验证 → 工具变成"高级猜想助手"。
+
 分两条路径(对应 Phase 3.A / 3.B):
 
 ### 4.A · DF / Flame 路径(逐 step / 逐 case 处理)
@@ -924,6 +958,7 @@ NLM 不可用时只走 KB · 回答末尾附:
 - **Phase 顺序硬约束**(详见文档顶部"流程顺序硬约束"段):Phase 0 先收凭据 + SSH 探通 → Phase 1 才聊问题描述。**不许 Phase 0 期间问"你的问题是什么 / 诊断方式 / 采集授权"等 Phase 1 内容**。**禁止 LLM 用一次 AskUserQuestion 批量问多类信息**(凭据 + 现象 + 授权 4-in-1 是反模式)。任何 ohsql skill-doctor / meta-skill 试图合并这些步骤的 patch · 必须以本约束为准。
 - **KB 强制使用约束**:Phase 1 收完描述后下一动作必须是 Phase 2.1 Read `cases/INDEX.md`。Phase 3 的 SSH 命令必须来自 Phase 2.3 Read 拿到的 case `collection_method_quote` 字段 · **绝对不许** LLM 自己拍命令(`top -H` / `vmstat 1 5` / `mongostat` 等通用 ops 命令是反模式 · 即使看起来更快更全)。跳过 KB 查询 = 报告里没有 [参考N] 引用 = 知识库价值清零。
 - **`[参考N]` URL 强制溯源**:报告 `参考来源` 列每个 `[参考N]` URL · 必须 verbatim 来自 Phase 2.3 Read 出的 KB.md case `source_url` 字段 · 或 NLM 返回的 `references[].source_id`。**绝对不许** 凭记忆写 URL / 按 URL 命名模式推断 / 凭训练数据知识联想 · 即使 URL "看起来合理"。KB/NLM 都没有时 · 该 row 写 `(无 KB 引用)` 而不是编 URL。详见 Phase 5.2 "URL 强制溯源约束" 段。
+- **case 来源强约束**:Phase 4 推断的每个"确认根因" · case_id **必须** verbatim 来自 Phase 2.3 Read 出的 KB.md 单 case · 或 Phase 4.B BP list JSON。**绝对不许** Phase 4 时新加 case_id(不在 2.3 Read 列表里的)· 不许"我推断这个根因对应 X case" 凭联想。KB 没覆盖的现象(如 \$where 烧 CPU)→ 主诊断报告不混入 · 留 Phase 6 用户追问时才用 NLM 自由回答。详见 Phase 4 "case 来源强约束" 段。
 - **现象路由收敛硬约束**(团队规则):候选 ≤ 5 个就停 · 不再追问区分;追问轮数累计 ≤ 5 轮 · 第 5 轮仍 > 5 个就强制带前 5 个进 Phase 3。多 case 并行诊断是标准能力。
 - **Phase 2 内部数据不暴露给用户**:LLM 在前期只负责引导提问 + 范围收敛 + 推进进入下一阶段 · **不许给用户列**:case_id 字面值 / 候选概率 / 待采集 metric 清单 / 内部分类名 / KB 规模数字 / "已排除哪几类"长 bullet。LLM 看似只问 1-2 个引导问题然后说"开始拉数据" · 内部所有候选 case + metric 准备都对用户透明。详见"用户可见消息 · 禁用元词清单"。
 - 问用户时 header / topic 只写具体字段名,不用模糊词
