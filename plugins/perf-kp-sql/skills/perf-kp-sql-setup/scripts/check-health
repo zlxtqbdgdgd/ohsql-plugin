@@ -127,23 +127,34 @@ if command -v notebooklm >/dev/null 2>&1; then
     hint "fix: 跑 'notebooklm login' 弹 Chromium 重新登录 Google 账号"
     hint "(本地 cookie 文件 sanity 可能通过 · 但 Google 侧 session 已过期)"
   fi
-  # check Playwright browser extras (notebooklm login 需要 · 处理 Google 401 必须有)
-  pw_check="$(python3 -c "from playwright.sync_api import sync_playwright" 2>&1)"
+  # 检测 notebooklm CLI 用的 Python(可能在 venv) · 用同一个 Python 验 Playwright
+  # BSD sed 不认 \s · 用 [ \t] 兼容 macOS
+  nlm_python="$(head -1 "$(which notebooklm)" 2>/dev/null | sed -nE 's|^#![ 	]*([^ 	]+).*|\1|p')"
+  if [ -z "$nlm_python" ] || [ ! -x "$nlm_python" ]; then
+    nlm_python="python3"
+  fi
+  pw_check="$("$nlm_python" -c "from playwright.sync_api import sync_playwright" 2>&1)"
   if [ -z "$pw_check" ]; then
-    ok "playwright Python module"
+    ok "playwright Python module (用 $nlm_python 验证)"
     # check chromium installed
-    pw_chromium="$(python3 -c "from playwright.sync_api import sync_playwright; p=sync_playwright().start(); b=p.chromium.launch(); b.close(); p.stop(); print('ok')" 2>&1)"
+    pw_chromium="$("$nlm_python" -c "from playwright.sync_api import sync_playwright; p=sync_playwright().start(); b=p.chromium.launch(); b.close(); p.stop(); print('ok')" 2>&1)"
     if [ "$(echo "$pw_chromium" | tail -1)" = "ok" ]; then
       ok "playwright chromium browser"
     else
       warn "playwright chromium not installed"
-      hint "fix: playwright install chromium"
+      # 推断 venv 对应的 playwright 命令
+      nlm_pw="$(dirname "$nlm_python")/playwright"
+      [ -x "$nlm_pw" ] || nlm_pw="playwright"
+      hint "fix: $nlm_pw install chromium"
       hint "(notebooklm login 需要 chromium · Google 侧 cookie 过期时无法重新登录)"
     fi
   else
-    warn "playwright Python module not installed"
-    hint "fix: pip install 'notebooklm-py[browser]'"
-    hint "(notebooklm login 需要 Playwright · Google 侧 cookie 过期时无法重新登录)"
+    warn "playwright Python module not installed in $nlm_python"
+    # 推断 venv 对应的 pip
+    nlm_pip="$(echo "$nlm_python" | sed -E 's|/python[0-9.]*$|/pip|')"
+    [ -x "$nlm_pip" ] || nlm_pip="pip3"
+    hint "fix: $nlm_pip install 'notebooklm-py[browser]'"
+    hint "(notebooklm CLI shebang 指向 $nlm_python · 必须用同一个 venv 的 pip)"
   fi
   # check config
   NLM_CFG="$HOME/.perf-kp-sql/notebooklm.json"
