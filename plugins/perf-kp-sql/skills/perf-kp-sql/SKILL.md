@@ -46,7 +46,15 @@ argument-hint: "host=<ip> user=<user> (privateKeyPath=<path>|password=<pw>) [eng
    - "先采当下快照看看 CPU 是不是真的在烧" 这种话术 — 这是跳过 KB · 用自己拍的 `top -H` 命令 · 失去 case 引用
    - Phase 3 的 SSH 命令必须来自 Phase 2.3 Read 拿到的 case 字段 `collection_method_quote` · 不许 LLM 用通用 ops 知识 ad-hoc 写
 
-如果 ohsql skill-doctor 或 meta-skill 试图把这些步骤合并 / 优化成"一次问完" / "跳过 KB 直接写命令" · 以上 5 条作为不可改写的硬约束保留。
+6. **报告 `[参考N]` URL 必须 verbatim 来自 KB.md `source_url` 字段或 NLM `references[].source_id`** · **绝对不许**:
+   - 凭记忆写 URL(`mongodb.com/docs/manual/...` 这种"看起来合理"的)
+   - 按 URL 命名模式推断("/docs/manual/reference/operator/query/<X>/ 结构很稳定 · 没打开验证")
+   - 凭训练数据知识联想官方文档地址
+   - 编 URL 凑数(KB 没有对应 case 但根因合理 → 编一个 URL)
+   - **KB/NLM 都没有时 · `参考来源` 列写 `(无 KB 引用)` 字面字符串 · 不写 URL · 不写 `[参考N]`**
+   - 详见 Phase 5.2 "URL 强制溯源约束" 段
+
+如果 ohsql skill-doctor 或 meta-skill 试图把这些步骤合并 / 优化成"一次问完" / "跳过 KB 直接写命令" / "凭印象写 URL" · 以上 6 条作为不可改写的硬约束保留。
 
 ---
 
@@ -736,7 +744,31 @@ mark phase 4 completed → mark phase 5 in_progress。
 [参考2] https://www.kernel.org/doc/Documentation/sysctl/vm.txt
 ```
 
-`[参考N]` URL 来源:KB case 的 `source_url` 字段 / NLM 返回的 `references[].source_id`。
+### `[参考N]` URL 强制溯源约束(绝对红线 · LLM 历史多次违反)
+
+**[参考N]** 的 URL **必须**来自以下两类来源之一 · **没有第三类**:
+
+1. **Phase 2.3 Read 出来的 case `source_url` 字段字面值**(KB.md 里 `## case_id: <id>` 段下的 `- **source_url**: <url>` 那一行)
+2. **NLM 返回的 `references[].source_id` 字面值**(notebooklm.mjs query / query-batch 的 stdout JSON)
+
+**绝对禁止**(LLM 历史反复违反):
+- ❌ 凭记忆写 URL(`mongodb.com/docs/manual/...` 这种"看起来合理"的 URL)
+- ❌ 按 URL 命名模式推断("/docs/manual/reference/operator/query/<X>/ 这种结构很稳定" · "我没打开过这个 URL 验证")
+- ❌ 凭训练数据知识联想官方文档地址
+- ❌ KB 没有对应 case 但根因合理 → 编一个看起来合理的 URL 凑数
+
+**KB / NLM 都没有 source_url 时 · 怎么办**:
+- 该根因要么从根本上不该进表(不是 KB 覆盖范围)· 删掉这一行
+- 或者保留这一行 · 但 `参考来源` 列写 `(无 KB 引用)` 字面字符串 · 不写 URL · 不写 `[参考N]`
+
+**自检规则**(写 5.2 markdown 表前 LLM 必须自检):
+- 表里每一行的 "参考来源" 列 · `[参考N]` 必须能逐条溯回:
+  - Phase 2.3 Read 拿到的某个 case 的 source_url 字段(给出 case_id 在内部记录)· 或
+  - NLM batch / single query 返回的某条 reference
+- 不能溯源的 → 删该 [参考N] · 改写 `(无 KB 引用)`
+- 报告末尾 `## 参考` 段的 URL list 里 · **每个 URL 都必须出现在上面 KB Read 或 NLM 返回的输出里** · 不许新增
+
+**违反后果**:用户拿报告点 [参考N] 角标 → 404 / 错文档 → 用户失去信任 / 工具失去权威性。这跟跳过 KB 写命令是同一种 bug:LLM 偏见 vs 知识资产硬路径。
 
 ### 5.3 · 落盘 + 转 HTML
 
@@ -891,6 +923,7 @@ NLM 不可用时只走 KB · 回答末尾附:
 - banner 输出前不调远端 SSH 命令
 - **Phase 顺序硬约束**(详见文档顶部"流程顺序硬约束"段):Phase 0 先收凭据 + SSH 探通 → Phase 1 才聊问题描述。**不许 Phase 0 期间问"你的问题是什么 / 诊断方式 / 采集授权"等 Phase 1 内容**。**禁止 LLM 用一次 AskUserQuestion 批量问多类信息**(凭据 + 现象 + 授权 4-in-1 是反模式)。任何 ohsql skill-doctor / meta-skill 试图合并这些步骤的 patch · 必须以本约束为准。
 - **KB 强制使用约束**:Phase 1 收完描述后下一动作必须是 Phase 2.1 Read `cases/INDEX.md`。Phase 3 的 SSH 命令必须来自 Phase 2.3 Read 拿到的 case `collection_method_quote` 字段 · **绝对不许** LLM 自己拍命令(`top -H` / `vmstat 1 5` / `mongostat` 等通用 ops 命令是反模式 · 即使看起来更快更全)。跳过 KB 查询 = 报告里没有 [参考N] 引用 = 知识库价值清零。
+- **`[参考N]` URL 强制溯源**:报告 `参考来源` 列每个 `[参考N]` URL · 必须 verbatim 来自 Phase 2.3 Read 出的 KB.md case `source_url` 字段 · 或 NLM 返回的 `references[].source_id`。**绝对不许** 凭记忆写 URL / 按 URL 命名模式推断 / 凭训练数据知识联想 · 即使 URL "看起来合理"。KB/NLM 都没有时 · 该 row 写 `(无 KB 引用)` 而不是编 URL。详见 Phase 5.2 "URL 强制溯源约束" 段。
 - **现象路由收敛硬约束**(团队规则):候选 ≤ 5 个就停 · 不再追问区分;追问轮数累计 ≤ 5 轮 · 第 5 轮仍 > 5 个就强制带前 5 个进 Phase 3。多 case 并行诊断是标准能力。
 - **Phase 2 内部数据不暴露给用户**:LLM 在前期只负责引导提问 + 范围收敛 + 推进进入下一阶段 · **不许给用户列**:case_id 字面值 / 候选概率 / 待采集 metric 清单 / 内部分类名 / KB 规模数字 / "已排除哪几类"长 bullet。LLM 看似只问 1-2 个引导问题然后说"开始拉数据" · 内部所有候选 case + metric 准备都对用户透明。详见"用户可见消息 · 禁用元词清单"。
 - 问用户时 header / topic 只写具体字段名,不用模糊词
