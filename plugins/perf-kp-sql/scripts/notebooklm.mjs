@@ -182,6 +182,75 @@ function checkAuth() {
   return true;
 }
 
+// ── refreshCookies: rookiepy 从浏览器重提 cookie ─────────────────────
+
+/**
+ * 用 rookiepy 从本机浏览器重新提取 Google cookie → 写入 ~/.notebooklm/storage_state.json
+ * @returns {{ ok: boolean, cookie_count?: number, browser?: string, error?: string }}
+ */
+function refreshCookies() {
+  const cookieScript = `
+import rookiepy, json, os, sys
+
+domains = ['.google.com', 'notebooklm.google.com', 'accounts.google.com']
+browsers = [
+    ("any_browser", rookiepy.load),
+    ("chrome",      lambda **kw: rookiepy.chrome(**kw)),
+    ("edge",        lambda **kw: rookiepy.edge(**kw)),
+    ("brave",       lambda **kw: rookiepy.brave(**kw)),
+    ("chromium",    lambda **kw: rookiepy.chromium(**kw)),
+    ("firefox",     lambda **kw: rookiepy.firefox(**kw)),
+    ("safari",      lambda **kw: rookiepy.safari(**kw)),
+    ("vivaldi",     lambda **kw: rookiepy.vivaldi(**kw)),
+    ("opera",       lambda **kw: rookiepy.opera(**kw)),
+    ("arc",         lambda **kw: rookiepy.arc(**kw)),
+    ("librewolf",   lambda **kw: rookiepy.librewolf(**kw)),
+]
+cookies = []
+used = "none"
+for name, fn in browsers:
+    try:
+        cookies = fn(domains=domains)
+        if cookies:
+            used = name
+            break
+    except Exception:
+        continue
+
+if not cookies:
+    print(json.dumps({"ok": False, "error": "no_cookies", "browser": "none"}))
+    sys.exit(0)
+
+storage_state = {
+    'cookies': [
+        {
+            'name': c['name'], 'value': c['value'], 'domain': c['domain'],
+            'path': c.get('path', '/'), 'expires': c.get('expires', -1),
+            'httpOnly': c.get('httpOnly', False), 'secure': c.get('secure', False),
+            'sameSite': 'None' if c.get('secure') else 'Lax',
+        }
+        for c in cookies
+    ],
+    'origins': []
+}
+path = os.path.expanduser('~/.notebooklm/storage_state.json')
+os.makedirs(os.path.dirname(path), exist_ok=True)
+with open(path, 'w') as f:
+    json.dump(storage_state, f)
+os.chmod(path, 0o600)
+print(json.dumps({"ok": True, "cookie_count": len(cookies), "browser": used}))
+`;
+  const py = spawnSync("python3", ["-c", cookieScript], {
+    encoding: "utf8",
+    timeout: 30_000,
+  });
+  try {
+    return JSON.parse(py.stdout);
+  } catch {
+    return { ok: false, error: "rookiepy_spawn_failed", detail: (py.stderr ?? "").slice(0, 300) };
+  }
+}
+
 // ── op: check ────────────────────────────────────────────────────────
 
 function opCheck() {
@@ -309,69 +378,12 @@ async function opSetup(urlsFile) {
 
   // Step 10: cookie extraction via rookiepy (auto-detect browser)
   console.error("→ 提取浏览器 cookie (rookiepy · 自动探测)...");
-  const cookieScript = `
-import rookiepy, json, os, sys
-
-domains = ['.google.com', 'notebooklm.google.com', 'accounts.google.com']
-# 按优先级尝试: 自动探测 → 逐个常见浏览器
-browsers = [
-    ("any_browser", rookiepy.load),
-    ("chrome",      lambda **kw: rookiepy.chrome(**kw)),
-    ("edge",        lambda **kw: rookiepy.edge(**kw)),
-    ("brave",       lambda **kw: rookiepy.brave(**kw)),
-    ("chromium",    lambda **kw: rookiepy.chromium(**kw)),
-    ("firefox",     lambda **kw: rookiepy.firefox(**kw)),
-    ("safari",      lambda **kw: rookiepy.safari(**kw)),
-    ("vivaldi",     lambda **kw: rookiepy.vivaldi(**kw)),
-    ("opera",       lambda **kw: rookiepy.opera(**kw)),
-    ("arc",         lambda **kw: rookiepy.arc(**kw)),
-    ("librewolf",   lambda **kw: rookiepy.librewolf(**kw)),
-]
-cookies = []
-used = "none"
-for name, fn in browsers:
-    try:
-        cookies = fn(domains=domains)
-        if cookies:
-            used = name
-            break
-    except Exception:
-        continue
-
-if not cookies:
-    print(json.dumps({"ok": False, "error": "no_cookies", "browser": "none"}))
-    sys.exit(1)
-
-storage_state = {
-    'cookies': [
-        {
-            'name': c['name'], 'value': c['value'], 'domain': c['domain'],
-            'path': c.get('path', '/'), 'expires': c.get('expires', -1),
-            'httpOnly': c.get('httpOnly', False), 'secure': c.get('secure', False),
-            'sameSite': 'None' if c.get('secure') else 'Lax',
-        }
-        for c in cookies
-    ],
-    'origins': []
-}
-path = os.path.expanduser('~/.notebooklm/storage_state.json')
-os.makedirs(os.path.dirname(path), exist_ok=True)
-with open(path, 'w') as f:
-    json.dump(storage_state, f)
-print(json.dumps({"ok": True, "cookie_count": len(cookies), "browser": used}))
-`;
-  const py = spawnSync("python3", ["-c", cookieScript], {
-    encoding: "utf8",
-    timeout: 30_000,
-  });
-  if (py.status !== 0) {
-    console.error(`cookie 提取失败: ${py.stderr}`);
+  const cookieResult = refreshCookies();
+  if (!cookieResult.ok) {
+    console.error(`cookie 提取失败: ${cookieResult.error}`);
     console.error("请确保已在任意浏览器中登录 https://notebooklm.google.com/");
   } else {
-    try {
-      const r = JSON.parse(py.stdout);
-      if (r.ok) console.error(`→ 从 ${r.browser} 提取到 ${r.cookie_count} 条 cookie`);
-    } catch {}
+    console.error(`→ 从 ${cookieResult.browser} 提取到 ${cookieResult.cookie_count} 条 cookie`);
   }
 
   // Step 10b: verify auth
