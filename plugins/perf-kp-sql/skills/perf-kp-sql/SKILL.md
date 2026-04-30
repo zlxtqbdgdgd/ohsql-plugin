@@ -39,10 +39,11 @@ argument-hint: "host=<ip> user=<user> (privateKeyPath=<path>|password=<pw>) [eng
 
 # Architecture
 
-诊断分 **6 phase 线性流水线**(外加 Phase 0 准备)· LLM-orchestrated · 不调老的 cli-diagnose / render-html-report 程序:
+诊断分 **6 phase 线性流水线**(外加入口分流 + Phase 0 准备)· LLM-orchestrated · 不调老的 cli-diagnose / render-html-report 程序:
 
 | phase | 名称 | 干啥 | 输入 → 输出 |
 |---|---|---|---|
+| 入口 | 入口分流 | 看 slash args 完整度决定流程(对话 / 直接诊断 / 巡检) | slash args → 路径选择 |
 | 0 | 参数 + 凭据 | 收 host/user/凭据 · 渲染 banner | slash args → 参数集 + banner |
 | 1 | 环境画像 | SSH 一次拉 OS/DB 版本/硬件/部署形态 | 远端 → `[环境上下文]` |
 | 2 | 现象路由 | LLM 加载 `cases/INDEX.md` 匹配用户描述 → 命中 case_id | 用户描述 → case 列表 + 单 case 完整字段 |
@@ -171,6 +172,81 @@ Bash(command="mkdir -p ~/.perf-kp-sql/tmp ~/.perf-kp-sql/reports ~/.perf-kp-sql/
 ---
 
 # Workflow
+
+## 入口分流(Conversational Triage)
+
+skill 触发后,**先看用户给了多少信息再决定流程**。绝对不许一上来直接问 "host? user? 密码?" — 这破坏对话体验,也违背新设计"现象路由优先"的意图。
+
+判断逻辑:
+
+### 情况 A · slash args 含完整 SSH 凭据
+
+形如 `/perf-kp-sql host=10.0.0.1 user=root privateKeyPath=~/.ssh/id_ed25519`(host + user + key/password 都齐):
+
+→ 用户明显要做完整诊断 · 直接进 Phase 0 凭据 banner · 走 Phase 1-6 完整流程 · **跳过 conversational triage**。
+
+### 情况 B · slash args 含现象描述但缺凭据
+
+形如 `/perf-kp-sql 我们鲲鹏 mongo cpu 一直 90%+`(自由文本现象):
+
+→ 先进 **Phase 2 现象路由 preview**(LLM 加载 `cases/INDEX.md` 匹配)· 给候选 case · 然后问用户:
+
+```
+我看了下你的描述,可能是下面这些情况:
+
+  · <case_id 1> · <title 简介>
+  · <case_id 2> · <title 简介>
+
+想做哪个?
+  1. 详细了解某个 · 我可以解释机制 + 给建议(不连机器 · 知识问答模式)
+  2. 实际诊断验证 · 我连接到你的机器拉指标 + 给报告(需 SSH 凭据)
+```
+
+- 用户选 **1 详细了解** → 跳 Phase 6 直接(Read 单 case 字段 / NLM 答疑)· 不需要 SSH 凭据
+- 用户选 **2 实际诊断** → 进 Phase 0 凭据收集 → Phase 1-6 完整流程
+
+### 情况 C · slash args 全空
+
+形如 `/perf-kp-sql`(无任何参数):
+
+→ greeting + 询问 · **不立刻调 history.mjs · 不立刻问 host**:
+
+```
+你好 · 我是 perf-kp-sql 性能诊断助手。
+
+我的能力范围:Kunpeng ARM64 + MongoDB 性能问题诊断 + 调优建议。
+
+请问你遇到什么问题?简单描述就行 · 例如:
+  · "鲲鹏服务器 mongo CPU 一直 90%+"
+  · "secondary 落后 primary 10 分钟"
+  · "应用偶发 connection timeout · DB 侧无慢查询"
+  · "想做个整体巡检 · 看有没有配置问题"
+```
+
+等用户描述 · 描述清楚后按情况 B 流程走。
+
+### 情况 D · 用户描述模糊或想做巡检(nothing-mode)
+
+形如:"我感觉数据库不太对" / "想做个体检" / "新机器上线想审计配置":
+
+→ 问:
+
+```
+你的描述偏模糊 · 我可以做个整体巡检(对照 93 条 best-practice 检查参数配置 · 需要 SSH 连接到机器)。要做吗?
+  1. 是 · 提供 SSH 凭据进入巡检模式
+  2. 否 · 我重新描述一下具体现象
+```
+
+- 用户选 1 → 进 Phase 0 凭据 + 进入 Phase 3.B nothing 模式
+- 用户选 2 → 回到情况 C 重新对话
+
+---
+
+**注意:Phase 2 现象路由 在情况 B/D 已经做了 INDEX 加载 + 匹配。Phase 2 正式开始时若候选已知 · 直接复用 · 不重复加载。**
+
+只有"情况 A"才跳过 conversational triage 直接进凭据 → SSH。**这是对话体验的硬约束**,不许在 A 之外的情况跳过 triage。
+
+---
 
 ## Phase 0 · 参数 + 凭据
 
@@ -695,6 +771,7 @@ NLM 不可用时只走 KB · 回答末尾附:
 - **禁止用 inline-script 替代 Write 工具** —— 不用 `python3 -c '...'` / `python3 - <<'PY'` / `node -e '...'` / `cat <<'EOF' > file` / `sed -i ...` / `awk -i ...` 任何形式的"行内脚本写文件";落盘必须走 Write 工具
 - 不复制报告全文到对话(只给路径 + 一句话总结)
 - banner 输出前不调远端 SSH 命令
+- **入口分流硬约束**:slash args 不含完整 SSH 凭据时 · 绝不上来直接问 "host/user/密码" — 必须先 conversational triage(详见 Workflow 顶部"入口分流"段)。一上来就索要凭据违反新设计 LLM-orchestrated 现象路由意图 · 也破坏对话体验。
 - 问用户时 header / topic 只写具体字段名,不用模糊词
 - **Phase 2-3 之间禁止任何探测性 SSH**(`command -v perf` / `pgrep` / `ss -lntp` 等):环境画像在 Phase 1 已做、Phase 3 命令直接来自 case 的 collection_method_quote 适配
 - 不用 `/tmp/` 落盘 · 用 `~/.perf-kp-sql/`
