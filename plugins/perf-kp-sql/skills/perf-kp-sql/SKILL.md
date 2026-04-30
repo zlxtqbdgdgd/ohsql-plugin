@@ -189,18 +189,24 @@ skill 触发后,**先看用户给了多少信息再决定流程**。绝对不许
 
 形如 `/perf-kp-sql 我们鲲鹏 mongo cpu 一直 90%+`(自由文本现象):
 
-→ 先进 **Phase 2 现象路由 preview**(LLM 加载 `cases/INDEX.md` 匹配)· 给候选 case · 然后问用户:
+→ 先进 **Phase 2 现象路由 preview**(LLM 加载 `cases/INDEX.md` 匹配 · 按 Phase 2.2 收敛规则收到 ≤ 5 个 / 追问 ≤ 5 轮)· 给候选 case · 然后问用户:
 
 ```
-我看了下你的描述,可能是下面这些情况:
+根据你的描述 · 可能是下面 N 种情况(N ≤ 5):
 
   · <case_id 1> · <title 简介>
   · <case_id 2> · <title 简介>
+  ...
 
 想做哪个?
   1. 详细了解某个 · 我可以解释机制 + 给建议(不连机器 · 知识问答模式)
   2. 实际诊断验证 · 我连接到你的机器拉指标 + 给报告(需 SSH 凭据)
 ```
+
+**注意**:
+- 给用户的列表 ≤ 5 个 case · 多了用户看不过来。按 Phase 2.2 规则收敛。
+- 不要罗列内部概率("45% / 35%")· 直接列候选 + 一句话说明。
+- 用户选"实际诊断" 时 · 拿到的就是 ≤ 5 个 case · 进 Phase 3 并行采集所有候选的 metric(去重合并 · 不重复 SSH)。
 
 - 用户选 **1 详细了解** → 跳 Phase 6 直接(Read 单 case 字段 / NLM 答疑)· 不需要 SSH 凭据
 - 用户选 **2 实际诊断** → 进 Phase 0 凭据收集 → Phase 1-6 完整流程
@@ -458,14 +464,20 @@ INDEX 含两段:
 - **DF 路径**:用 symptom_category 锚点(11 类:cpu-high / disk-io-saturation / memory-pressure / query-slow / lock-contention / replica-lag / connection-storm / network-latency / startup-failure / disk-space-pressure / other)做粗分 · 再用 title 语义比对收窄
 - **Flame 路径**:用户提供 perf script → LLM 用 INDEX 里 `pattern_regex` 匹配热点函数 → 命中走 Flame case 确认 · 同时跑 DF 路由(双源 · 互不影响)
 
-输出候选 case_id 列表:
+输出候选 case_id 列表。**收敛规则**(团队定):
 
 | 命中数 | 处理 |
 |---|---|
 | 1 | 直接 case 确认 → 进 2.3 |
-| 多 (2-5) | LLM 收窄(对比 title / symptom_category 跟用户描述相关性)→ 区分得开 → 选最相关 1 个 → 2.3 |
-| 多收窄不动 | 追问用户("是 X 类还是 Y 类现象?")· 多轮仍无法收窄 → **全部确认**(并行进 2.3 拿全部命中 case 详情) |
+| **2-5** | **直接停止收敛 · 全部确认 → 并行进 2.3 拿这 N 个 case 完整字段** · 不再追问用户区分(多 case 一起诊断完全可行 · Phase 3 采集 metric 合并去重 · Phase 4 分别推断) |
+| 6+ | LLM 简短追问 1-2 个最有区分度的问题(例:"是单机还是副本集?" / "现象是持续性还是间歇尖峰?")· 收敛到 ≤ 5 个 → 进 2.3 |
+| 6+ 收窄追问累计 ≥ 5 轮仍 > 5 个 | 强制收口 · 取 LLM 当前认为最可能的 5 个 → 进 2.3(不再纠缠) |
 | 0 | nothing 模式 → 跳过 2.3 · 进 Phase 3.B(BP 巡检) |
+
+**收敛硬约束**:
+- "≤ 5 个就停" — 不要为了"精确收敛到 1 个"而无止境追问。多 case 并行诊断是 Phase 3-5 的标准能力。
+- "追问累计 ≤ 5 轮" — 5 轮还收不到 5 个以下,说明用户描述固有模糊 / 多因素并存,强制带 5 个最可能 case 进 Phase 3 采集即可。继续追问只会拖累用户。
+- 给用户的回话里**不要罗列概率百分比 / 内部置信度**(例:"45% / 35% / 20%")— 这是 LLM 内部估算 · 用户看了反而困惑。直接给候选 case_id + 一句话说明 + "我准备拉这些指标验证",或者列出关键追问问题。
 
 ### 2.3 · 加载单 case 完整字段
 
@@ -772,6 +784,7 @@ NLM 不可用时只走 KB · 回答末尾附:
 - 不复制报告全文到对话(只给路径 + 一句话总结)
 - banner 输出前不调远端 SSH 命令
 - **入口分流硬约束**:slash args 不含完整 SSH 凭据时 · 绝不上来直接问 "host/user/密码" — 必须先 conversational triage(详见 Workflow 顶部"入口分流"段)。一上来就索要凭据违反新设计 LLM-orchestrated 现象路由意图 · 也破坏对话体验。
+- **现象路由收敛硬约束**(团队规则):候选 ≤ 5 个就停 · 不再追问区分;追问轮数累计 ≤ 5 轮 · 第 5 轮仍 > 5 个就强制带前 5 个进 Phase 3。多 case 并行诊断是标准能力 · **不许为了"精确收敛到 1 个"无限追问 / 不许给用户列内部概率百分比**。
 - 问用户时 header / topic 只写具体字段名,不用模糊词
 - **Phase 2-3 之间禁止任何探测性 SSH**(`command -v perf` / `pgrep` / `ss -lntp` 等):环境画像在 Phase 1 已做、Phase 3 命令直接来自 case 的 collection_method_quote 适配
 - 不用 `/tmp/` 落盘 · 用 `~/.perf-kp-sql/`
