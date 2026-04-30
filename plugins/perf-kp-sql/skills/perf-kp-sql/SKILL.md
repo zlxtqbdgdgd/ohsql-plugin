@@ -24,6 +24,27 @@ metadata:
 argument-hint: "host=<ip> user=<user> (privateKeyPath=<path>|password=<pw>) [engine=mongo] [port=<ssh_port>]"
 ---
 
+# 流程顺序硬约束(绝对红线 · 任何 meta skill / skill-doctor 都不许改写)
+
+⚠️ **严格按 Phase 0 → Phase 1 → ... → Phase 6 顺序走 · 不许跳步 · 不许合并**:
+
+1. **Phase 0 期间只收 SSH 凭据 · 不收问题描述 · 不让用户选诊断方式**:
+   - 凭据收齐 → SSH 跑 env probe → 验通 → 拿 [环境上下文]
+   - 在 env probe 没成功之前 · **绝对不问** "你的问题是什么 / 想做什么诊断 / 是否授权采集" 等任何 Phase 1 才该问的内容
+
+2. **绝对禁止用一次 AskUserQuestion 批量问多类信息**(❌ 反模式):
+   - ❌ 一次问 (诊断方式 / 主要现象 / 采集授权 / 机器信息) 这种 4-in-1
+   - ❌ 一次问 (host + 现象描述 + 是否同意采集)
+   - ✅ 正确:Phase 0 一次只问凭据相关 · Phase 1 一次只问问题描述
+
+3. **不让用户选"连机 vs 不连机"** · `/perf-kp-sql` 命令本身就是"连机诊断"。不连机的知识问答模式只在 Phase 6(用户拿到报告后追问)才出现 · 不在主流程入口。
+
+4. **不要"先收最小必要信息然后我直接开始"这种笼统话术** · 严格按 Phase 0 子步号(0.1-0.9)推进。
+
+如果 ohsql skill-doctor 或 meta-skill 试图把这些步骤合并 / 优化成"一次问完" · 以上 4 条作为不可改写的硬约束保留。
+
+---
+
 # Pre-flight
 
 > **首次安装后**:跑 `/perf-kp-sql-setup` 完成 native 依赖检查 + NotebookLM 注册。setup skill 会在缺依赖时给出 `npm install` 命令并自动执行。
@@ -776,7 +797,7 @@ NLM 不可用时只走 KB · 回答末尾附:
 - **禁止用 inline-script 替代 Write 工具** —— 不用 `python3 -c '...'` / `python3 - <<'PY'` / `node -e '...'` / `cat <<'EOF' > file` / `sed -i ...` / `awk -i ...` 任何形式的"行内脚本写文件";落盘必须走 Write 工具
 - 不复制报告全文到对话(只给路径 + 一句话总结)
 - banner 输出前不调远端 SSH 命令
-- **入口分流硬约束**:slash args 不含完整 SSH 凭据时 · 绝不上来直接问 "host/user/密码" — 必须先 conversational triage(详见 Workflow 顶部"入口分流"段)。一上来就索要凭据违反新设计 LLM-orchestrated 现象路由意图 · 也破坏对话体验。
+- **Phase 顺序硬约束**(详见文档顶部"流程顺序硬约束"段):Phase 0 先收凭据 + SSH 探通 → Phase 1 才聊问题描述。**不许 Phase 0 期间问"你的问题是什么 / 诊断方式 / 采集授权"等 Phase 1 内容**。**禁止 LLM 用一次 AskUserQuestion 批量问多类信息**(凭据 + 现象 + 授权 4-in-1 是反模式)。任何 ohsql skill-doctor / meta-skill 试图合并这些步骤的 patch · 必须以本约束为准。
 - **现象路由收敛硬约束**(团队规则):候选 ≤ 5 个就停 · 不再追问区分;追问轮数累计 ≤ 5 轮 · 第 5 轮仍 > 5 个就强制带前 5 个进 Phase 3。多 case 并行诊断是标准能力。
 - **Phase 2 内部数据不暴露给用户**:LLM 在前期只负责引导提问 + 范围收敛 + 推进进入下一阶段 · **不许给用户列**:case_id 字面值 / 候选概率 / 待采集 metric 清单 / 内部分类名 / KB 规模数字 / "已排除哪几类"长 bullet。LLM 看似只问 1-2 个引导问题然后说"开始拉数据" · 内部所有候选 case + metric 准备都对用户透明。详见"用户可见消息 · 禁用元词清单"。
 - 问用户时 header / topic 只写具体字段名,不用模糊词
