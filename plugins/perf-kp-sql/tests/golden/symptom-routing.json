@@ -1,0 +1,1069 @@
+{
+  "schema_version": "1",
+  "generated_at": "2026-04-29",
+  "total": 100,
+  "draft_status": "complete (M1.2 100/100 · 团队需 review 后定型)",
+  "buckets": {
+    "df-typical": 33,
+    "flame": 15,
+    "nothing-mode": 10,
+    "negative": 10,
+    "narrow-edge": 12,
+    "cross-category": 20
+  },
+  "cases": [
+
+    {
+      "id": "df-typical-cpu-high-01",
+      "bucket": "df-typical",
+      "symptom_category": "cpu-high",
+      "user_input": "我们服务器是华为鲲鹏920，EulerOS 2.9，跑 MongoDB，发现 mongod 的 CPU 最近一直在 85%-95%，top 看 si 也很高，机器有点卡。有人说是时钟中断的问题？",
+      "expected_case_ids": ["kunpeng-nohz-clock-tick-overhead-03"],
+      "expected_count": 1,
+      "notes": "cpu-high 典型鲲鹏场景：si 高 + nohz 未启用导致周期时钟中断浪费 CPU。用户提到 si 高是关键 hint，应直接路由到 kunpeng-nohz-clock-tick-overhead-03。"
+    },
+
+    {
+      "id": "df-typical-disk-io-01",
+      "bucket": "df-typical",
+      "symptom_category": "disk-io-saturation",
+      "user_input": "线上 mongo 的 XFS 盘 iostat 看 util 经常 100%，做了 io 统计发现写 iops 没多高，感觉像是文件系统开销太重。有没有 mount 参数可以优化的？",
+      "expected_case_ids": ["mongo-fs-mount-noatime-nobarrier-missing-01"],
+      "expected_count": 1,
+      "notes": "disk-io-saturation 典型：XFS mount 未加 noatime/nobarrier，冗余写开销拉高 util。用户已定位到文件系统层，期望直接路由到 XFS mount 参数 case。"
+    },
+
+    {
+      "id": "df-typical-network-latency-01",
+      "bucket": "df-typical",
+      "symptom_category": "network-latency",
+      "user_input": "mongo driver 连接池正常，但应用偶发 timeout，排查了好久，DB 侧日志看不到对应慢查询。换了个思路——是不是 connectTimeoutMS 设太大了导致应用侧等很久而 DB 侧根本没接到请求？",
+      "expected_case_ids": ["mongo-pool-connect-timeout-too-large-01"],
+      "expected_count": 1,
+      "notes": "network-latency 典型：connectTimeoutMS 过大，应用侧超时但 DB 侧无感知。用户已将问题收窄到 driver 连接超时参数，期望直接命中该 case。"
+    },
+
+    {
+      "id": "df-typical-memory-pressure-01",
+      "bucket": "df-typical",
+      "symptom_category": "memory-pressure",
+      "user_input": "MongoDB 8.0 升级之后总感觉内存没以前省，VSZ 一直往上涨，但 RSS 还好。查了下 pageheap_free_bytes 很大，像是内存碎片的问题，有没有 TCMalloc 相关的优化参数？",
+      "expected_case_ids": ["mongo-tcmalloc-percpu-caches-not-enabled-01"],
+      "expected_count": 1,
+      "notes": "memory-pressure 典型 MongoDB 8.0 场景：per-CPU caches 未启用导致碎片与性能退化。用户已提到 pageheap_free_bytes 大 + 8.0 升级，路由应命中 TCMalloc per-CPU case 而非通用碎片 case。"
+    },
+
+    {
+      "id": "df-typical-replica-lag-01",
+      "bucket": "df-typical",
+      "symptom_category": "replica-lag",
+      "user_input": "Ops Manager 报警 secondary 落后 primary 超过 10 分钟了，但写入压力也不算特别大，primary 那边 oplog 大小看起来还好，secondary 的 replSetGetStatus 看 optimeDate 一直不动。",
+      "expected_case_ids": ["mongo-replica-lag-secondary-behind-primary-01"],
+      "expected_count": 1,
+      "notes": "replica-lag 典型：Ops Manager 告警 + secondary optimeDate 停滞。用户的描述完全符合 Ops Manager replication lag alert case 的触发条件。"
+    },
+
+    {
+      "id": "df-typical-startup-failure-01",
+      "bucket": "df-typical",
+      "symptom_category": "startup-failure",
+      "user_input": "新部署的 MongoDB 跑着跑着就重启了，看 /var/log/mongodb/mongod.log 里有 too many open files 的错误，ulimit -n 才 1024，我们连接数挺多的。",
+      "expected_case_ids": ["mongo-ulimit-low-defaults-mongod-issues-03"],
+      "expected_count": 1,
+      "notes": "startup-failure 典型：ulimit 过低导致 too many open files。用户已提供明确错误日志 + 具体 ulimit 值，应直接路由。"
+    },
+
+    {
+      "id": "df-typical-lock-contention-01",
+      "bucket": "df-typical",
+      "symptom_category": "lock-contention",
+      "user_input": "db.serverStatus() 看 globalLock.currentQueue.total 一直在 50-100 之间，应用响应时间 P99 飙到 5 秒，但单条查询 explain 看起来还好，感觉是锁的问题。",
+      "expected_case_ids": ["mongo-globallock-current-queue-high-lock-contention-01"],
+      "expected_count": 1,
+      "notes": "lock-contention 典型：globalLock.currentQueue.total 持续高。用户已给出精确的 serverStatus 指标，应直接路由到 globalLock 积压 case。"
+    },
+
+    {
+      "id": "df-typical-connection-storm-01",
+      "bucket": "df-typical",
+      "symptom_category": "connection-storm",
+      "user_input": "我们服务重启之后，mongo 连接数突然冲到 8000+，把 mongod maxIncomingConnections 打满了，应用报 connection refused。平时才 500 个连接，这个重启冲击怎么搞？",
+      "expected_case_ids": ["mongo-connection-storm-driver-error-02"],
+      "expected_count": 1,
+      "notes": "connection-storm 典型：服务重启引发连接数瞬间暴增，打满 maxIncomingConnections。现象与 case 直接匹配。"
+    },
+
+    {
+      "id": "df-typical-query-slow-01",
+      "bucket": "df-typical",
+      "symptom_category": "query-slow",
+      "user_input": "有个聚合查询，$match 放在了 $lookup 后面，跑了 8 秒多，数据量不大就几十万，感觉是 pipeline 顺序的问题，但不知道怎么改。",
+      "expected_case_ids": ["mongo-aggregation-unbounded-pipeline-no-early-match-01"],
+      "expected_count": 1,
+      "notes": "query-slow 典型：$match 在 $lookup 之后导致全量扫描再过滤。用户已定位到 pipeline 顺序问题，期望路由到 early-match case 获得改写建议。"
+    },
+
+    {
+      "id": "df-typical-other-01",
+      "bucket": "df-typical",
+      "symptom_category": "other",
+      "user_input": "RHEL 7 上 MongoDB，安装完什么都没改，系统用的是默认 tuned profile（throughput-performance），数据库性能一直感觉比预期差，不知道是不是系统配置的问题？",
+      "expected_case_ids": ["mongo-tuned-profile-default-rhel-perf-impact-05"],
+      "expected_count": 1,
+      "notes": "other 类典型：RHEL 默认 tuned profile 对 MongoDB 性能有负向影响。用户描述完全对应 case 的触发场景。"
+    },
+
+    {
+      "id": "df-typical-disk-space-pressure-01",
+      "bucket": "df-typical",
+      "symptom_category": "disk-space-pressure",
+      "user_input": "做 MongoDB 容量规划的时候发现有个集合磁盘占用特别大，里面的 index 列表看了一下，好多 index 的 accesses.ops 是 0，这些 index 是不是没人用？会不会影响写性能？",
+      "expected_case_ids": ["mongo-schema-unused-indexes-bloat-03"],
+      "expected_count": 1,
+      "notes": "disk-space-pressure 唯一 case：unused index 占盘 + 拖慢写性能。用户提到 accesses.ops=0 是精确命中的关键信号。"
+    },
+
+    {
+      "id": "df-typical-cpu-high-02",
+      "bucket": "df-typical",
+      "symptom_category": "cpu-high",
+      "user_input": "鲲鹏 920 服务器，MongoDB，perf top 看到 __spin_lock 和 atomic_cmpxchg 这些函数占比超过 10%，CPU sys 很高，应用 QPS 倒不高，感觉是锁自旋浪费了太多 CPU 周期。",
+      "expected_case_ids": ["kunpeng-arm64-spinlock-cas-cpu-waste-01"],
+      "expected_count": 1,
+      "notes": "cpu-high 变体 2：ARM64 自旋锁/CAS 失败循环浪费 CPU。用户给出了 perf top 中锁函数占比高的精确信号，应路由到 spinlock-cas case。"
+    },
+
+    {
+      "id": "df-typical-cpu-high-03",
+      "bucket": "df-typical",
+      "symptom_category": "cpu-high",
+      "user_input": "KVM 虚机里跑 MongoDB，CPU 利用率波动很大，top 看 steal 时间也有，numastat 看到大量跨 NUMA 内存访问，怀疑是 vCPU 没有绑核导致调度乱跑。",
+      "expected_case_ids": ["kvm-vcpupin-not-bound-numa-cross-01"],
+      "expected_count": 1,
+      "notes": "cpu-high 变体 3：KVM vCPU 未绑核引起跨 NUMA 调度，steal 时间高是关键 hint。应路由到 KVM vcpupin 未绑核 case。"
+    },
+
+    {
+      "id": "df-typical-cpu-high-04",
+      "bucket": "df-typical",
+      "symptom_category": "cpu-high",
+      "user_input": "ARM64 机器上 mongo 跑着跑着 CPU 就上去了，perf top 看到 snappy_compress 和 snappy_uncompress 函数排前几，想知道这是 MongoDB 自带的压缩开销吗，有没有对鲲鹏优化的版本？",
+      "expected_case_ids": ["mongo-snappy-hotspot-cpu-high-arm64-01"],
+      "expected_count": 1,
+      "notes": "cpu-high 变体 4：Snappy 压缩函数在 ARM64 上热点。用户已精确给出 perf top 中 snappy 函数排名，路由应命中 ARM64 Snappy 热点 case。"
+    },
+
+    {
+      "id": "df-typical-cpu-high-05",
+      "bucket": "df-typical",
+      "symptom_category": "cpu-high",
+      "user_input": "mongod CPU 比预期高，连接数特别多，大概有 3000 个连接，DB 本身 QPS 只有 1000 左右，感觉是连接太多把 CPU 压垮了，maxPoolSize 设的是 500 per app instance，部署了 10 个 app。",
+      "expected_case_ids": ["mongo-pool-maxpoolsize-too-high-cpu-pressure-05"],
+      "expected_count": 1,
+      "notes": "cpu-high 变体 5：maxPoolSize 过大导致 mongod 侧连接数过高压垮 CPU。用户给出了连接数 vs QPS 的不匹配，是 maxPoolSize 太大的典型信号。"
+    },
+
+    {
+      "id": "df-typical-cpu-high-06",
+      "bucket": "df-typical",
+      "symptom_category": "cpu-high",
+      "user_input": "鲲鹏服务器系统 page size 是 4K，MongoDB 跑一段时间后 CPU ipc(instructions per cycle) 偏低，perf stat 里 cache-misses 很多，有人说要换 64K page 或者优化 TLB？",
+      "expected_case_ids": ["kunpeng-tlb-miss-page-size-04"],
+      "expected_count": 1,
+      "notes": "cpu-high 变体 6：4K 页导致 TLB miss 频繁，IPC 低是明确信号。用户提到 cache-misses 多，路由到鲲鹏 TLB miss / 页大小 case。"
+    },
+
+    {
+      "id": "df-typical-disk-io-02",
+      "bucket": "df-typical",
+      "symptom_category": "disk-io-saturation",
+      "user_input": "MongoDB 写操作高峰期 iostat 看 await 突然飙到 500ms，平时才 5ms，看了下 WiredTiger checkpoint 日志，每隔 60 秒有一次很大的写 burst，checkpoint_period 这个参数要怎么调？",
+      "expected_case_ids": ["mongo-wt-checkpoint-period-tuning-disk-io-spike-02"],
+      "expected_count": 1,
+      "notes": "disk-io-saturation 变体 2：WiredTiger checkpoint 周期触发 IO 抖动。用户给出了 60 秒周期 + await 飙升的精确现象，路由到 checkpoint period 调优 case。"
+    },
+
+    {
+      "id": "df-typical-disk-io-03",
+      "bucket": "df-typical",
+      "symptom_category": "disk-io-saturation",
+      "user_input": "MongoDB 数据盘是 NFS 挂载的，最近性能下降很厉害，写延迟 P99 从 10ms 涨到 500ms，网络看起来没问题，是不是 dbPath 挂 NFS 本来就不行？",
+      "expected_case_ids": ["mongo-fs-nfs-dbpath-degraded-unstable-perf-01"],
+      "expected_count": 1,
+      "notes": "disk-io-saturation 变体 3：dbPath 使用 NFS 导致性能不稳定。用户已定位到 NFS 挂载，路由到 NFS dbpath 性能退化 case。"
+    },
+
+    {
+      "id": "df-typical-disk-io-04",
+      "bucket": "df-typical",
+      "symptom_category": "disk-io-saturation",
+      "user_input": "服务器 RAID 卡带了 BBU 电池，但是 MongoDB 写性能还是不如预期，iostat await 偏高，有人说要在 ext4 mount 的时候加 nobarrier 参数，这个安全吗？",
+      "expected_case_ids": ["linux-fs-mount-nobarrier-audit-01"],
+      "expected_count": 1,
+      "notes": "disk-io-saturation 变体 4：带电池 RAID 卡场景下 nobarrier 挂载优化。用户已提到 BBU + await 高，路由到 nobarrier 挂载审计 case。"
+    },
+
+    {
+      "id": "df-typical-disk-io-05",
+      "bucket": "df-typical",
+      "symptom_category": "disk-io-saturation",
+      "user_input": "SSD 盘上跑 MongoDB，io scheduler 用的是 cfq，感觉 SSD 性能没完全发挥出来，应该换成 noop 或者 deadline 吗？",
+      "expected_case_ids": ["linux-block-scheduler-mismatch-01"],
+      "expected_count": 1,
+      "notes": "disk-io-saturation 变体 5：SSD 使用 CFQ 调度器不匹配。用户明确指出 SSD + CFQ 组合，路由到 IO 调度器类型不匹配 case。"
+    },
+
+    {
+      "id": "df-typical-network-latency-02",
+      "bucket": "df-typical",
+      "symptom_category": "network-latency",
+      "user_input": "MongoDB 副本集成员之间有时候互相连不上，报 connection refused，但过一会又好了，网络没问题，有没有可能是某个成员的端口或者 bind_ip 配置的不对？",
+      "expected_case_ids": ["mongo-replica-set-member-connectivity-03"],
+      "expected_count": 1,
+      "notes": "network-latency 变体 2：副本集成员双向连通性间歇失败。用户描述连不上但过一会好了，符合连通性配置问题，路由到 replica set 成员连通性 case。"
+    },
+
+    {
+      "id": "df-typical-network-latency-03",
+      "bucket": "df-typical",
+      "symptom_category": "network-latency",
+      "user_input": "用的 AWS，MongoDB Atlas 连接在高峰期偶发断开，日志里有 MongoNetworkError，keepalive 超时，查了下 vpc 安全组限制了空闲连接，怎么调 keepalive？",
+      "expected_case_ids": ["mongo-network-tcp-keepalive-too-long-cloud-lb-drops-02"],
+      "expected_count": 1,
+      "notes": "network-latency 变体 3：云 LB 空闲超时 + TCP keepalive 过长导致连接被静默切断。用户明确描述了云环境 + keepalive 超时 + 安全组，路由到 TCP keepalive 云 LB case。"
+    },
+
+    {
+      "id": "df-typical-network-latency-04",
+      "bucket": "df-typical",
+      "symptom_category": "network-latency",
+      "user_input": "鲲鹏服务器网络延迟有点奇怪，同机房内 ping 延迟正常，但 MongoDB 的网络吞吐上不去，用 sar 看 rxpck/s 集中在某一个 CPU core 上，其他核都是 0。",
+      "expected_case_ids": ["linux-rps-single-queue-nic-softirq-bottleneck-01"],
+      "expected_count": 1,
+      "notes": "network-latency 变体 4：单队列网卡 softirq 集中在单 core，未启用 RPS 分发。用户 sar 看到 rxpck/s 集中是关键 hint，路由到 RPS 单队列网卡 case。"
+    },
+
+    {
+      "id": "df-typical-memory-pressure-02",
+      "bucket": "df-typical",
+      "symptom_category": "memory-pressure",
+      "user_input": "MongoDB 7.0 升级后 mongod 进程内存一直在增长，没有明显泄漏，但系统内存快用完了，free -m 看到可用内存越来越少，有人在 jira 说是 SBE plan cache 膨胀的问题？",
+      "expected_case_ids": ["mongo-plancache-bloat-sbe-7-0-oom-kills-01"],
+      "expected_count": 1,
+      "notes": "memory-pressure 变体 2：MongoDB 7.0 SBE plan cache 膨胀导致 OOM。用户提到 7.0 升级 + 内存持续增长，路由到 SBE plan cache 膨胀 case。"
+    },
+
+    {
+      "id": "df-typical-memory-pressure-03",
+      "bucket": "df-typical",
+      "symptom_category": "memory-pressure",
+      "user_input": "vm.swappiness 没改过，默认是 60，最近 mongod 有时候响应很慢，sar 看到 swap in/out 比较多，是不是 swappiness 太激进了？MongoDB 需要特别调这个参数吗？",
+      "expected_case_ids": ["mongo-os-vm-swappiness-default-60-aggressive-swap-05"],
+      "expected_count": 1,
+      "notes": "memory-pressure 变体 3：vm.swappiness 默认 60 导致 MongoDB 频繁 swap 性能下降。用户已给出 swap 活跃 + 响应慢的现象，路由到 swappiness 调优 case。"
+    },
+
+    {
+      "id": "df-typical-memory-pressure-04",
+      "bucket": "df-typical",
+      "symptom_category": "memory-pressure",
+      "user_input": "K8s 里部署 MongoDB，Pod 内存限制设了 16GB，但启动之后用 db.serverStatus().wiredTiger.cache 看，maximum bytes configured 只有 256MB，这也太小了，是不是容器内存识别出了问题？",
+      "expected_case_ids": ["mongo-k8s-container-wt-cache-fallback-256mb-01"],
+      "expected_count": 1,
+      "notes": "memory-pressure 变体 4：容器环境下 WiredTiger 无法识别容器内存限制，回退 256MB 最小 cache。用户给出了精确的 256MB 现象，路由到容器 WT cache 回退 case。"
+    },
+
+    {
+      "id": "df-typical-replica-lag-02",
+      "bucket": "df-typical",
+      "symptom_category": "replica-lag",
+      "user_input": "PSA 架构（primary-secondary-arbiter），secondary 机器重启维护了一下，结果写入延迟飙升，应用超时报错，writeConcern 用的是 majority，这是什么原因？",
+      "expected_case_ids": ["mongo-psa-majority-writeconcern-perf-degradation-01"],
+      "expected_count": 1,
+      "notes": "replica-lag 变体 2：PSA 架构 + majority writeConcern + secondary 不可用导致写性能下降。用户描述完全匹配 PSA majority writeConcern 退化 case。"
+    },
+
+    {
+      "id": "df-typical-replica-lag-03",
+      "bucket": "df-typical",
+      "symptom_category": "replica-lag",
+      "user_input": "mongos 监控发现 system.sessions 集合的 update QPS 特别高，专门打到了某一个 primary shard，那个 shard 的 CPU 和 disk IO 都很高，其他 shard 正常，是什么原因？",
+      "expected_case_ids": ["mongo-system-sessions-update-storm-primary-shard-degradation-03"],
+      "expected_count": 1,
+      "notes": "replica-lag 变体 3：mongos 集中更新 system.sessions 压垮主分片，单 shard 过热。用户明确指向 system.sessions + 单 shard CPU 高，路由到 system.sessions update storm case。"
+    },
+
+    {
+      "id": "df-typical-startup-failure-02",
+      "bucket": "df-typical",
+      "symptom_category": "startup-failure",
+      "user_input": "MongoDB 8.0 版本，Linux 内核升级到 6.19 之后，mongod 启动直接 crash，日志里看到 SIGSEGV，但是内核 6.18 是好的，难道 8.0 和新内核有兼容问题？",
+      "expected_case_ids": ["mongo-startup-kernel-6-19-tcmalloc-incompat-01"],
+      "expected_count": 1,
+      "notes": "startup-failure 变体 2：MongoDB 8.0 在 Linux Kernel 6.19 上启动 crash（TCMalloc 兼容性问题）。用户明确给出版本 + crash 现象，路由到 kernel 6.19 兼容性 case。"
+    },
+
+    {
+      "id": "df-typical-lock-contention-02",
+      "bucket": "df-typical",
+      "symptom_category": "lock-contention",
+      "user_input": "分片集群里 chunk migration 一直失败，balancer 日志里看到 LockTimeout 错误，但是我手动停了 balancer 性能就恢复了，balancer 是不是拿了什么锁？",
+      "expected_case_ids": ["mongo-shard-chunk-migration-x-lock-timeout-balancer-stuck-01"],
+      "expected_count": 1,
+      "notes": "lock-contention 变体 2：chunk migration 持锁超时导致 balancer 卡死，停 balancer 后恢复是典型特征。路由到 shard chunk migration x-lock timeout case。"
+    },
+
+    {
+      "id": "df-typical-query-slow-02",
+      "bucket": "df-typical",
+      "symptom_category": "query-slow",
+      "user_input": "翻页接口性能很差，第 1 页 10ms，翻到第 100 页要 12 秒，用的是 skip+limit，数据量 200 万，有没有更好的翻页方式？",
+      "expected_case_ids": ["mongo-pagination-skip-deep-page-rewrite-02"],
+      "expected_count": 1,
+      "notes": "query-slow 变体 2：深翻页 skip 性能塌陷。用户给出了精确的页数 vs 时间对比（skip 100 页 12 秒），路由到 skip 翻页改写 case。"
+    },
+
+    {
+      "id": "df-typical-query-slow-03",
+      "bucket": "df-typical",
+      "symptom_category": "query-slow",
+      "user_input": "current op 里发现有个查询跑了好几分钟还没完，explain 看有 IXSCAN，但 totalDocsExamined 是 500 万，nReturned 才 100，怎么 kill 掉这个 op？",
+      "expected_case_ids": ["mongo-slow-log-currentop-long-query-kill-02"],
+      "expected_count": 1,
+      "notes": "query-slow 变体 3：currentOp 定位长时执行操作并 kill。用户已给出 IXSCAN + 高 scan ratio 的具体数值，并询问如何 kill，路由到 currentOp kill case。"
+    },
+
+    {
+      "id": "df-typical-other-02",
+      "bucket": "df-typical",
+      "symptom_category": "other",
+      "user_input": "MongoDB 的 open cursors 监控在持续上涨，从 100 涨到了 5000，但流量没增加，应用也没报错，这个 open cursors 一直高会有什么影响？",
+      "expected_case_ids": ["mongo-open-cursor-rising-no-traffic-03"],
+      "expected_count": 1,
+      "notes": "other 变体 2：open cursor 持续上升但流量未变。用户给出了 cursor 从 100 涨到 5000 的具体数字，路由到 open cursor 上升 case。"
+    },
+
+    {
+      "id": "flame-wt-eviction-app-thread-01",
+      "bucket": "flame",
+      "user_input": "perf record 抓了一个 flamegraph，看到很多 __wt_cache_eviction_check 和 __wt_evict_page 的栈，感觉 mongod 的 application thread 都在做 eviction，WiredTiger cache 是不是撑不住了？",
+      "expected_case_ids": ["wt-app-thread-evict-assist-pressure-01"],
+      "expected_count": 1,
+      "notes": "Flame 签名：application thread 被迫参与 eviction，栈顶 __wt_cache_eviction 系列函数。pattern_regex `^__wt_cache_eviction_.*` 匹配度高。"
+    },
+
+    {
+      "id": "flame-wt-eviction-ebusy-01",
+      "bucket": "flame",
+      "user_input": "flamegraph 里 __evict_review 和 __evict_reconcile 占比很高，reconcile 路径上有大量 EBUSY 相关的重试逻辑，CPU 都耗在这里了，这是什么原因？",
+      "expected_case_ids": ["wt-evict-reconcile-blocked-ebusy-01"],
+      "expected_count": 1,
+      "notes": "Flame 签名：__evict_review → __evict_reconcile 链路热点，EBUSY 阻碍 eviction reconcile。pattern_regex `^__evict_(review|reconcile)` 精确匹配。"
+    },
+
+    {
+      "id": "flame-linux-page-fault-01",
+      "bucket": "flame",
+      "user_input": "ARM64 服务器上抓 perf，off-cpu flamegraph 里 handle_mm_fault 栈很突出，是内存访问物理页 population 的问题吗？应该怎么分析这个？",
+      "expected_case_ids": ["linux-mm-page-fault-physical-population-01"],
+      "expected_count": 1,
+      "notes": "Flame 签名：handle_mm_fault 热帧，物理内存 population 路径。含 ARM64 环境 hint。pattern_regex `^(handle_mm_fault` 直接匹配。"
+    },
+
+    {
+      "id": "flame-wt-reconcile-tombstone-oldest-ts-01",
+      "bucket": "flame",
+      "user_input": "perf script 分析，top frame 里 __wti_rec_row_leaf 占比很高，有人说是 tombstone 没有被 GC 掉，oldest_timestamp 推进太慢？怎么判断？",
+      "expected_case_ids": ["wt-reconcile-row-leaf-tombstone-not-globally-visible-01"],
+      "expected_count": 1,
+      "notes": "Flame 签名：__wti_rec_row_leaf 热点 + tombstone 全局可见性问题 + oldest_timestamp 推进不足。pattern_regex `^(__wti_rec_row_leaf` 匹配。"
+    },
+
+    {
+      "id": "flame-linux-block-offwake-io-01",
+      "bucket": "flame",
+      "user_input": "用 off-cpu 火焰图看到 blkif_interrupt → vfs_read 的完整链路，disk IO block 等待占了很大比例，看起来是磁盘 IO 阻塞唤醒路径，这个在 flamegraph 上怎么解读？",
+      "expected_case_ids": ["linux-block-offwake-disk-io-block-completion-01"],
+      "expected_count": 1,
+      "notes": "Flame 签名：off-wake 图，blkif_interrupt → vfs_read 链路，磁盘 IO block 完成中断唤醒路径。pattern_regex `^(blkif_interrupt` 匹配。"
+    },
+
+    {
+      "id": "flame-glibc-malloc-hot-01",
+      "bucket": "flame",
+      "user_input": "flamegraph 里 __GI___libc_malloc 和 __GI___libc_free 占比加起来有 15%，应用是多线程高并发的，感觉是内存分配器的瓶颈，是要换 jemalloc 吗？",
+      "expected_case_ids": ["glibc-malloc-allocator-hot-stack-01"],
+      "expected_count": 1,
+      "notes": "Flame 签名：glibc malloc 分配器 hot stack，__GI___libc_malloc 占 15%。pattern_regex `^(__GI___libc_malloc` 精确匹配，提示换 jemalloc。"
+    },
+
+    {
+      "id": "flame-linux-mm-brk-heap-01",
+      "bucket": "flame",
+      "user_input": "on-cpu flamegraph 里 sys_brk 系统调用频繁出现，heap expansion 路径占了不少比例，这是内存申请太频繁了吗？",
+      "expected_case_ids": ["linux-mm-brk-heap-expansion-01"],
+      "expected_count": 1,
+      "notes": "Flame 签名：sys_brk 热帧，堆扩展代码路径。pattern_regex `^(sys_brk` 精确匹配，提示堆频繁扩张。"
+    },
+
+    {
+      "id": "flame-linux-mm-mmap-vm-01",
+      "bucket": "flame",
+      "user_input": "服务进程 CPU 火焰图里看到 sys_mmap 很热，VM mapping 相关函数排名靠前，是虚拟内存映射增长引起的吗？怎么优化？",
+      "expected_case_ids": ["linux-mm-mmap-vm-growth-01"],
+      "expected_count": 1,
+      "notes": "Flame 签名：sys_mmap 热帧，VM mapping 增长路径。pattern_regex `^(sys_mmap` 精确匹配。"
+    },
+
+    {
+      "id": "flame-linux-fs-mmap-metadata-01",
+      "bucket": "flame",
+      "user_input": "用 mmap 做归档的进程，flamegraph 看到 sys_newfstatat 和 sys_stat 这类 FS metadata 系统调用占比很高，感觉是文件系统元数据调用太频繁了。",
+      "expected_case_ids": ["linux-fs-mmap-metadata-archiver-01"],
+      "expected_count": 1,
+      "notes": "Flame 签名：mmap-based archiver 工作负载下 FS metadata syscall 热点，sys_newfstatat 占比高。pattern_regex `^(sys_newfstatat` 匹配。"
+    },
+
+    {
+      "id": "flame-wt-cold-page-compact-01",
+      "bucket": "flame",
+      "user_input": "WiredTiger compact 运行期间 flamegraph 里看到大量 compact 相关函数，checkpoint 周期内处理了很多冷数据 evict 后又重新 reconcile 的路径，这是正常的吗？",
+      "expected_case_ids": ["wt-evict-cold-page-compact-cure-01"],
+      "expected_count": 1,
+      "notes": "Flame 签名：WiredTiger compact 期间冷数据 evict 后 checkpoint reconciliation 路径热点。pattern_regex `(compact` 匹配。"
+    },
+
+    {
+      "id": "flame-wt-capacity-throttle-crash-01",
+      "bucket": "flame",
+      "user_input": "mongod 崩了，core dump 里看到 __wt_capacity_throttle → __wt_cond_signal 里面 NULL 指针解引用，io_capacity 参数改过，好像是配置语法写错了？",
+      "expected_case_ids": ["wt-capacity-throttle-cond-signal-crash-01"],
+      "expected_count": 1,
+      "notes": "Flame 签名：WiredTiger io_capacity 配置语法错误导致后台 eviction 线程 SIGSEGV。pattern_regex `(__wt_capacity_throttle` 匹配，用户提到 core dump + io_capacity 改过是关键 hint。"
+    },
+
+    {
+      "id": "flame-wt-reconcile-tombstone-skip-01",
+      "bucket": "flame",
+      "user_input": "perf script flamegraph，__wt_row_leaf_value_cell 函数出现次数特别多，看栈是在 reconcile row leaf 时做 stop_ts 判断和跳过逻辑，这是大量已删除 key 没被清理的信号吗？",
+      "expected_case_ids": ["wt-reconcile-row-tombstone-skip-01"],
+      "expected_count": 1,
+      "notes": "Flame 签名：WiredTiger reconcile 在 row leaf 上跳过全局可见 stop_ts 的 key，大量 tombstone 未清理。pattern_regex `^(__wt_row_leaf_value_cell` 匹配。"
+    },
+
+    {
+      "id": "flame-wt-reconcile-wrapup-block-free-01",
+      "bucket": "flame",
+      "user_input": "on-cpu flamegraph 里 __rec_write_wrapup 调用链路比较热，里面有 block free-list 操作，看起来是 reconcile 写入 wrapup 阶段释放旧磁盘块的开销，正常吗？",
+      "expected_case_ids": ["wt-reconcile-write-wrapup-block-free-01"],
+      "expected_count": 1,
+      "notes": "Flame 签名：WiredTiger reconcile 写入 wrapup 阶段 block manager free-list 入队路径热点。pattern_regex `^(__rec_write_wrapup` 匹配。"
+    },
+
+    {
+      "id": "flame-wt-reconcile-tombstone-oldest-ts-02",
+      "bucket": "flame",
+      "user_input": "mongod 在大量 delete 操作后变慢，perf record 抓了 flamegraph，__wti_rec_row_leaf 占了 30% 以上，oldest_timestamp 是多少天前的，有没有关联？",
+      "expected_case_ids": ["wt-reconcile-row-leaf-tombstone-not-globally-visible-01"],
+      "expected_count": 1,
+      "notes": "Flame 签名变体：大量 delete + __wti_rec_row_leaf 30% 占比 + oldest_timestamp 停滞。tombstone 非全局可见导致整页保留，同 wt-reconcile-row-leaf-tombstone-not-globally-visible-01。"
+    },
+
+    {
+      "id": "flame-wt-eviction-app-thread-02",
+      "bucket": "flame",
+      "user_input": "mongod app thread 写延迟 P99 突然变高，on-cpu flamegraph 里出现 __wt_cache_eviction_server_run 和 __wt_evict_lru_page，占比 20%，cache 使用率已经接近 95%。",
+      "expected_case_ids": ["wt-app-thread-evict-assist-pressure-01"],
+      "expected_count": 1,
+      "notes": "Flame 签名变体：cache 95% + app thread 参与 eviction，__wt_cache_eviction 系列函数出现。写延迟 P99 高是直接关联症状，路由到 wt-app-thread-evict-assist-pressure-01。"
+    },
+
+    {
+      "id": "nothing-mode-01",
+      "bucket": "nothing-mode",
+      "user_input": "我感觉数据库最近不太对劲，但说不上来哪里有问题，就是感觉慢了点，能帮我看看吗？",
+      "expected_case_ids": [],
+      "expected_count": 0,
+      "notes": "nothing-mode：描述极度模糊，无具体现象/指标/版本/环境信息。期望 0 命中，应转 BP 巡检模式对系统做整体健康检查。"
+    },
+
+    {
+      "id": "nothing-mode-02",
+      "bucket": "nothing-mode",
+      "user_input": "想做个 MongoDB 整体体检，看看有没有什么配置不合理的地方，不是有具体故障，就是想优化一下。",
+      "expected_case_ids": [],
+      "expected_count": 0,
+      "notes": "nothing-mode：用户主动发起预防性巡检，无明确故障现象。期望 0 命中，应转 BP 巡检模式输出 best-practice 检查清单。"
+    },
+
+    {
+      "id": "nothing-mode-03",
+      "bucket": "nothing-mode",
+      "user_input": "新机器上线了一批 Mongo，帮我看下有没有啥坑，配置要注意什么。",
+      "expected_case_ids": [],
+      "expected_count": 0,
+      "notes": "nothing-mode：新环境上线前配置审计请求，无具体异常现象。期望 0 命中，应转 BP 巡检模式输出部署前检查项。"
+    },
+
+    {
+      "id": "nothing-mode-04",
+      "bucket": "nothing-mode",
+      "user_input": "老大让我查一下 MongoDB 性能，但我也不知道从哪里入手，有没有什么固定的检查流程？",
+      "expected_case_ids": [],
+      "expected_count": 0,
+      "notes": "nothing-mode：用户没有具体问题描述，仅想了解排查流程。期望 0 命中，应转 BP 巡检模式给出系统性检查思路。"
+    },
+
+    {
+      "id": "nothing-mode-05",
+      "bucket": "nothing-mode",
+      "user_input": "季度性能优化任务，需要对 Mongo 集群做个全面评估，系统目前运行正常没有报警。",
+      "expected_case_ids": [],
+      "expected_count": 0,
+      "notes": "nothing-mode：定期性能评估需求，系统无异常。期望 0 命中，应转 BP 巡检模式输出完整 best-practice 对照报告。"
+    },
+
+    {
+      "id": "nothing-mode-06",
+      "bucket": "nothing-mode",
+      "user_input": "最近 Mongo 有点抖，但不稳定，有时候好有时候不好，没有具体复现条件，让我帮看看。",
+      "expected_case_ids": [],
+      "expected_count": 0,
+      "notes": "nothing-mode：间歇性抖动但无具体复现条件，无指标/无版本信息。期望 0 命中，应转 BP 巡检模式建议采集具体诊断数据。"
+    },
+
+    {
+      "id": "nothing-mode-07",
+      "bucket": "nothing-mode",
+      "user_input": "MongoDB 上线半年了，领导要我出个性能报告，看看还有没有优化空间，目前没有任何报警或者故障。",
+      "expected_case_ids": [],
+      "expected_count": 0,
+      "notes": "nothing-mode：领导要求的定期性能报告，无具体问题触发点。期望 0 命中，应转 BP 巡检模式输出优化建议清单。"
+    },
+
+    {
+      "id": "nothing-mode-08",
+      "bucket": "nothing-mode",
+      "user_input": "刚接手这个 MongoDB 集群，想了解下整体状况，有没有什么快速检查的方法？",
+      "expected_case_ids": [],
+      "expected_count": 0,
+      "notes": "nothing-mode：新接手集群，无具体故障现象，需要整体状况评估。期望 0 命中，应转 BP 巡检模式输出快速检查清单。"
+    },
+
+    {
+      "id": "nothing-mode-09",
+      "bucket": "nothing-mode",
+      "user_input": "准备把现有 MySQL 业务迁移到 MongoDB，在迁移之前想先搞清楚 MongoDB 有什么性能注意事项。",
+      "expected_case_ids": [],
+      "expected_count": 0,
+      "notes": "nothing-mode：迁移前咨询性能注意事项，无具体异常现象，属于预防性知识需求。期望 0 命中，应转 BP 巡检模式输出迁移前 best-practice。"
+    },
+
+    {
+      "id": "nothing-mode-10",
+      "bucket": "nothing-mode",
+      "user_input": "我们 DBA 团队要制定 MongoDB 运维规范，需要一份通用的性能调优 checklist，请帮忙整理。",
+      "expected_case_ids": [],
+      "expected_count": 0,
+      "notes": "nothing-mode：制定运维规范的通用需求，无具体故障/指标/环境描述。期望 0 命中，应转 BP 巡检模式输出通用调优 checklist。"
+    },
+
+    {
+      "id": "negative-01",
+      "bucket": "negative",
+      "user_input": "我们 MySQL 数据库备份的时候 CPU 特别高，mysqldump 全跑满了，想问下有没有什么参数可以限速？",
+      "expected_case_ids": [],
+      "expected_count": 0,
+      "notes": "负例：用户问的是 MySQL 备份限速，与 MongoDB / 鲲鹏 KB 完全无关。期望 0 命中，应明确提示 KB 范围仅覆盖 MongoDB 性能诊断。"
+    },
+
+    {
+      "id": "negative-02",
+      "bucket": "negative",
+      "user_input": "ES（Elasticsearch）集群分片不均，hot node 磁盘快满了，怎么手动迁移分片？",
+      "expected_case_ids": [],
+      "expected_count": 0,
+      "notes": "负例：Elasticsearch 分片迁移问题，与 MongoDB/鲲鹏 KB 无任何交集。期望 0 命中。"
+    },
+
+    {
+      "id": "negative-03",
+      "bucket": "negative",
+      "user_input": "Python Flask 应用的接口响应慢，用 cProfile 看了，慢在 JSON 序列化上，有什么加速方案？",
+      "expected_case_ids": [],
+      "expected_count": 0,
+      "notes": "负例：Python 应用层 JSON 序列化性能问题，与数据库 KB 无关。期望 0 命中。"
+    },
+
+    {
+      "id": "negative-04",
+      "bucket": "negative",
+      "user_input": "Redis 集群出现了 hot key 问题，某个 key 每秒请求超过 100 万，怎么做 hot key 打散？",
+      "expected_case_ids": [],
+      "expected_count": 0,
+      "notes": "负例：Redis hot key 问题，与 MongoDB KB 无关。期望 0 命中。"
+    },
+
+    {
+      "id": "negative-05",
+      "bucket": "negative",
+      "user_input": "PostgreSQL 慢查询，explain analyze 看是 Seq Scan，pg_stat_statements 里 mean_time 很高，需要加什么索引？",
+      "expected_case_ids": [],
+      "expected_count": 0,
+      "notes": "负例：PostgreSQL 慢查询优化，与 MongoDB/鲲鹏 KB 无任何交集。期望 0 命中。"
+    },
+
+    {
+      "id": "negative-06",
+      "bucket": "negative",
+      "user_input": "K8s 里 Pod 频繁 OOM，但不是 MongoDB Pod，是 Java 微服务，JVM heap 设了 4GB，容器 limit 也是 4GB，被 kernel OOM killer 杀了。",
+      "expected_case_ids": [],
+      "expected_count": 0,
+      "notes": "负例：Java 微服务 JVM OOM，非 MongoDB 问题。期望 0 命中。"
+    },
+
+    {
+      "id": "negative-07",
+      "bucket": "negative",
+      "user_input": "Nginx 反向代理 upstream timeout，错误日志 504 Gateway Time-out，后端服务是 Node.js，不是数据库问题。",
+      "expected_case_ids": [],
+      "expected_count": 0,
+      "notes": "负例：Nginx + Node.js 504 超时，纯应用层网络问题，与 MongoDB KB 无关。期望 0 命中。"
+    },
+
+    {
+      "id": "negative-08",
+      "bucket": "negative",
+      "user_input": "ARM 芯片上跑 Cassandra，写吞吐量比 x86 低 30%，perf top 看 lock_acquire 函数占比高，是 Cassandra 的并发问题吗？",
+      "expected_case_ids": [],
+      "expected_count": 0,
+      "notes": "负例：Cassandra 在 ARM 上的性能问题，不是 MongoDB，虽然有 ARM/鲲鹏相关描述，但 KB 不覆盖 Cassandra。期望 0 命中。"
+    },
+
+    {
+      "id": "negative-09",
+      "bucket": "negative",
+      "user_input": "Kafka 消费者 lag 一直在涨，消费速度跟不上生产速度，分区数 20，消费者线程 10，需要扩分区吗？",
+      "expected_case_ids": [],
+      "expected_count": 0,
+      "notes": "负例：Kafka 消费者 lag 问题，消息队列领域，与 MongoDB/鲲鹏 KB 完全无关。期望 0 命中。"
+    },
+
+    {
+      "id": "negative-10",
+      "bucket": "negative",
+      "user_input": "Linux 内核升级后网卡驱动加载失败，dmesg 里有 firmware load failed，系统 eth0 起不来，这是驱动问题吧？",
+      "expected_case_ids": [],
+      "expected_count": 0,
+      "notes": "负例：Linux 网卡驱动固件加载失败，纯系统驱动问题，与 MongoDB 性能诊断无关。期望 0 命中。"
+    },
+
+    {
+      "id": "narrow-edge-01",
+      "bucket": "narrow-edge",
+      "user_input": "WiredTiger cache 相关的问题，mongod 内存一直很高，但也没 OOM，pageheap_free 很大，cache size 好像设得也不对，tcmalloc 碎片和 cache 配置不知道哪个影响更大。",
+      "expected_case_ids": [
+        "mongo-tcmalloc-heap-fragmentation-pageheap-free-server-33296",
+        "mongo-wt-cache-size-misconfigured-01",
+        "mongo-wt-tcmalloc-fragmentation-durable-history-wt-6175"
+      ],
+      "expected_count": 3,
+      "notes": "narrow-edge：描述含糊，同时触发 tcmalloc 碎片、WiredTiger cache 错配、durable history 碎片三个 memory-pressure case。期望 LLM 列出多 case 引导用户收窄（确认 MongoDB 版本、pageheap_free 数值、cache 配置）。"
+    },
+
+    {
+      "id": "narrow-edge-02",
+      "bucket": "narrow-edge",
+      "user_input": "connection pool 有问题，应用时不时报 connection timeout，driver 连接池大小 100，并发请求大概 150 个，但也没见 mongod 连接数特别高。",
+      "expected_case_ids": [
+        "mongo-driver-pool-size-too-small-vs-concurrent-requests-02",
+        "mongo-pool-connect-timeout-too-large-01",
+        "mongo-pool-socket-timeout-firewall-half-close-02"
+      ],
+      "expected_count": 3,
+      "notes": "narrow-edge：connection timeout + pool 大小不足 + 可能防火墙半关闭三个 case 同时触发。LLM 需列出候选 case，引导用户提供更多信息（timeout 类型、是否有防火墙、driver 日志）来收窄。"
+    },
+
+    {
+      "id": "narrow-edge-03",
+      "bucket": "narrow-edge",
+      "user_input": "查询慢，explain 看有 IXSCAN 但扫描了很多文档，返回很少，另外 $skip 用得很多做翻页。",
+      "expected_case_ids": [
+        "mongo-query-targeting-high-scan-ratio-01",
+        "mongo-pagination-skip-deep-page-rewrite-02",
+        "mongo-query-ixscan-poor-selectivity-extra-sort-02"
+      ],
+      "expected_count": 3,
+      "notes": "narrow-edge：高 scan-to-return 比 + skip 翻页塌陷 + 索引选择性差三个 query-slow case 同时触发。LLM 需列出候选 case，引导用户提供 explain 输出详情来收窄。"
+    },
+
+    {
+      "id": "narrow-edge-04",
+      "bucket": "narrow-edge",
+      "user_input": "replica lag 有时很高，感觉是写操作太多，但不确定是 oplog 太小还是 secondary 机器太弱还是 majority write concern 的问题，PSA 架构。",
+      "expected_case_ids": [
+        "mongo-psa-majority-writeconcern-perf-degradation-01",
+        "mongo-replication-lag-multi-cause-02",
+        "mongo-replica-lag-secondary-behind-primary-01"
+      ],
+      "expected_count": 3,
+      "notes": "narrow-edge：PSA 架构 + replica lag 多因场景，可能是 PSA majority writeConcern 退化、多因复制延迟或 Ops Manager alert 多个方向，需引导用户排查 secondary 状态和 writeConcern 配置。"
+    },
+
+    {
+      "id": "narrow-edge-05",
+      "bucket": "narrow-edge",
+      "user_input": "MongoDB 8.0 升级后性能没有预期提升，内存使用模式也变了，pageheap_free 大，THP 状态不确定，per-CPU caches 不知道有没有启用。",
+      "expected_case_ids": [
+        "mongo-tcmalloc-percpu-caches-not-enabled-01",
+        "mongo-8-0-tcmalloc-percpu-prerequisite-not-met-01",
+        "mongo-8x-thp-disabled-tcmalloc-suboptimal-01"
+      ],
+      "expected_count": 3,
+      "notes": "narrow-edge：MongoDB 8.0 升级后性能不达预期，可能是 per-CPU caches 未启用、per-CPU prerequisite 未满足或 THP 未启用导致 TCMalloc 优化失效三个方向同时触发，需引导用户确认 THP 状态和 per-CPU 启用状态。"
+    },
+
+    {
+      "id": "narrow-edge-06",
+      "bucket": "narrow-edge",
+      "user_input": "mongod 内存很高，主要是排序操作多，explain 看有 SORT stage，另外 $match 和 $sort 混用的查询也有 spill 到磁盘的情况，scan and order 指标也高。",
+      "expected_case_ids": [
+        "mongo-scan-and-order-high-04",
+        "mongo-explain-sort-stage-disk-spill-01",
+        "mongo-query-ixscan-poor-selectivity-extra-sort-02"
+      ],
+      "expected_count": 3,
+      "notes": "narrow-edge：排序内存压力 + SORT spill 到磁盘 + 索引选择性差导致额外排序三个 case 同时触发，需引导用户提供 explain 输出和索引定义来收窄。"
+    },
+
+    {
+      "id": "narrow-edge-07",
+      "bucket": "narrow-edge",
+      "user_input": "鲲鹏服务器 MongoDB，高并发场景 CPU 上不去，QPS 也低于预期，线程数越多性能越差，怀疑是并发数设了太多还是 context switch 太多。",
+      "expected_case_ids": [
+        "kunpeng-thread-concurrency-overload-05",
+        "app-thread-concurrency-mismatch-01",
+        "kunpeng-cacheline-false-sharing-arm64-128b-01"
+      ],
+      "expected_count": 3,
+      "notes": "narrow-edge：高并发性能不升反降，可能是鲲鹏线程并发超过最佳点、应用线程数不匹配或 ARM64 128B cacheline 伪共享三个方向，需引导用户提供线程数配置和 perf stat 数据。"
+    },
+
+    {
+      "id": "narrow-edge-08",
+      "bucket": "narrow-edge",
+      "user_input": "MongoDB 集群写操作很慢，从 5.0 升级到最新版本之后写延迟明显上升，WiredTiger checkpoint 和 journal 日志写入都在 await 高峰上，具体是哪个写路径慢？",
+      "expected_case_ids": [
+        "mongo-write-regression-default-writeconcern-majority-journal-01",
+        "mongo-wt-checkpoint-period-tuning-disk-io-spike-02",
+        "mongo-wt-checkpoint-time-grows-bulk-load-stall-01"
+      ],
+      "expected_count": 3,
+      "notes": "narrow-edge：5.0 升级后写延迟上升，可能是 5.0+ 默认 writeConcern=majority JournalFlusher 热点、checkpoint 周期调优或 bulk-load checkpoint 时间增长三个写路径方向，需引导用户区分 checkpoint 和 journal 场景。"
+    },
+
+    {
+      "id": "narrow-edge-09",
+      "bucket": "narrow-edge",
+      "user_input": "K8s 里 MongoDB 的内存用量始终比 Pod limit 低很多，但性能比裸机差，WT cache 大小看起来不对，operator 版本是 1.10，不知道是配置问题还是容器 runtime 问题。",
+      "expected_case_ids": [
+        "mongo-k8s-container-wt-cache-fallback-256mb-01",
+        "mongo-k8s-operator-cachesize-bug-cpu-limit-required-02",
+        "mongo-8-0-tcmalloc-percpu-prerequisite-not-met-01"
+      ],
+      "expected_count": 3,
+      "notes": "narrow-edge：K8s 容器内 WT cache 异常低 + operator 1.10 版本，可能是容器内存识别回退 256MB、operator cacheSizeRatio bug 或 per-CPU prerequisite 未满足三个方向，需引导用户确认 operator 版本和 WT cache 实际值。"
+    },
+
+    {
+      "id": "narrow-edge-10",
+      "bucket": "narrow-edge",
+      "user_input": "分片集群写热点问题，某个 shard 特别忙，balancer 好像在迁移但迁不走，getShardDistribution 看到数据分布很不均，有的 shard 100%，有的 0%。",
+      "expected_case_ids": [
+        "mongo-sharding-jumbo-chunk-uneven-write-load-01",
+        "mongo-sharding-equal-chunks-skewed-data-getshard-distribution-02",
+        "mongo-shard-chunk-migration-x-lock-timeout-balancer-stuck-01"
+      ],
+      "expected_count": 3,
+      "notes": "narrow-edge：分片热点 + balancer 迁不走 + 数据分布极度不均，可能是 jumbo chunks 无法迁移、chunk 计数均衡但数据不均或 chunk migration 锁超时三个方向，需引导用户检查 jumbo chunk 和 balancer 日志。"
+    },
+
+    {
+      "id": "narrow-edge-11",
+      "bucket": "narrow-edge",
+      "user_input": "mongod 启动后一会就 crash，log 里有 SIGSEGV，内核版本是 6.19，MongoDB 版本是 8.0，另外 ulimit 不知道有没有配对，之前也遇到过 too many open files。",
+      "expected_case_ids": [
+        "mongo-startup-kernel-6-19-tcmalloc-incompat-01",
+        "mongo-ulimit-low-defaults-mongod-issues-03"
+      ],
+      "expected_count": 2,
+      "notes": "narrow-edge：mongod 启动 crash，可能是 kernel 6.19 TCMalloc 不兼容 SIGSEGV 或 ulimit 过低两个方向，需引导用户确认内核版本和 ulimit 配置。"
+    },
+
+    {
+      "id": "narrow-edge-12",
+      "bucket": "narrow-edge",
+      "user_input": "查询慢，用 profiler 看了一下有很多慢 op，但不知道该用 explain 分析还是 Profiler 指标分析，有 workingMillis 和 durationMillis 两个不同的时间指标，不知道哪个算真正的慢。",
+      "expected_case_ids": [
+        "mongo-slow-query-profiler-metric-01",
+        "mongo-slow-log-queue-wait-vs-working-time-mongodb8-01",
+        "mongo-slow-query-explain-multi-stage-01"
+      ],
+      "expected_count": 3,
+      "notes": "narrow-edge：慢查询分析工具选择 + MongoDB 8.0 workingMillis vs durationMillis 区分 + explain 五步分析链路三个 query-slow 方向，需引导用户提供 MongoDB 版本和具体 profiler 输出来收窄。"
+    },
+
+    {
+      "id": "cross-category-01",
+      "bucket": "cross-category",
+      "user_input": "鲲鹏 ARM64 服务器，MongoDB 最近又 CPU 高又慢，perf top 看到 Snappy 压缩函数占比很高，同时 NUMA 跨节点内存访问也多，不知道是哪个问题更严重。",
+      "expected_case_ids": [
+        "mongo-snappy-hotspot-cpu-high-arm64-01",
+        "kunpeng-numa-cross-node-memory-access-01",
+        "mongo-numa-cross-node-memory-degradation-04"
+      ],
+      "expected_count": 3,
+      "notes": "cross-category：跨 cpu-high（Snappy ARM64 热点）和 cpu-high（NUMA 跨节点）两个子原因同时触发。用户描述跨症状根因，期望多命中合并诊断，需结合 perf top 数据和 numastat 共同判断。"
+    },
+
+    {
+      "id": "cross-category-02",
+      "bucket": "cross-category",
+      "user_input": "副本集有点问题，secondary 落后 primary 很多，同时看到 WiredTiger cache 也快满了，eviction 压力很大，写性能也在下降，感觉是连锁反应。",
+      "expected_case_ids": [
+        "mongo-cache-spike-replication-lag-cascade-01",
+        "wt-eviction-trigger-app-thread-throttle-01",
+        "mongo-replication-lag-multi-cause-02"
+      ],
+      "expected_count": 3,
+      "notes": "cross-category：跨 replica-lag 和 memory-pressure 两个 symptom_category。WiredTiger cache 满 → eviction 压力 → 写性能下降 → 复制延迟 是典型的级联失败链，多 case 应合并诊断。"
+    },
+
+    {
+      "id": "cross-category-03",
+      "bucket": "cross-category",
+      "user_input": "Kubernetes 里跑 MongoDB，POD 内存 OOM 了，而且 WiredTiger 启动后内存异常低，只用了 256MB cache，另外 operator 版本是 v1.9，配置了 cacheSizeRatio 但感觉没生效。",
+      "expected_case_ids": [
+        "mongo-k8s-container-wt-cache-fallback-256mb-01",
+        "mongo-k8s-operator-cachesize-bug-cpu-limit-required-02",
+        "mongo-8-0-tcmalloc-percpu-prerequisite-not-met-01"
+      ],
+      "expected_count": 3,
+      "notes": "cross-category：跨 memory-pressure 的三个 K8s/容器相关 case 同时触发：容器内存限制未识别回退 256MB + operator v1.9 cacheSizeRatio bug + TCMalloc per-CPU 未启用。三者互相关联，需合并诊断后逐一确认。"
+    },
+
+    {
+      "id": "cross-category-04",
+      "bucket": "cross-category",
+      "user_input": "MongoDB 在鲲鹏服务器上，CPU 高了很久，perf top 里 __spin_lock 占 8%，另外 jemalloc 没启用用的是 glibc malloc，多线程内存分配也很频繁，两个问题同时存在。",
+      "expected_case_ids": [
+        "kunpeng-arm64-spinlock-cas-cpu-waste-01",
+        "app-malloc-jemalloc-multithread-audit-01"
+      ],
+      "expected_count": 2,
+      "notes": "cross-category：跨 cpu-high 的两个子原因：ARM64 自旋锁 CAS 浪费 CPU + glibc malloc 多线程分配锁竞争。两者都在 CPU 层面相互叠加，需分别确认 perf top 函数占比和内存分配器配置。"
+    },
+
+    {
+      "id": "cross-category-05",
+      "bucket": "cross-category",
+      "user_input": "鲲鹏机器 MongoDB，BIOS 里 SMMU 没关，THP 也开着，磁盘 io 延迟高，同时内存访问也慢，感觉 BIOS 和内核配置都没调过。",
+      "expected_case_ids": [
+        "kunpeng-bios-smmu-enabled-non-virt-01",
+        "linux-thp-mongodb-sparse-memory-access-02"
+      ],
+      "expected_count": 2,
+      "notes": "cross-category：跨 disk-io-saturation（SMMU 未关闭影响 IO）和 memory-pressure（THP 稀疏访问开销）两个 symptom_category。鲲鹏 BIOS 配置 + 内核 THP 均未优化，需分别检查 BIOS 设置和 THP 状态。"
+    },
+
+    {
+      "id": "cross-category-06",
+      "bucket": "cross-category",
+      "user_input": "MongoDB 查询性能差，aggregation pipeline 里 $lookup 太多，文档也很大，另外集合 index 很多但 accesses.ops 都是 0，感觉是 schema 设计问题。",
+      "expected_case_ids": [
+        "mongo-schema-too-many-lookups-should-embed-01",
+        "mongo-schema-document-too-large-04",
+        "mongo-schema-unused-indexes-bloat-03"
+      ],
+      "expected_count": 3,
+      "notes": "cross-category：跨 query-slow 和 disk-space-pressure 两个 symptom_category，三个 schema 设计问题同时触发：$lookup 过多应改 embed + 文档体积过大 + unused index 占盘。Schema 设计层面的综合问题，需逐一确认后分步优化。"
+    },
+
+    {
+      "id": "cross-category-07",
+      "bucket": "cross-category",
+      "user_input": "MongoDB 集群写入抖动，WiredTiger 大页 eviction 的时候应用线程停顿明显，另外查了 b-tree sweep eviction 日志，整个集合访问被阻了好几分钟，这两个有关联吗？",
+      "expected_case_ids": [
+        "mongo-wt-large-page-eviction-fetch-pause-server-16479",
+        "mongo-wt-btree-sweep-eviction-collection-blocked-server-17907"
+      ],
+      "expected_count": 2,
+      "notes": "cross-category：跨 query-slow 的两个 WiredTiger eviction 相关 case：大页驱逐 fetch 停顿 + b-tree sweep 整集合阻塞。两者都属于 WT eviction 机制导致的操作阻塞，症状相似但根因不同，需查 WT 日志区分。"
+    },
+
+    {
+      "id": "cross-category-08",
+      "bucket": "cross-category",
+      "user_input": "鲲鹏 ARM64 服务器上 MongoDB，网络中断没绑核，irqbalance 在线，CPU 亲和性也不对，同时 NUMA 跨节点网络访问导致延迟高，不知道先优化哪个。",
+      "expected_case_ids": [
+        "kunpeng-net-irq-not-bound-irqbalance-on-01",
+        "kunpeng-network-irq-cross-numa-01"
+      ],
+      "expected_count": 2,
+      "notes": "cross-category：跨 network-latency 的两个鲲鹏网卡中断优化 case：网卡中断未绑核(irqbalance 在线) + 网卡中断与网卡不在同一 NUMA 节点。两者紧密相关，通常需同时修复。"
+    },
+
+    {
+      "id": "cross-category-09",
+      "bucket": "cross-category",
+      "user_input": "MongoDB 部署在 AWS EC2 上，EBS 存储性能不可重现，有时候 iops 很高有时候很低，同时发现读操作 read-ahead 配置是默认 128KB，不知道会不会浪费 page cache。",
+      "expected_case_ids": [
+        "mongo-aws-ec2-storage-network-tuning-06",
+        "linux-readahead-default-128kb-wastes-fs-cache-04"
+      ],
+      "expected_count": 2,
+      "notes": "cross-category：跨 disk-io-saturation 的 AWS EC2 存储性能不可重现 + memory-pressure 的 read-ahead 浪费 filesystem cache 两个 case，在云环境 IO 调优场景下容易同时触发。"
+    },
+
+    {
+      "id": "cross-category-10",
+      "bucket": "cross-category",
+      "user_input": "MongoDB In-Memory storage engine 部署，业务数据量超过了 inMemorySizeGB 配置，写入报 WT_CACHE_FULL 错误，同时 THP 没开，mongod 8.0 的 TCMalloc 优化可能也没完全启用。",
+      "expected_case_ids": [
+        "mongo-inmemory-cache-full-overflow-01",
+        "mongo-8x-thp-disabled-tcmalloc-suboptimal-01"
+      ],
+      "expected_count": 2,
+      "notes": "cross-category：跨 memory-pressure 的两个 case：In-Memory 存储引擎数据超出 inMemorySizeGB 溢出 + THP 未启用导致 MongoDB 8.0+ TCMalloc 优化失效。两者都是内存压力场景，需分别确认 inMemorySizeGB 配置和 THP 状态。"
+    },
+
+    {
+      "id": "cross-category-11",
+      "bucket": "cross-category",
+      "user_input": "kvm 虚机里 MongoDB，Host 没配大页，虚机 TLB miss 很多，mongod 跨 NUMA 访问内存也有，性能比预期低了一大截，是不是虚机化层面的配置问题？",
+      "expected_case_ids": [
+        "kvm-host-hugepages-not-allocated-tlb-miss-01",
+        "kvm-vcpupin-not-bound-numa-cross-01",
+        "kunpeng-numa-cross-node-memory-access-01"
+      ],
+      "expected_count": 3,
+      "notes": "cross-category：跨 memory-pressure（KVM Host 大页未分配 TLB miss）和 cpu-high（KVM vCPU 未绑核 NUMA 跨节点 + 鲲鹏 NUMA 跨节点访问）。KVM 虚拟化层 + 鲲鹏 NUMA 多因叠加，需逐层确认 Host 大页配置和 vCPU 绑核状态。"
+    },
+
+    {
+      "id": "cross-category-12",
+      "bucket": "cross-category",
+      "user_input": "bulk load 大量数据导入期间 mongod 几乎停止服务，WiredTiger checkpoint 时间从几秒变成几分钟，tcmalloc 归还内存时也有锁持几秒的情况，应用线程全部阻塞。",
+      "expected_case_ids": [
+        "mongo-wt-checkpoint-time-grows-bulk-load-stall-01",
+        "mongo-tcmalloc-decommit-madvise-lock-stall-server-31417"
+      ],
+      "expected_count": 2,
+      "notes": "cross-category：跨 disk-io-saturation（bulk-load checkpoint 时间暴增导致业务停滞）和 query-slow（tcmalloc 归还内存时持锁数秒导致全线程延迟尖峰）。大量数据导入场景下两者互相叠加，需分别确认 checkpoint 时间和 tcmalloc madvise 锁行为。"
+    },
+
+    {
+      "id": "cross-category-13",
+      "bucket": "cross-category",
+      "user_input": "RHEL 7 上跑 MongoDB，tuned profile 没改过，同时 vm.dirty_ratio 也是默认值，大内存机器（512GB），写压力高的时候磁盘 IO 突然 spike，有时候 mongod 完全停止响应。",
+      "expected_case_ids": [
+        "mongo-tuned-profile-default-rhel-perf-impact-05",
+        "linux-vm-dirty-ratio-pause-on-large-memory-01"
+      ],
+      "expected_count": 2,
+      "notes": "cross-category：跨 other（RHEL 默认 tuned profile 负向影响）和 disk-io-saturation（大内存机 dirty_ratio 默认导致同步 flush 卡顿）。两者都是 OS 系统配置问题，在大内存 RHEL 7 机器上会叠加放大写 IO 抖动。"
+    },
+
+    {
+      "id": "cross-category-14",
+      "bucket": "cross-category",
+      "user_input": "MongoDB 写性能差，WiredTiger checkpoint 每次都触发磁盘 io 100% 的 spike，同时 Linux 脏页回写策略也没调过，默认 dirty_ratio 是 20%，大内存机器上攒了很多脏页。",
+      "expected_case_ids": [
+        "mongo-wt-checkpoint-period-tuning-disk-io-spike-02",
+        "linux-vm-dirty-flush-burst-io-wait-01",
+        "linux-vm-dirty-ratio-pause-on-large-memory-01"
+      ],
+      "expected_count": 3,
+      "notes": "cross-category：跨 disk-io-saturation 的三个 case：WiredTiger checkpoint 周期 IO spike + OS 脏页刷盘策略不当突发 IO 等待 + 大内存机 dirty_ratio 默认导致同步 flush 卡顿。三者共同造成 IO 抖动，需分别确认 checkpoint 周期、dirty_writeback_centisecs 和 dirty_ratio 配置。"
+    },
+
+    {
+      "id": "cross-category-15",
+      "bucket": "cross-category",
+      "user_input": "应用 CPU 使用率偏高，mongod 连接数也多，maxPoolSize 每个实例 200，部署了 20 个实例，mongod 侧连接数超过 4000，同时多线程 malloc 是 glibc 的，没换 jemalloc。",
+      "expected_case_ids": [
+        "mongo-pool-maxpoolsize-too-high-cpu-pressure-05",
+        "app-malloc-jemalloc-multithread-audit-01"
+      ],
+      "expected_count": 2,
+      "notes": "cross-category：跨 cpu-high 的两个 case：maxPoolSize 过大连接数过高压垮 mongod CPU + glibc malloc 多线程分配锁竞争加剧 CPU 开销。两者在高并发高连接场景下叠加，需分别确认 maxPoolSize 计算和 jemalloc 配置。"
+    },
+
+    {
+      "id": "cross-category-16",
+      "bucket": "cross-category",
+      "user_input": "MongoDB 5.0 升级后写延迟明显上升，profiler 显示 durationMillis 高但 workingMillis 不高，另外 journal flush 频率也很高，感觉和 writeConcern 默认值改了有关系。",
+      "expected_case_ids": [
+        "mongo-write-regression-default-writeconcern-majority-journal-01",
+        "mongo-slow-log-queue-wait-vs-working-time-mongodb8-01"
+      ],
+      "expected_count": 2,
+      "notes": "cross-category：跨 query-slow 的两个 case：5.0+ 默认 writeConcern=majority 导致 JournalFlusher 写盘热点 + MongoDB 8.0 workingMillis vs durationMillis 区分 queue 等待和真慢查询。写路径变化导致延迟上升，需结合版本升级日志和 profiler 指标综合判断。"
+    },
+
+    {
+      "id": "cross-category-17",
+      "bucket": "cross-category",
+      "user_input": "mongod 应用线程响应慢，explain 看有大量 $lookup 跨集合查询，文档内有 array 字段无限增长每次更新都慢，另外 pool maxPoolSize 设太小导致排队等连接。",
+      "expected_case_ids": [
+        "mongo-schema-too-many-lookups-should-embed-01",
+        "mongo-unbound-array-rewrite-pressure-05",
+        "mongo-pool-maxpoolsize-too-low-underutilized-04"
+      ],
+      "expected_count": 3,
+      "notes": "cross-category：跨 query-slow（$lookup 过多 + 无界 array 更新触发整文档重写）和 connection-storm（maxPoolSize 太小限流）三个 case。Schema 设计问题 + 连接池配置不当在高并发写场景下叠加，需分步分析。"
+    },
+
+    {
+      "id": "cross-category-18",
+      "bucket": "cross-category",
+      "user_input": "副本集某个 shard 失主，同时 config server 也没有 primary 了，集群无法写入，mongos 也有一些节点起不来，整个分片集群几乎瘫痪。",
+      "expected_case_ids": [
+        "mongo-shard-config-server-no-primary-04",
+        "mongo-shard-mongos-unavailable-01",
+        "mongo-shard-replica-member-down-02"
+      ],
+      "expected_count": 3,
+      "notes": "cross-category：跨 startup-failure 和 replica-lag 的分片集群多组件故障：config server 失主（元数据冻结）+ mongos 不可用 + shard replica 成员故障。这是典型的分片集群级联故障场景，需按优先级逐一恢复。"
+    },
+
+    {
+      "id": "cross-category-19",
+      "bucket": "cross-category",
+      "user_input": "鲲鹏 920 服务器，mongod CPU 一直在 80% 以上，同时网络吞吐也上不去，网卡中断集中在单核，irqbalance 没关，numastat 看跨节点内存访问也多，感觉是整个系统调优都没做。",
+      "expected_case_ids": [
+        "kunpeng-nohz-clock-tick-overhead-03",
+        "kunpeng-net-irq-not-bound-irqbalance-on-01",
+        "kunpeng-numa-cross-node-memory-access-01",
+        "linux-rps-single-queue-nic-softirq-bottleneck-01"
+      ],
+      "expected_count": 4,
+      "notes": "cross-category：跨 cpu-high 和 network-latency 的鲲鹏全系统调优缺失场景：nohz 未启用时钟中断浪费 + 网卡中断未绑核 + NUMA 跨节点内存访问 + 单队列网卡 softirq 集中。四个鲲鹏平台级优化点同时缺失，需按影响优先级逐步落地。"
+    },
+
+    {
+      "id": "cross-category-20",
+      "bucket": "cross-category",
+      "user_input": "MongoDB 集群压测，写入性能和读取性能都低于预期，数据分布不均（jumbo chunk 无法迁移），lock contention 也高（WT ticket 快耗尽），同时 profiler 慢查询里既有等锁时间又有真实慢查询，很难区分。",
+      "expected_case_ids": [
+        "mongo-sharding-jumbo-chunk-uneven-write-load-01",
+        "mongo-wt-tickets-exhausted-01",
+        "mongo-slow-query-profiler-metric-01",
+        "mongo-slow-log-queue-wait-vs-working-time-mongodb8-01"
+      ],
+      "expected_count": 4,
+      "notes": "cross-category：跨 disk-io-saturation（jumbo chunk 写热点）、lock-contention（WT ticket 耗尽）和 query-slow（profiler 指标解读 + workingMillis 区分）四个 case 的压测场景综合诊断。复杂多因压测诊断，需分层分析：先解分片热点，再看锁瓶颈，最后分析慢查询类型。"
+    }
+
+  ]
+}

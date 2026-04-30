@@ -1,27 +1,9 @@
 /**
- * shared/index — barrel for cross-engine checks + helpers.
- */
-
-import type { CheckFn } from "../models.js";
-import {
-  arm64Checks,
-  kunpengChecks,
-  openeulerChecks,
-  osChecks,
-} from "./legacy-checks.js";
-
-export { kunpengChecks, arm64Checks, openeulerChecks, osChecks };
-export { toInt, toFloat, isDigitString } from "./utils.js";
-
-/**
- * L1 + L2 合并 · 非 mongo engine(mysql/redis)也复用这两层规则。
+ * shared/index — barrel for shared helpers.
  *
- * 顺序:kunpeng(vendor) → arm64(arch) → openeuler(os) → linux os(engine-aware)
- * 前三组都带 scope gating,不满足条件会用 infoResult 返回"已跳过",不污染结果。
+ * Phase 1 重构(M2):legacy-checks.ts 已删除 · CheckFn 体系已废弃 ·
+ * 新 KB 走 distill-v2 case 体系(M3-M4 重写 cli-diagnose / cli-kb)。
+ * 这里只保留 utils 的 re-export · 让其它仍在过渡的模块编译通过。
  */
-export const sharedChecks: ReadonlyArray<CheckFn> = [
-  ...kunpengChecks,
-  ...arm64Checks,
-  ...openeulerChecks,
-  ...osChecks,
-];
+
+export { toInt, toFloat, isDigitString } from "./utils.js";

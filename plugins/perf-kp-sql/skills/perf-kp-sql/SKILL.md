@@ -1,6 +1,6 @@
 ---
 name: perf-kp-sql
-description: Kunpeng ARM64 + MongoDB joint performance diagnosis. Runs SSH-based remote collection (50 OS metrics + 18 mongo runtime), evaluates 44 audited baseline rules from a sqlite knowledge base (FTS5 trigram + sqlite-vec 384-dim semantic search · 全部规则点开 [参考N] 字面命中权威文档), and emits an impact-ranked HTML report. Use when users report MongoDB slowness, CPU spikes, latency jitter, or are doing Kunpeng migration / config audit. Triggers include '数据库慢' / 'CPU 高' / '抖动' / 'mongo perf' / 'Kunpeng 性能' / similar phrases. First-time use:run `/perf-kp-sql-setup` to install native deps.
+description: Kunpeng ARM64 + MongoDB joint performance diagnosis. SSH-based remote collection (8 项环境画像 + per-case 命令拉指标), LLM-orchestrated 6-phase pipeline routing user symptoms against a 202-case knowledge base (KB.md / INDEX.md) with NotebookLM as authoritative refresh source, and emits an impact-ranked markdown report (auto-converted to HTML for sharing). Use when users report MongoDB slowness, CPU spikes, latency jitter, or are doing Kunpeng migration / config audit. Triggers include '数据库慢' / 'CPU 高' / '抖动' / 'mongo perf' / 'Kunpeng 性能' / similar phrases. First-time use:run `/perf-kp-sql-setup` to install native deps + register NotebookLM.
 compatibility: |
   Requires SSH access to the target host + local OpenSSH `ssh` CLI (Linux/macOS
   自带 · Windows 走 WSL 或 OpenSSH-Win)。两种认证方式都通过 `node ssh.mjs`
@@ -11,105 +11,189 @@ compatibility: |
   同主机的多次 SSH 调用通过 OpenSSH ControlMaster 复用一条已认证 TCP(socket
   在 /tmp/perf-kp-sql-cm-<hash>.sock)· 服务端只看到 1 个连接 · 避开 PAM
   faillock / fail2ban / sshd MaxStartups 限速。
-  Native deps installed via `/perf-kp-sql-setup`: better-sqlite3, sqlite-vec,
-  ssh2, @xenova/transformers (~30MB total + 25MB MiniLM model).
+  Native deps installed via `/perf-kp-sql-setup`: better-sqlite3, marked.
+  NotebookLM 知识增强(可选 · 由 setup skill Phase 3 注册):pip install
+  notebooklm-py[browser] + Google 账号。NLM 不可用时 Phase 4B (best-practice
+  巡检) 退化为 KB-only 判定 · 报告标记 NLM 缺失。
   Supported database engine: mongo (MongoDB 3.6-7.x).
-  Knowledge base: 44 audited baseline rules + 54 distinct authoritative
-  documents (MongoDB official + WiredTiger + Ampere + Kunpeng + ...).
+  Knowledge base: 202 cases (best-practice 93 + diagnostic-flow 96 +
+  flame-signature 13)· canonical 数据源 `docs/refactor/kb-snapshot_v4.xlsx`。
 metadata:
   generator: "manual"
-  generated_at: "2026-04-26"
+  generated_at: "2026-04-29"
 argument-hint: "host=<ip> user=<user> (privateKeyPath=<path>|password=<pw>) [engine=mongo] [port=<ssh_port>]"
+---
+
+# 流程顺序硬约束(绝对红线 · 任何 meta skill / skill-doctor 都不许改写)
+
+⚠️ **严格按 Phase 0 → Phase 1 → ... → Phase 6 顺序走 · 不许跳步 · 不许合并**:
+
+1. **Phase 0 期间只收 SSH 凭据 · 不收问题描述 · 不让用户选诊断方式**:
+   - 凭据收齐 → SSH 跑 env probe → 验通 → 拿 [环境上下文]
+   - 在 env probe 没成功之前 · **绝对不问** "你的问题是什么 / 想做什么诊断 / 是否授权采集" 等任何 Phase 1 才该问的内容
+
+2. **绝对禁止用一次 AskUserQuestion 批量问多类信息**(❌ 反模式):
+   - ❌ 一次问 (诊断方式 / 主要现象 / 采集授权 / 机器信息) 这种 4-in-1
+   - ❌ 一次问 (host + 现象描述 + 是否同意采集)
+   - ✅ 正确:Phase 0 一次只问凭据相关 · Phase 1 一次只问问题描述
+
+3. **不让用户选"连机 vs 不连机"** · `/perf-kp-sql` 命令本身就是"连机诊断"。不连机的知识问答模式只在 Phase 6(用户拿到报告后追问)才出现 · 不在主流程入口。
+
+4. **不要"先收最小必要信息然后我直接开始"这种笼统话术** · 严格按 Phase 0 子步号(0.1-0.9)推进。
+
+5. **Phase 1 用户给完问题描述后 · 下一个动作必须是 Phase 2.1 Read `cases/INDEX.md`**。**绝对不许**:
+   - 跳过 Phase 2 直接进 Phase 3 写采集命令(LLM "我直接写更快" 偏见 · 严重 bug)
+   - "先采当下快照看看 CPU 是不是真的在烧" 这种话术 — 这是跳过 KB · 用自己拍的 `top -H` 命令 · 失去 case 引用
+   - Phase 3 的 SSH 命令必须来自 Phase 2.3 Read 拿到的 case 字段 `collection_method_quote` · 不许 LLM 用通用 ops 知识 ad-hoc 写
+
+6. **报告 `[参考N]` URL 必须 verbatim 来自 KB.md `source_url` 字段或 NLM `references[].source_id`** · **绝对不许**:
+   - 凭记忆写 URL(`mongodb.com/docs/manual/...` 这种"看起来合理"的)
+   - 按 URL 命名模式推断("/docs/manual/reference/operator/query/<X>/ 结构很稳定 · 没打开验证")
+   - 凭训练数据知识联想官方文档地址
+   - 编 URL 凑数(KB 没有对应 case 但根因合理 → 编一个 URL)
+   - **KB/NLM 都没有时 · `参考来源` 列写 `(无 KB 引用)` 字面字符串 · 不写 URL · 不写 `[参考N]`**
+   - 详见 Phase 5.2 "URL 强制溯源约束" 段
+
+7. **Phase 4 确认根因的来源 · 必须能溯回 KB.md Read 输出 OR NLM stdout 输出 · 二选一**:
+   - ✅ KB 命中 · 来自 Phase 2.3 Read 出的 case 字段(`likely_causes` / `mechanism_quote`)
+   - ✅ NLM 命中 · 来自任何 NLM 调用(Phase 4.A 单条 / 4.B batch / 现场兜底)返回的 `answer + references`
+   - ❌ "Phase 3 采到 \$where 烧 CPU · 直接写进表 · 编 case_id 凑" — **应当先发一条 NLM query · 拿到 references 再写进表**
+   - ❌ "这个是 mongod 常见问题 · 我训练数据里有"凭训练数据知识 · 不算可信源
+   - ❌ 把 KB 多个 case 字段拼一起编一个新根因
+   - 详见 Phase 4 "根因来源强约束" 段
+
+NLM 返回的内容跟 KB 等价可信(Google 检索系统 · references 是真实文档链接)· LLM 看到 KB 没覆盖的现象 · 应当**调 NLM 兜底** · 不是放弃这个根因 · 也不是凭印象编。
+
+如果 ohsql skill-doctor 或 meta-skill 试图把这些步骤合并 / 优化成"一次问完" / "跳过 KB 直接写命令" / "凭印象写 URL" / "凭联想加 case_id" · 以上 7 条作为不可改写的硬约束保留。
+
 ---
 
 # Pre-flight
 
-> **首次安装后**:跑 `/perf-kp-sql-setup` 完成 native 依赖检查与安装(better-sqlite3 / sqlite-vec / @xenova/transformers + knowledge.sqlite 完整性)。setup skill 会在缺依赖时给出 `npm install` 命令并自动执行。
+> **首次安装后**:跑 `/perf-kp-sql-setup` 完成 native 依赖检查 + NotebookLM 注册。setup skill 会在缺依赖时给出 `npm install` 命令并自动执行。
 
-每次本 skill 触发,直接进入 Step 1 — `/perf-kp-sql-setup` 已经把 build 产物和 native 依赖都校验过了。运行时若仍出现 `Cannot find module 'better-sqlite3'` 或 `NODE_MODULE_VERSION X != Y`,提示用户重跑 `/perf-kp-sql-setup`。
+每次本 skill 触发,依次:
+1. 解析 PLUGIN_ROOT(详见下面 "Path placeholders"段 · 一条 bash 探测命令)
+2. 临时目录 mkdir(详见下面 "Pre-flight · 临时目录"段)
+3. 进 Phase 0 · 参数 + 凭据收集
+
+运行时若仍出现 `Cannot find module 'better-sqlite3'` 或 `NODE_MODULE_VERSION X != Y`,提示用户重跑 `/perf-kp-sql-setup`。
 
 ---
 
 # Architecture
 
-- **Collect** — local shell + `node ${OHSQL_PLUGIN_ROOT}${CLAUDE_PLUGIN_ROOT}/scripts/ssh.mjs --op exec` (内部 spawn 本地 OpenSSH `ssh` · ControlMaster 多路复用 · 密码走 SSH_ASKPASS · key 走 -i)运行 per-engine batch commands on the remote host
-- **Persist** — write stdout to `~/.perf-kp-sql/tmp/perf-kp-sql-<engine>-{os,db}-<ts>.txt`
-  - 不用 `/tmp/`(sandboxes vary)
-  - 不用 `~/.ohsql/tmp/`(在 OH-SQL 0.36.x 上**实测观察到** Write tool 报 success 但紧接的 Bash 子进程 read 同路径立即 ENOENT 的失配现象;OH-SQL 0.51.0 源码读了 `FileWriteTool` 是直 `writeFileSync` · **真因未确认** · 可能与 agent 实际传入的 path 与 Write 报告值字面差异 / 未做的 mkdir 先决条件 / 截断显示掩盖的 typo 有关。无论根因为何,挪出 `~/.ohsql/` 命名空间是防御性正确的)
-  - 用 plugin-自有 namespace `~/.perf-kp-sql/`(没有任何 harness 声明拥有这个目录,跨 Claude Code / Codex CLI / OH-SQL 三家都不会被劫持)
-- **Analyze** — local shell: `node ${OHSQL_PLUGIN_ROOT}${CLAUDE_PLUGIN_ROOT}/scripts/diagnose.mjs --os-file ... --db-file ... --engine <name>`
-- **Knowledge base** — read / grep over `${OHSQL_PLUGIN_ROOT}${CLAUDE_PLUGIN_ROOT}/data/<engine>/` + `data/common/`
-- **Flamegraph** — local shell: `node ${OHSQL_PLUGIN_ROOT}${CLAUDE_PLUGIN_ROOT}/scripts/capture-flamegraph.mjs ...` (内部自定位 cpu-flamegraph 插件,跨 harness 兼容)
-- **Report** — local shell: `node .../scripts/render-html-report.mjs` + `render-screen-footer.mjs`
+诊断分 **7 phase 线性流水线**(Phase 0-6)· LLM-orchestrated · 不调老的 cli-diagnose / render-html-report 程序:
 
-## Path placeholders · 双变量并写 · 由 harness 自动替换
+| phase | 名称 | 干啥 | 输入 → 输出 |
+|---|---|---|---|
+| **0** | **获取环境信息**(凭据 + 连通性探测 + 环境画像)| 收 SSH 凭据 → SSH 一次拉 OS/DB 版本/硬件/部署形态 → 记 `[环境上下文]` · **不通则阻断 · 不进 Phase 1** | slash args → 参数 + banner + `[环境上下文]` |
+| **1** | **对话引导**(现象描述收集) | 在 Phase 0 连通性 OK 后 · 用 `[环境上下文]` 上下文化提问 → 收用户问题描述 / 巡检意图 | `[环境上下文]` + 对话 → 问题描述 |
+| 2 | 现象路由 | LLM 加载 `cases/INDEX.md` 匹配问题描述 → 命中 case_id(≤5 · 内部不暴露) | 问题描述 → 内部 case 列表 |
+| 3 | 批量采集 | 从命中 case 提 `collection_method_quote` · SSH 批量拉指标 | case → 采集结果 (txt) |
+| 4 | 推断与补充 | KB 阈值直判 / NotebookLM 兜底 | 采集结果 → 确认根因 |
+| 5 | 输出报告 | LLM 写 markdown 6 列表 · `md-to-html.mjs` 转 HTML 并机械生成 chat 块 + 同步落盘 `-chat.md` · LLM Read chat 文件 + 字面复制 | 根因 → 报告文件 (md + html) + chat |
+| 6 | 深入对话(可选)| 用户追问 → KB Read 单 case / NLM 单条 | 追问 → 答案 |
 
-下文所有 `${OHSQL_PLUGIN_ROOT}${CLAUDE_PLUGIN_ROOT}` 都是**双变量占位符**,设计成两边 harness 各自识别自家:
+**Phase 0 → Phase 1 硬约束**:Phase 0 的 SSH 连通性探测必须成功(env probe 命令拿到合理 stdout)· 才能进 Phase 1 跟用户聊问题描述。**SSH 不通 / 凭据错 / 主机不通**等情况 · 一律在 Phase 0 阻断 · 给用户报错让 ta 修 · **不进入对话引导环节**。理由:聊半天问题描述但凭据是错的 · 等于白聊。
 
-- **ohsql** 加载 SKILL.md 时(loader-time)把 `${OHSQL_PLUGIN_ROOT}` 替换为 ohsql cache 绝对路径,`${CLAUDE_PLUGIN_ROOT}` 留字面 → shell 扩展未设 env 为空 → 最终拼出 ohsql 路径
-- **Claude Code** 把 `${CLAUDE_PLUGIN_ROOT}` 替换为 CC cache 绝对路径,`${OHSQL_PLUGIN_ROOT}` 留字面 → shell 扩展为空 → 最终拼出 CC 路径
-- agent 不需要手动解析路径 · 直接用占位符发命令 · harness 已经替换好了
-- 注意 `${VAR-}` / `${VAR:-X}` 等 Bash parameter expansion 形态 harness regex **不识别** · 必须严格用 `${VAR}` 形态
+**数据布局**:
 
-**故障识别(若命令报错)**
-
-| 报错样式 | 含义 | 对策 |
+| 文件 | 用途 | 加载时机 |
 |---|---|---|
-| `bash: OHSQL_PLUGIN_ROOT: unbound variable` 或 `CLAUDE_PLUGIN_ROOT: unbound variable` | harness 未替换占位符 + shell 开了 `set -u`(nounset) | 走 `perf-kp-sql-setup` Step 1 的 fallback 扫位拿绝对路径,后续命令手动展开占位符 |
-| `node: <path>/scripts/foo.mjs: No such file or directory`(路径前缀少了 plugin 根) | harness 未替换占位符,shell 也未扩展(env 都没设) | 同上,走 fallback 扫位 |
-| `node: /a/b/0.24.0/x/y/z/scripts/foo.mjs: No such file`(路径双写,中间有意外的 home/cache 段) | 用户自己 `export` 了对方变量(比如 ohsql 用户在 .zshrc export 了 `CLAUDE_PLUGIN_ROOT`) | `unset` 那个变量;两个变量都不应由用户手动 export |
+| `data/kb/cases/INDEX.md` | DF + Flame 路由表 (~6.4K tokens) | Phase 2 启动加载 |
+| `data/kb/cases/KB.md` | DF + Flame 完整字段 | Phase 2.3 用 Read offset+limit 拿单 case · Phase 6 同 |
+| `data/kb/best-practice/INDEX.md` | BP 巡检表 (~6.0K tokens) | Phase 3 nothing 模式才加载 |
+| `data/kb/best-practice/KB.md` | BP 完整字段 | Phase 3 巡检 / Phase 6 同 |
+| `data/collect-cmds.json` | (legacy · Phase 1 不依赖 · 内嵌固定 8 条命令 · 文件保留作历史参考)| — |
 
-万一 harness 不替换(Codex CLI / 旧版 ohsql · 第一次跑命令 ENOENT 报错才会暴露),走 `perf-kp-sql-setup` Step 1 的 fallback:`for d in ~/.ohsql/plugins/cache/perf-kp-sql@* ...; do test -d "$d"; done | sort -V -r | head -1`。
+**工具**:
 
-同理:`/Users/<yourlogin>/...` 必须替换为真实 home 绝对路径(可用 `echo $HOME` 一次拿到);`<TS>` 必须替换为本轮统一的 `YYYYMMDD-HHMMSS`;`<ip>` / `<user>` / `<engine>` 必须替换为参数集里的真值。
+| 命令 | 用途 |
+|---|---|
+| `scripts/ssh.mjs --op exec` | SSH wrapper (ControlMaster + SSH_ASKPASS) · 一切 SSH 走它 |
+| `scripts/ssh.mjs --op session-close` | 流程末尾收 master |
+| `scripts/notebooklm.mjs --op query` | NLM 单条查询 |
+| `scripts/notebooklm.mjs --op query-batch --from-bp-list <path>` | NLM 全量 BP 巡检 batch (M4 实装 · per-notebook merged ask) |
+| `scripts/md-to-html.mjs <md> <html>` | 报告 markdown → HTML 转换 ([参考N] 脚注 + 抽 `## 诊断结果`/`## 火焰图分析` 包成 stdout 的 `<<<CHAT-OUTPUT … CHAT-OUTPUT>>>` 段 + 同步落盘 `-chat.md` 文件供 Phase 5.4 Read) |
+| `scripts/history.mjs --op load|save` | 历史连接 |
+| `scripts/capture-flamegraph.mjs` | 火焰图采集 wrapper(透传到姐妹 skill `cpu-flamegraph` · 详见下方"外部依赖"段)|
 
-> ⚠️ Some agent shell sandboxes reject heredoc / `>` / `<` / `|` / `$'...'` / `` ` `` / 3+ consecutive quotes. Strictly use **write-file → shell (no redirection) → write-file** for the collection chain.(注意:`${VAR}` 这种规范形态 harness 已替换,sandbox 不再拦)
+**外部依赖**:
+
+**火焰图采集走姐妹 skill `cpu-flamegraph` · 不是 perf-kp-sql 自己实现的**。`cpu-flamegraph` 来自同 marketplace 的独立 plugin · 由 perf-kp-sql 的 `.claude-plugin/plugin.json` 在 `x-plugin-dependencies` 字段硬声明(`^0.4.0`)· marketplace 装 perf-kp-sql 时会一起拉。
+
+| 项目 | 值 |
+|---|---|
+| 依赖 plugin | `cpu-flamegraph` (同 marketplace · 独立 plugin) |
+| 提供的 skill | `cpu-flamegraph/skills/cpu-flamegraph/`(同名 skill) |
+| 版本约束 | `^0.4.0`(在 perf-kp-sql 的 plugin.json `x-plugin-dependencies` 里硬声明) |
+| 入口 wrapper | perf-kp-sql 的 `scripts/capture-flamegraph.mjs` |
+| 实际执行 | cpu-flamegraph 的 `scripts/capture.mjs`(SSH `perf record` + 本地 `flamegraph.pl` 渲染 + Top-N 提取) |
+
+wrapper 内部按 `cpu-flamegraph` 名字在 `~/.ohsql/plugins/cache/` · `~/.claude/plugins/` · `~/.codex/plugins/` 等候选目录里自定位 · 跨 harness 兼容。**找不到时立即报错** · 提示用户用对应 harness 的 marketplace 重装 perf-kp-sql(会自动把 cpu-flamegraph 一起拉回来)· **不要凭印象用 `perf record` / `flamegraph.pl` 自己拼一套**。
+
+> Phase 3.A.3 火焰图采集步骤的 `Bash(node <PLUGIN_ROOT>/scripts/capture-flamegraph.mjs ...)` 调用 · 本质是把参数透传给 cpu-flamegraph skill 的 capture 程序。
+
+## Path placeholders · 字面尖括号占位符 · agent 字符串替换
+
+下文所有 `<PLUGIN_ROOT>` 都是**纯文本占位符**(字面尖括号 · 不是 shell 变量,也不依赖任何 harness loader-time 替换)· agent 在每次发 `Bash(command=...)` 前做字符串替换,把 `<PLUGIN_ROOT>` 替换为字面绝对路径。
+
+> ⚠️ **绝对不要在 Bash command 里写带大括号的 shell 参数替换形态**(形如 `$ {VAR}` · 此处加空格仅为文档显示 · 实际是 dollar+left-brace+name+right-brace)—— ohsql Bash 工具有静态屏蔽 · 任何含 dollar-brace 的命令一律 reject(`Command contains ${} parameter substitution`)· 即便 harness 已经替换了其中一个变量 · 另一个残留仍会触发。无 brace 的 `$HOME` / `$d` 形态不受影响。
+
+### 解析 PLUGIN_ROOT(本 skill 启动时一次)
+
+```
+Bash(command="bash -c '[ -n \"$CLAUDE_PLUGIN_ROOT\" ] && [ -d \"$CLAUDE_PLUGIN_ROOT\" ] && { echo \"$CLAUDE_PLUGIN_ROOT\"; exit 0; }; [ -n \"$OHSQL_PLUGIN_ROOT\" ] && [ -d \"$OHSQL_PLUGIN_ROOT\" ] && { echo \"$OHSQL_PLUGIN_ROOT\"; exit 0; }; for d in \"$HOME\"/.ohsql/plugins/cache/perf-kp-sql@* \"$HOME\"/.claude-max/plugins/cache/*/perf-kp-sql/* \"$HOME\"/.claude/plugins/cache/*/perf-kp-sql/* \"$HOME\"/.codex/plugins/cache/*/perf-kp-sql/*; do [ -d \"$d\" ] || continue; ver=$(basename \"$d\" | grep -oE \"[0-9]+\\.[0-9]+\\.[0-9]+\" | head -1); [ -n \"$ver\" ] && printf \"%s\\t%s\\n\" \"$ver\" \"$d\"; done | sort -V -r | head -1 | cut -f2'")
+```
+
+stdout 是字面绝对路径(形如 `/Users/<login>/.ohsql/plugins/cache/perf-kp-sql@0.25.7`)· 整个 skill 流程都用此值替换 `<PLUGIN_ROOT>`。stdout 空时跑 AskUserQuestion 让用户填(选项详见 `perf-kp-sql-setup/SKILL.md` Step 1 fallback)。
+
+同理:`/Users/<yourlogin>/...` 替换为真实 home 绝对路径(`echo "$HOME"` 拿一次);`<TS>` 替换为本轮统一的 `YYYYMMDD-HHMMSS`;`<ip>` / `<user>` / `<engine>` 替换为参数集里的真值。
+
+> ⚠️ Some agent shell sandboxes reject heredoc / `>` / `<` / `|` / `$'...'` / `` ` `` / 3+ consecutive quotes. Strictly use **write-file → shell (no redirection) → write-file** for the collection chain.
 
 ## SSH execution pattern
 
-This skill SSHs to the target host multiple times — **统一走** `node ${OHSQL_PLUGIN_ROOT}${CLAUDE_PLUGIN_ROOT}/scripts/ssh.mjs --op exec`,key auth 与 password auth 共用同一 wrapper · 输出同一 JSON 结构。
+This skill SSHs to the target host multiple times — **统一走** `node <PLUGIN_ROOT>/scripts/ssh.mjs --op exec`,key auth 与 password auth 共用同一 wrapper · 输出同一 JSON 结构。
 
 ### 调用模板(命令字面短且不含 `'` / `"` / `$`)
 
 ```
-Bash(command="node ${OHSQL_PLUGIN_ROOT}${CLAUDE_PLUGIN_ROOT}/scripts/ssh.mjs --op exec \
+Bash(command="node <PLUGIN_ROOT>/scripts/ssh.mjs --op exec \
        --host <ip> --user <user> [--privateKeyPath <path> | --password '<pw>'] [--port <n>] \
        --command '<command>'")
 ```
 
 ### 调用模板(命令含 `'` / `"` / `$` 混杂 → 必须走 `--command-file`)
 
-典型场景:probeCmd / osBatchCmd / dbBatchTemplates 替换后。**不要**改用 `$'...'` ANSI-C 引号或 `"<cmd>"` 内联 —— 前者命中 OH-SQL BashTool 硬拒(CC 平台同款规则会弹权限提示),后者会让远端要展开的 `$VAR` 被本机 shell 提前吃掉。
+典型场景:Phase 1 环境画像命令集 / Phase 3 case-driven 采集命令拼装。**不要**改用 `$'...'` ANSI-C 引号或 `"<cmd>"` 内联 —— 前者命中 OH-SQL BashTool 硬拒(CC 平台同款规则会弹权限提示),后者会让远端要展开的 `$VAR` 被本机 shell 提前吃掉。
 
 ```
 Write(file_path="/Users/<yourlogin>/.perf-kp-sql/tmp/perf-kp-sql-cmd-<TS>.txt", content="<command 字面>")
-Bash(command="node ${OHSQL_PLUGIN_ROOT}${CLAUDE_PLUGIN_ROOT}/scripts/ssh.mjs --op exec \
+Bash(command="node <PLUGIN_ROOT>/scripts/ssh.mjs --op exec \
        --host <ip> --user <user> [--privateKeyPath <path> | --password '<pw>'] [--port <n>] \
        --command-file /Users/<yourlogin>/.perf-kp-sql/tmp/perf-kp-sql-cmd-<TS>.txt")
 ```
 
-`<TS>` 用本轮调用统一的时间戳后缀(同 probe / os / db 输出文件命名),用完不必删除——`/Users/<yourlogin>/.perf-kp-sql/tmp/` 是会话临时目录。
+`<TS>` 用本轮调用统一的时间戳后缀,用完不必删除 ——`/Users/<yourlogin>/.perf-kp-sql/tmp/` 是会话临时目录。
 
 ### 认证方式
 
 - 用户传了 `privateKeyPath=<path>` → 加 `--privateKeyPath <path>` flag · 走 OpenSSH pubkey
-- 用户传了 `password=<pw>` → 加 `--password '<pw>'` flag · ssh.mjs 内部走 SSH_ASKPASS(写一次性 mode 0700 askpass 脚本 + setsid 断 tty)· **不依赖 sshpass** · Codex CLI / Claude Code / ohsql 全支持
+- 用户传了 `password=<pw>` → 加 `--password '<pw>'` flag · ssh.mjs 内部走 SSH_ASKPASS · **不依赖 sshpass** · Codex CLI / Claude Code / ohsql 全支持
 - 两个都给 → key 优先 · password 静默忽略
 
-PAM 主机(华为云 EulerOS / RHEL+PAM / Ubuntu+pam_unix 等)上 password+keyboard-interactive 多回合 challenge 由 OpenSSH 自身处理,跟之前 ssh2 + tryKeyboard 路径同等稳定。
+### ControlMaster 长连接
 
-### ControlMaster 长连接(本 skill 多次 SSH 复用一条 TCP)
-
-ssh.mjs 自带 `ControlMaster=auto` + 稳定 hash ControlPath(`/tmp/perf-kp-sql-cm-<sha1[host:port:user][:12]>.sock`)+ `ControlPersist=600`。**第一次** ssh.mjs 调用顺手开 master(socket 监听),**后续**所有 ssh.mjs 调用看到 socket 存在 → 直接通过 socket 起新 channel(完全跳过 TCP 握手 + auth)。
-
-效果:服务端只看到 1 个连接,N 个 channel 是 SSH 协议内部多路复用,**不计入 PAM faillock / fail2ban / sshd MaxStartups 等连接级限速器**。
+ssh.mjs 自带 `ControlMaster=auto` + 稳定 hash ControlPath + `ControlPersist=600`。**第一次** ssh.mjs 调用顺手开 master · 后续直接通过 socket 起新 channel(完全跳过 TCP 握手 + auth)· 服务端只看到 1 个连接 · 不计入 PAM faillock / fail2ban / sshd MaxStartups 限速器。
 
 ### 流程末尾 · session-close
 
-Step 2 收尾(2.9)显式调一次 `--op session-close` 收掉 master:
+Phase 5 收尾显式调一次 `--op session-close` 收掉 master:
 
 ```
-Bash(command="node ${OHSQL_PLUGIN_ROOT}${CLAUDE_PLUGIN_ROOT}/scripts/ssh.mjs --op session-close \
+Bash(command="node <PLUGIN_ROOT>/scripts/ssh.mjs --op session-close \
        --host <ip> --user <user> [--port <n>]")
 ```
 
@@ -117,32 +201,28 @@ Bash(command="node ${OHSQL_PLUGIN_ROOT}${CLAUDE_PLUGIN_ROOT}/scripts/ssh.mjs --o
 
 ### 输出结构
 
-`ssh.mjs --op exec` 的 stdout 是结构化 JSON:`{"stdout":"...","stderr":"...","exitCode":0}`(--output-file 模式下 `stdout` 字段被替换为 `<wrote N bytes to /path>` metadata)。LLM 拿到后:
+`ssh.mjs --op exec` 的 stdout 是结构化 JSON:`{"stdout":"...","stderr":"...","exitCode":0}`(`--output-file` 模式下 `stdout` 字段被替换为 `<wrote N bytes to /path>` metadata)。LLM 拿到后:
 - 解析 JSON,取 `stdout` 字段当作"远端命令的标准输出"
-- `exitCode === 0` 且 `stdout` 非空 → 成功;`stdout` 空且 `stderr` 空 → 走 Gate 4 自检
+- `exitCode === 0` 且 `stdout` 非空 → 成功;`stdout` 空且 `stderr` 空 → 走 Phase 0 · Gate 4 自检
 - `err` 字段非空 → SSH 协议层失败(`SSH connection failed (255)` 等),按场景兜底
 
 `ssh.mjs --op session-close` 的 stdout 是 `{"ok":true,"controlPath":"..."}`(socket 不存在或 master 已退也算 ok)。
 
 ## Task tracking pattern
 
-This skill runs 5 phases. Track them with the agent's task-list facility:
-- **Claude Code**: use `TodoWrite` (5-element array, status field per item)
-- **OpenAI Codex CLI**: use `update_plan` (5 steps, status field per step)
-- **Other agents only when no task-list tool exists**: render progress as plain text using `◻ ◼ ✔` markers
+This skill runs 6 phases (Phase 0 + 1-5 · Phase 6 是用户追问触发 · 不进主任务清单)。Track them with the agent's task-list facility:
+- **Claude Code**: use `TodoWrite` (6-element array, status field per item)
+- **OpenAI Codex CLI**: use `update_plan` (6 steps, status field per step)
+- **ohsql**: 内嵌 task tool
+- **其他 agents 只在没 task tool 时**: render progress as plain text using `◻ ◼ ✔` markers
 
-**Single-source rule** — do NOT print the task list as plain text in chat when the task tool is available. The task tool already renders the spinner UI; an extra `━ 5 阶段任务清单 ━` (or any equivalent textual bullet list) is a duplicate and is forbidden. Specifically:
-- No `━ 5 阶段任务清单 ━` header.
-- No `◻ phase 1 · ...` bullet list before, alongside, or after `TodoWrite`/`update_plan`.
-- Phase activity lines (`· 内存 · THP / ...`, `· 硬件 · ...`) are NOT the task list — those are scoped detail under the active phase and remain allowed.
-
-Each phase transition (in_progress → completed; pending → in_progress) re-sends the full updated task list via the task tool only. Detailed phase titles + counts are defined in Step 1.4.
+**Single-source rule** — do NOT print the task list as plain text in chat when the task tool is available。Each phase transition (in_progress → completed; pending → in_progress) 通过 task tool 重发完整 task list,不另写 plain text。
 
 ---
 
 # Pre-flight · 临时目录就绪
 
-skill 加载后、Step 1 之前,无条件先跑一次 mkdir 兜底(目录已存在 = 静默 noop):
+skill 加载后、Phase 0 之前,无条件先跑一次 mkdir 兜底(目录已存在 = 静默 noop):
 
 ```
 Bash(command="mkdir -p ~/.perf-kp-sql/tmp ~/.perf-kp-sql/reports ~/.perf-kp-sql/flame")
@@ -154,16 +234,25 @@ Bash(command="mkdir -p ~/.perf-kp-sql/tmp ~/.perf-kp-sql/reports ~/.perf-kp-sql/
 
 # Workflow
 
-## Step 1 · PLAN
+> **流程顺序**:Phase 0 凭据 + 连通性 + 环境画像 → Phase 1 对话引导(用环境上下文聊问题描述)→ Phase 2 现象路由 → Phase 3-6。**Phase 0 连通性探测成功前 · 不进 Phase 1 跟用户聊问题**。
 
-**banner 必须在任何远端 SSH 命令(or remote `scp` / `node ...flamegraph capture` invocation)之前渲染。** 本地参数收集(history load · prompts to user)不受限。
+## Phase 0 · 获取环境信息(凭据 + 连通性探测 + 环境画像)
 
-### 1.0bis · 历史复用
+**这是流程第一步 · 也是关键 gate**:
+1. 收齐 SSH 凭据 + 渲染 banner
+2. SSH 一次跑 8 条命令拉环境画像(同时验证连通性)
+3. 拿到 `[环境上下文]` 后才进 Phase 1 跟用户聊问题描述
+
+**banner 必须在任何远端 SSH 命令之前渲染。** 本地参数收集(history load · prompts to user)不受限。
+
+**连通性硬约束**:0.7 SSH env probe 失败 → 阻断流程 · 给用户 troubleshooting · 等用户修凭据 / 网络后重发命令 · **不进 Phase 1 对话引导**。聊半天问题描述但凭据是错的 = 白聊。
+
+### 0.1 · 历史复用
 
 触发:slash args 缺 host 时。
 
 ```
-Bash(command="node ${OHSQL_PLUGIN_ROOT}${CLAUDE_PLUGIN_ROOT}/scripts/history.mjs --op load --max 5")
+Bash(command="node <PLUGIN_ROOT>/scripts/history.mjs --op load --max 5")
 ```
 
 hosts 非空 → ask the user to pick one (even if there's only 1 entry — explicit confirmation):
@@ -176,11 +265,11 @@ hosts 非空 → ask the user to pick one (even if there's only 1 entry — expl
   3. 新连接 · 手动输入参数
 ```
 
-Stop here and wait for the user's selection in the next turn. Once selected, fully decode the JSON (`host / user / port / engine / password / privateKeyPath / mongo_user / mongo_password / auth_db`) into the parameter set.
+Stop here and wait for the user's selection in the next turn. Once selected, fully decode the JSON (`host / user / port / engine / password / privateKeyPath / mongo_user / mongo_password / auth_db`) into the parameter set。
 
-**No stopping after selection**: same turn → render banner → run env probe (Step 1.3 · 无条件) → declare 5-phase task list → mark phase 1 in_progress → run SSH OS collection.
+**No stopping after selection**: same turn → render banner → declare 6-phase task list → mark phase 0 completed (params 收齐) → mark phase 1 in_progress → 进 Phase 1 SSH。
 
-### 1.1 · 参数抽取
+### 0.2 · 参数抽取
 
 从用户任意措辞抽取:
 - 必填:`host`(IP/FQDN)、`user`、`password`(或 `privateKeyPath`)
@@ -189,7 +278,7 @@ Stop here and wait for the user's selection in the next turn. Once selected, ful
 
 抽取策略:严格 kv → 半结构化 → 自然语言 → 混合。抽取失败只问缺的字段,不重来整表。
 
-### 1.2 · 参数校验
+### 0.3 · 参数校验
 
 两类 check,任一命中阻塞 banner:
 
@@ -201,7 +290,7 @@ Stop here and wait for the user's selection in the next turn. Once selected, ful
 > 还缺:<缺字段名>(例:SSH 密码 / SSH 私钥路径)
 > 请补充。
 > ```
-> Stop and wait for the next turn.
+> Stop and wait for the next turn。
 
 **Class 2 格式非法** — host 非合法 IP/FQDN、port 非 1-65535、engine 不在支持集合(当前 `engine` 仅接受 `mongo`):
 
@@ -211,11 +300,11 @@ Stop here and wait for the user's selection in the next turn. Once selected, ful
 > <字段名> 格式不对:<原值> → <期望格式 / 合法集合>
 > 请重新提供。
 > ```
-> Stop and wait for the next turn.
+> Stop and wait for the next turn。
 
 `<字段名>` 只写具体名(`SSH 密码` / `主机格式` / `端口格式`),不用模糊词。
 
-### [连接信息] banner
+### 0.4 · `[连接信息]` banner
 
 参数齐备后打:
 
@@ -228,7 +317,7 @@ Stop here and wait for the user's selection in the next turn. Once selected, ful
 
 password 前 3 + `***` + 后 3 脱敏。后续 SSH 命令的 host/user/port/password/privateKeyPath 参数必须与 banner 字段一一对应。
 
-### SSH 参数门
+### 0.5 · SSH 参数门(Gates)
 
 **Gate 2** — SSH 命令的 host/user/port/password/privateKeyPath 必须与 banner 字面一致。
 
@@ -239,14 +328,14 @@ password 前 3 + `***` + 后 3 脱敏。后续 SSH 命令的 host/user/port/pass
 2. 发现漏传 → 同 turn 重试
 3. 全传齐仍空 → 走紧凑二次收集
 
-### 1.2bis · DB 凭据预询问(凭据缺时前置)
+### 0.6 · DB 凭据预询问(凭据缺时前置)
 
 **触发**:DB 凭据缺(0.9.2 起只支持 mongo,无 engine 分支):
 - mongo 缺 `mongo_user` 或 `mongo_password` → 触发本步
 
-任何一种命中本步触发。如果用户 slash args 已经把对应凭据传齐 → 跳过本步,直接进 1.3。
+如果用户 slash args 已经把对应凭据传齐 → 跳过本步,直接进 Phase 1。
 
-**为什么前置**:不问就跑 1.3 探测 + 全量采集会浪费 ~105s,等到 Step 2.7 DB 连不上才反向问 — 用户体验差。这里给用户一个**主动选择**的入口。
+**为什么前置**:不问就跑 Phase 1 + Phase 3 全量采集会浪费 60-100s · 等到 Phase 3 DB 命令报 auth fail 才反向问 — 用户体验差。这里给用户一个**主动选择**的入口。
 
 ask the user(topic = `数据库连接信息`):
 
@@ -255,593 +344,798 @@ ask the user(topic = `数据库连接信息`):
 当前未提供数据库凭据。请选:
   1. 我现在补全凭据(engine + db_user + db_password [+ auth_db for mongo])
      → 现在收齐后进入采集,采集时凭据直接生效
-  2. 跳过,先做自动探测
-     → 1.3 探测远端进程,命中后展示实例并向你确认凭据,再进采集
+  2. 跳过,先做环境画像
+     → Phase 1 跑环境探测,后续 DB 命令报 auth fail 时再反向问凭据
 请回复 1 / 2 或直接给参数。
 ```
 
 Stop and wait for the next turn。
 
-**用户选 1(补全)**:
-- engine 默认为 mongo
-- 收 mongo 凭据:`mongo_user` / `mongo_password` / `auth_db`(默认 admin)
-- 全收齐 → 进 1.3。1.3 探测仍跑,只是后续不再问凭据
+**用户选 1(补全)**:engine 默认 mongo · 收 mongo 凭据(`mongo_user` / `mongo_password` / `auth_db`)· 全收齐 → 进 0.7。
 
-**用户选 2(自动探测)**:直接进 1.3,凭据由 1.3bis 在探测命中后再问
+**用户选 2(跳过)**:直接进 0.7 · 凭据由 Phase 3 命令失败时反向问。
 
-**用户直接给参数(不答 1/2 而是直接补字段)**:把字段并入参数集,等价于"选 1"路径
+**用户直接给参数**(不答 1/2 而是直接补字段):并入参数集 · 等价于"选 1"路径。
 
-### 1.3 · 环境探测(无条件 · 一次 SSH 全做完)
+### 0.7 · SSH 连通性探测 + 环境画像(关键 gate · 不通不进 Phase 1)
 
-**触发**:无条件跑(不管 `engine=auto` / 显式 / 缺省)。本步是采集阶段唯一前置 — 拿到 engine + 实例(pid/bind/port)+ 火焰图工具能力(perf / offcputime-bpfcc)三类信号,锁住后 Step 2 采集阶段绝对禁止任何探测性 SSH。
+凭据收齐 + banner 渲染后 · **立即跑一次 SSH** 拿环境画像 — 同时验证连通性。**这一步成功前不跟用户继续聊问题描述**。
 
-**为什么前置**:
-- Step 1.4 task list 的「运行时采集 (<N> 项)」「规则诊断 (<R> 条)」依赖 engine 才能填实数
-- Step 2.5 火焰图采集需要 pid + 提前知道 perf/offcpu 是否在场,不能等到 OS 50 项采集完(~60s)再回填
-- 显式 engine 用户也需要拿 pid/bind/port — 这些是主机环境事实,跟用户偏好无关
-
-**禁止**:Step 2 整段不许出现 `command -v perf` / `pgrep` / `ss -lntp` 等探测性 SSH,所有探测在本步完成。
-
-读 probe 命令:
-```
-Read(file_path="${OHSQL_PLUGIN_ROOT}${CLAUDE_PLUGIN_ROOT}/data/collect-cmds.json")
-```
-
-按 SSH execution pattern 跑(见 Architecture · 统一走 `ssh.mjs --op exec`);timeout ≈ 15s。`<command>` = literal `probeCmd` string。
-
-probeCmd 含 `'` / `"` / `$` 混杂 → **必须**走 `--command-file`(见 Architecture):
+固定 8 条命令(不依赖 case · 不依赖 collect-cmds.json):
 
 ```
-Write(file_path="/Users/<yourlogin>/.perf-kp-sql/tmp/perf-kp-sql-cmd-probe-<TS>.txt", content="<probeCmd 字面 · 即 collect-cmds.json 里 probeCmd 字段的字符串值>")
-Bash(command="node ${OHSQL_PLUGIN_ROOT}${CLAUDE_PLUGIN_ROOT}/scripts/ssh.mjs --op exec --host <ip> --user <user> [--privateKeyPath <path> | --password '<pw>'] --port <n> --command-file /Users/<yourlogin>/.perf-kp-sql/tmp/perf-kp-sql-cmd-probe-<TS>.txt --timeout 15000")
+Write(file_path="/Users/<yourlogin>/.perf-kp-sql/tmp/perf-kp-sql-env-probe-<TS>.cmd", content="""\
+echo '###UNAME###' && uname -a
+echo '###OS_RELEASE###' && cat /etc/os-release 2>/dev/null
+echo '###LSCPU###' && lscpu
+echo '###FREE###' && free -h
+echo '###LSBLK###' && lsblk -o NAME,SIZE,TYPE,ROTA,MOUNTPOINT,FSTYPE 2>/dev/null
+echo '###MONGOD_VERSION###' && (mongod --version 2>/dev/null || echo 'mongod not in PATH')
+echo '###MONGOD_HELLO###' && (mongosh --quiet --eval 'JSON.stringify(db.hello())' 2>/dev/null || echo 'mongosh unavailable')
+echo '###CGROUP###' && (cat /proc/1/cgroup 2>/dev/null || echo 'non-container')
+""")
+Bash(command="node <PLUGIN_ROOT>/scripts/ssh.mjs --op exec \
+       --host <ip> --user <user> [--privateKeyPath <path> | --password '<pw>'] [--port <n>] \
+       --command-file /Users/<yourlogin>/.perf-kp-sql/tmp/perf-kp-sql-env-probe-<TS>.cmd \
+       --output-file /Users/<yourlogin>/.perf-kp-sql/tmp/perf-kp-sql-env-<TS>.txt", timeout=60000)
+Read(file_path="/Users/<yourlogin>/.perf-kp-sql/tmp/perf-kp-sql-env-<TS>.txt")
 ```
 
-`ssh.mjs --op exec` 返回的 JSON 里取 `stdout` 字段(probe 文本),Write 落盘:
+### 0.8 · 连通性判定(关键 gate)
+
+| ssh.mjs 返回 | 判定 |
+|---|---|
+| `exitCode=0 + stdout 非空 + 含 ###UNAME### 等标记` | ✅ 连通 · 进 0.9 解析 |
+| `err: SSH connection failed (255)` | ❌ 协议层失败(认证 / 路由)· 给用户 troubleshooting · stop wait 用户改凭据 · **不进 Phase 1** |
+| `stdout=stderr=""` | ❌ 走 Gate 4 自检(参见 0.6) · 失败重试不通 → stop wait 用户 · **不进 Phase 1** |
+
+troubleshooting 模板(连通性失败时给用户):
+
 ```
-Write(
-  file_path="/Users/<yourlogin>/.perf-kp-sql/tmp/perf-kp-sql-probe-<TS>.txt",
-  content="<此处填入 ssh.mjs 返回 JSON 的 stdout 字段内容,即 ###PROBE_BEGIN### ... ###PROBE_END### 全段>"
-)
+SSH 连接失败:<err 字面消息>
+
+请检查:
+  · host=<ip> · port=<port> 是否可达(本地能否 ping / nc 通)
+  · user=<user> 是否存在
+  · <key 模式>privateKeyPath=<path> 文件是否存在 + 权限 600
+  · <password 模式>密码是否正确(可能含特殊字符未脱敏)
+
+修好后重发 /perf-kp-sql 命令。
 ```
 
-调 probe-parse 解析:
+### 0.9 · 解析环境画像 + 记 `[环境上下文]`
+
+LLM 解析 ###标记### 切段 · 抽以下字段(in-memory 记):
+
+| 字段 | 来源 |
+|---|---|
+| os_kernel | `uname -a` |
+| os_distro | `/etc/os-release` PRETTY_NAME |
+| arch | `uname -m`(x86_64 / aarch64)|
+| cpu_vendor | `lscpu` Vendor ID(HiSilicon = 鲲鹏)|
+| cpu_model | `lscpu` Model name |
+| cpu_count | `lscpu` CPU(s): |
+| numa_nodes | `lscpu` NUMA node(s): |
+| mem_total | `free -h` Mem total |
+| disk_types | `lsblk` ROTA(0=SSD 1=HDD)|
+| mongod_version | `mongod --version` |
+| deploy_form | `db.hello()` 解析(`isWritablePrimary` + `setName` → 判断 单机/副本集/分片)|
+| is_container | `/proc/1/cgroup`(non-container / docker / lxc)|
+
+`[环境上下文]` 是 LLM 后续 phase 的隐式参数 · 不需要落盘。
+
+公告环境画像活动行(给用户看):
+
 ```
-Bash(command="node ${OHSQL_PLUGIN_ROOT}${CLAUDE_PLUGIN_ROOT}/scripts/ssh.mjs --op probe-parse --probe-file /Users/<yourlogin>/.perf-kp-sql/tmp/perf-kp-sql-probe-<TS>.txt --hint-engine <engine|skipped>")
+  · OS · <distro> <kernel> · <arch>
+  · CPU · <model> · <cpu_count>核 · <numa_nodes> NUMA 节点
+  · 内存 · <mem_total>
+  · MongoDB · <version> · <deploy_form>
 ```
 
-返回 JSON:
+### 0.10 · NLM 连通性探测(可选 · 软告警 · 不阻断)
+
+NLM 是 Phase 4 推断的可信兜底(KB 没覆盖现象时拿真实文档 references)· 提前探一下 · 失败时给用户机会现在重新登录 · 比 Phase 4 才发现失败重新打断流程好。
+
+⚠️ **NLM 可用性判定的唯一硬证据**:
+
+```
+Bash(command="node <PLUGIN_ROOT>/scripts/notebooklm.mjs --op check --json", timeout=30000)
+```
+
+返回 stdout JSON 包含 `"installed": true` 且 `"authenticated": true` 且 `notebooks` 非空 = NLM 可用。**绝对不许** 凭其他间接信号判定 NLM 不可用:
+- ❌ 看到 `notebooklm login` 命令报 Playwright 没装 · 推断"NLM 整体不可用"(login 是新登录路径 · 已有 cookie 时不需要走)
+- ❌ 凭"我记得这个机器没装 notebooklm" 判断
+- ❌ Phase 4 想调 NLM 前没先做 --op check · 直接跳 NLM 走 KB-only
+- ❌ `notebooklm` 某个子命令偶发失败 · 推断整体不可用
+- ✅ 唯一判定:`notebooklm.mjs --op check --json` stdout 含 `installed:true + authenticated:true + notebooks 非空`
+
+**返回判定表**:
+
+| `--op check` stdout JSON | 处理 |
+|---|---|
+| `{"installed": true, "authenticated": true, "notebooks": {<非空>}}` | ✅ 公告"NLM 知识增强已就绪" · 进 Phase 1 |
+| `{"installed": false, ...}` (`notebooklm --version` 不通) | 🟡 软告警:"NLM 未安装 · 主诊断流程不影响 · 但 KB 未覆盖现象将无法用 NLM 兜底。可跑 `/perf-kp-sql-setup` 安装 · 或现在跳过。" 进 Phase 1 (skip-NLM 模式) |
+| `{"installed": true, "authenticated": false, ...}` (cookie 过期) | 🔴 触发"NLM 重登录流程"(详见下方 #NLM-relogin) · 等用户登录后重 check · 再进 Phase 1 |
+| `{"installed": true, "authenticated": true, "notebooks": {}}` (notebook 没注册) | 🟡 软告警:"NLM CLI 已装但未注册 notebook · 跑 `/perf-kp-sql-setup` 创建。" 进 Phase 1 (skip-NLM 模式) |
+| Bash spawn 失败 / 超时 / stdout 不是合法 JSON | 🟡 软告警 + skip-NLM 模式 + 进 Phase 1 |
+
+#### NLM-relogin · 鉴权失败重登录流程(可被 Phase 0.10 / Phase 4.* / Phase 6 调用)
+
+⚠️ **关键**:正确路径是引导用户**在终端跑 `notebooklm login`** — 这条命令用 Playwright 启动 Chromium 实例 · 让用户在弹出的浏览器窗口完成 Google 登录 · 登录后 cookie 自动写入 `~/.notebooklm/storage_state.json`。前提是 `/perf-kp-sql-setup` 已经把 `notebooklm-py[browser]` + `playwright install chromium` 装齐(详见 setup skill check-health)。
+
+**两类鉴权失败信号 + 对应处理**:
+
+| 信号 | 含义 | 处理 |
+|---|---|---|
+| `--op check` 返回 `authenticated: false` | 本地 cookie 文件缺 / 格式坏 / cookie 全部过期 | 走重登录(下面流程) |
+| `--op query` / `--op query-batch` 返回错误含 `Authentication expired or invalid` / `Run 'notebooklm login' to re-authenticate` / `redirected to accounts.google.com` | Google 侧 session 过期(`--op check` 可能仍误报 ok · 因为它只验本地文件)| 同上 · 必须重登录 |
+
+**重登录流程**:
+
+```
+🔴 NotebookLM 鉴权失败 · 需要重新登录 Google 账号。
+
+请在你的终端跑:
+
+  notebooklm login
+
+会弹出一个 Chromium 窗口 · 完成 Google 账号登录后窗口会自动关掉 · cookie 写到 ~/.notebooklm/storage_state.json。
+
+完成后回这里告诉我"已登录" · 我会重新探测 NLM 并继续。
+
+(如果 `notebooklm login` 报 "Playwright not installed" 之类错误 · 说明依赖没装齐 · 跑 /perf-kp-sql-setup 重新装。)
+```
+
+stop and wait for next turn。
+
+用户回复后:
+
+```
+Bash(command="node <PLUGIN_ROOT>/scripts/notebooklm.mjs --op check --json", timeout=30000)
+```
+
+如果是 Phase 4.* / Phase 6 触发的 relogin · check 通过后还要**再跑一次刚才被中断的 query / query-batch** 验证 Google 侧 session 也通了:
+
+```
+Bash(command="node <PLUGIN_ROOT>/scripts/notebooklm.mjs --op query \
+       --domain <被中断时的 domain> --query <被中断时的 query> --json", timeout=120000)
+```
+
+- query 仍 401 → 再问用户:"NLM 重登录后仍报鉴权失败 · 可能 Google 账号有问题。要不要跳过 NLM 走 KB-only 模式?"
+- query 成功 → 公告"NLM 已重连" → 继续被中断的 phase 流程
+
+mark phase 0 completed → mark phase 1 in_progress → 进 Phase 1 对话引导。
+
+---
+
+## Phase 1 · 对话引导(现象描述收集)
+
+**前置**:Phase 0 已收齐凭据 + 连通性 OK + 拿到 `[环境上下文]`。
+
+**目标**:用环境上下文化的对话 · 收集用户的问题描述(或确认走巡检模式)· 不收齐不进 Phase 2。
+
+### 1.1 · 看用户在 Phase 0 之前给了啥
+
+| 用户首条消息 | 处理 |
+|---|---|
+| 已含问题描述(例:"我们鲲鹏 mongo cpu 一直 90%+") | 直接进 Phase 2 · 不重复问 |
+| 只给凭据没给描述 | 走 1.2 双问 |
+| `/perf-kp-sql` 无任何文本 | 走 1.2 双问 |
+
+### 1.2 · 上下文化询问(用 [环境上下文] 让对话更具体)
+
+```
+我已经连上你的机器(<distro> · <arch> · MongoDB <version> · <deploy_form>)。
+
+请简短描述你想诊断的问题 · 例如:
+  · "<arch=aarch64 时插这条:鲲鹏 ARM 上 mongod CPU 一直 90%+>"
+  · "<deploy_form=replica-set 时插这条:secondary 落后 primary 10 分钟>"
+  · "应用偶发 connection timeout · DB 侧无慢查询"
+  · "想做个整体配置巡检 · 看有没有问题"
+```
+
+stop and wait for next turn。
+
+### 1.3 · 描述收齐后
+
+- 描述清晰 → 进 Phase 2 现象路由
+- 描述模糊("我感觉慢" / "想做体检" / "新机上线想审")→ 进 Phase 3.B 巡检模式(BP 全量审计)· 跳过 Phase 2
+- 用户描述仍含糊但隐含具体方向 → Phase 2 内部命中 · 用户视角无感
+
+mark phase 1 completed → mark phase 2 in_progress(或巡检模式时 mark phase 2 skipped)。
+
+---
+
+## Phase 2 · 现象路由
+
+**目标**: 把用户描述的现象 / 日志 / 火焰图 → 命中 cases/INDEX.md 里的 case_id 列表。
+
+⚠️ **强制约束**:Phase 1 收完用户问题描述后 · LLM 的**下一个动作必须是 2.1 Read cases/INDEX.md**。**绝对不许**:
+- 跳过 Phase 2 直接进 Phase 3 写采集命令(LLM "我直接写更快 · 何必查 KB" 偏见 · 严重 bug)
+- 跳过 2.1 Read 索引 · 凭记忆猜 case_id
+- 跳过 2.3 Read 单 case 完整字段 · 凭印象写 collection_method
+- 卡在"先采当下快照"这种话头上不进任何动作 — 必须立即 Read INDEX
+
+### 2.1 · 加载索引(Phase 1 完成后立即执行 · 不许跳)
+
+```
+Read(file_path="<PLUGIN_ROOT>/data/kb/cases/INDEX.md")
+```
+
+(~6.4K tokens · 一次性进 LLM context)。**这是 Phase 1 → Phase 2 之间的强制动作 · 跳了就是 bug**。
+
+INDEX 含两段:
+- **diagnostic-flow (96)**: 列 case_id + symptom_category + title + KB line
+- **flame-signature (13)**: 列 case_id + title + pattern_regex + KB line
+
+### 2.2 · LLM 匹配
+
+输入:用户描述的现象(中文 / 英文)+ 可选火焰图数据(perf script 文本 / SVG 路径)。
+
+匹配策略:
+- **DF 路径**:用 symptom_category 锚点(11 类:cpu-high / disk-io-saturation / memory-pressure / query-slow / lock-contention / replica-lag / connection-storm / network-latency / startup-failure / disk-space-pressure / other)做粗分 · 再用 title 语义比对收窄
+- **Flame 路径**:用户提供 perf script → LLM 用 INDEX 里 `pattern_regex` 匹配热点函数 → 命中走 Flame case 确认 · 同时跑 DF 路由(双源 · 互不影响)
+
+**LLM 内部**输出候选 case_id 列表(in-memory · 不暴露给用户)。**收敛规则**(团队定):
+
+| 内部命中数 | 处理 |
+|---|---|
+| 1 | 直接 case 确认 → 进 2.3 |
+| **2-5** | **直接停止收敛 · 全部确认 → 并行进 2.3 拿这 N 个 case 完整字段** · 不再追问用户区分(多 case 一起诊断完全可行 · Phase 3 采集 metric 合并去重 · Phase 4 分别推断) |
+| 6+ | LLM 简短追问 1-2 个最有区分度的问题(例:"是单机还是副本集?" / "现象是持续性还是间歇尖峰?")· 收敛到 ≤ 5 个 → 进 2.3 |
+| 6+ 收窄追问累计 ≥ 5 轮仍 > 5 个 | 强制收口 · 取 LLM 当前认为最可能的 5 个 → 进 2.3(不再纠缠) |
+| 0 | nothing 模式 → 跳过 2.3 · 进 Phase 3.B(BP 巡检) |
+
+**Phase 2 给用户呈现什么**(对外 UX):
+
+LLM 在前期**只负责引导提问 · 范围收敛 · 不暴露内部数据**。具体:
+
+| 用户视角 | LLM 内部 |
+|---|---|
+| 看到:"开始拉数据" | 内部已收敛 ≤ 5 个 case · 准备 Phase 3 metric |
+| 看到:"先问一个问题:是单机还是副本集?" | 内部:这一问能砍掉 X 个 case 候选 |
+| **看不到**:case_id 字面 / KB 内部分类名 / 候选概率 / 准备拉哪些命令 | 内部:这些都是诊断引擎细节 · 用户只关心"问题是啥 · 怎么修" |
+
+**绝对禁止**(违反就是 bug):
+- 给用户列 `case_id` 字面值(`kunpeng-nohz-clock-tick-overhead-03` / `mongo-tcmalloc-percpu-caches-not-enabled-01` 等)
+- 给用户列内部概率("45% / 35% / 20%" / "置信度高/中" 等)
+- 给用户列"我准备拉这些指标"清单(`db.serverStatus().wiredTiger.cache` / `top -H` 等)— 用户给凭据后我自己 SSH 拉就行 · 用户不需要知道 metric 名
+- 给用户展开 KB 内部 symptom_category 11 类清单 / case_pattern / scope 这些内部分类名
+- 列"我能诊断的所有问题类型"清单 · 引诱用户认领 — 引导式追问应当从用户描述出发
+- 罗列"我已经排除了 X / Y / Z"长 bullet — 用户不关心你内部排除了啥 · 直接给追问问题或开始 SSH
+
+**收敛硬约束**:
+- "≤ 5 个就停" — 不为"收敛到 1 个"无限追问。多 case 并行诊断是 Phase 3-5 标准能力。
+- "追问 ≤ 5 轮" — 5 轮还收不到 5 个以下 · 强制带 5 个进 Phase 3。
+- LLM 看似只问 1-2 个引导问题 · 然后说"开始拉数据" · 内部所有 case 收敛 / metric 准备都不暴露给用户。
+
+### 2.3 · 加载单 case 完整字段
+
+case 确认后,从 INDEX 拿到 `KB line` 行号:
+
+```
+Read(file_path="<PLUGIN_ROOT>/data/kb/cases/KB.md", offset=<line>, limit=100)
+```
+
+`limit=100` 经实测覆盖全部 109 case(最长 91 行)。若 LLM 读出来发现末尾还在 case 中部(没看到下一个 `## case_id:` 边界),用 `offset=<line+100>, limit=50` 再读一次拼接。
+
+LLM 解析单 case 完整字段(in-memory 记 · 后续 phase 用):
+
+**DF case**:
+- `diagnostic_steps`(数组 · 每 step 含 metric_name / collection_layer / collection_method_quote / abnormal_pattern_threshold / abnormal_pattern_quote)
+- `likely_causes`(数组 · 每 cause 含 param_name / abnormal_value_pattern / reasoning_quote / linked_diagnostic_step_no)
+- `symptom_description` / `source_url`
+
+**Flame case**:
+- `pattern_regex` / `mechanism_quote` / `workload_implication_quote` / `signature_type` / `match_layer`
+- `source_url`
+
+mark phase 2 completed → mark phase 3 in_progress。
+
+---
+
+## Phase 3 · 批量采集
+
+**目标**: 从命中 case 提采集命令 · SSH 批量拉指标 → 落盘 collect 文件。
+
+⚠️ **强制约束**:Phase 3 的 SSH 采集命令**必须来自 Phase 2.3 Read 拿到的单 case 完整字段里的 `collection_method_quote`** · 不允许 LLM 凭印象 / 经验 / 通用 ops 知识自己拍命令。具体:
+
+- ❌ LLM 自己写 `top -b -n 1 -H -p $(pgrep mongod)` / `vmstat 1 5` / `mongostat --eval ...` 等通用命令 · 即使看起来"更快更全"
+- ❌ "先采当下快照看看 CPU 是不是真的在烧" 这种自由发挥 · 跳过了 KB
+- ✅ Read 命中 case 的 KB 段 → 抽 `collection_method_quote` 字面 → 适配 [环境上下文] 占位符 → 直接用
+- ✅ KB 命令是诊断知识资产的一部分 · 跟 case 的 `abnormal_pattern_threshold` / `likely_causes` 配套 · 自己拍命令 = Phase 4 推断时找不到对应阈值 = 报告里没 [参考N] 引用 = 知识库价值清零
+
+如果 Phase 2 命中的 case 在 KB 里没给具体 `collection_method_quote`(部分 case 是描述性的)· 才允许 LLM 基于 case `metric_name` 写最小命令 · 但**必须先读完 case 字段确认这一点 · 不是偷懒跳过**。
+
+分两条路径(由 Phase 2 命中数决定):
+
+### 3.A · DF / Flame 路径(Phase 2 命中 ≥1 case)
+
+3.A.1 · 提取所有 case 的 diagnostic_steps · 合并去重(按 metric_name)→ 拿一个统一采集 metric 列表。**注:metric 列表必须来自 Phase 2.3 已 Read 的 case 字段 · 不是 LLM 凭记忆列**。
+
+3.A.2 · 对每个 metric · 适配 [环境上下文] 生成命令:
+
+| collection_layer | 适配 |
+|---|---|
+| `os` | 直接 SSH 跑(sysctl / cat /proc/... / mount / lsblk 等)|
+| `mongo-shell` | `mongosh --eval "..."` |
+| `mongo-runtime-cmd` | `mongosh --eval "JSON.stringify(db.serverStatus())"` 等 |
+| `log-grep` | `grep -E '...' /var/log/mongodb/mongod.log` |
+| `atlas-advisor` | **不直接采** · 提示用户 Atlas UI 取(后续追问场景)|
+
+3.A.3 · 火焰图采集(case 含 stack-pattern / signature_type=stack-pattern):
+
+```
+Bash(command="node <PLUGIN_ROOT>/scripts/capture-flamegraph.mjs \
+       --host=<ip> --user=<user> --password='<pw>' [--port=<n>] \
+       --process=mongod --type=oncpu --duration=3 --engine=mongo")
+```
+
+**`--duration` 硬约束**:诊断场景**固定 3s** · `99 Hz × 3s ≈ 297 个采样` 已足够命中 stack-pattern。**禁止擅自拉到 5/10/30/60s** — 30s/60s 这种长窗口会显著扰动生产 mongod · 数据量随时长线性增长 · 还可能顶到 ssh.mjs 的 timeout。
+
+wrapper 已在脚本侧硬 clamp:
+- 没传 `--duration` → 默认注入 `--duration=3` 并打印提示
+- `--duration > 10` 且未加 `--allow-long-duration` → **直接 exit 2 拒绝** · 报错 JSON 含原值/上限/解释
+- 真需要长窗口(用户**明确要求** / off-cpu 长尾分析) → 加 `--allow-long-duration` 显式 opt-in · 并在报告里说明理由
+
+**❌ 反例 · LLM 自由发挥拉到 30s**:
+```
+... --process=mongod --type=oncpu --duration=30 --engine=mongo")
+```
+narration 写"开始拉指标 + 30s 火焰图(并行)"。**违规** — wrapper 会拒绝;就算让它过(凭 `--allow-long-duration`) · 也是给生产 mongod 加 10× 干扰、产 10× 数据量、用户白等 27s · 完全不必要。诊断默认 3s 已经够命中 stack-pattern。
+
+(`capture-flamegraph.mjs` 是 wrapper · 内部自定位**姐妹 skill `cpu-flamegraph`** 后透传给 ta 的 `scripts/capture.mjs` 真正干活 · 跨 harness 兼容 · 依赖关系详见 Architecture 段「外部依赖」)
+
+3.A.4 · 拼合并 cmd 文件 · 5-10 条命令 / 文件:
+
+```
+Write(file_path="/Users/<yourlogin>/.perf-kp-sql/tmp/perf-kp-sql-collect-<TS>.cmd", content="<合并命令字面>")
+Bash(command="node <PLUGIN_ROOT>/scripts/ssh.mjs --op exec \
+       --host <ip> --user <user> [--privateKeyPath <path> | --password '<pw>'] [--port <n>] \
+       --command-file /Users/<yourlogin>/.perf-kp-sql/tmp/perf-kp-sql-collect-<TS>.cmd \
+       --output-file /Users/<yourlogin>/.perf-kp-sql/tmp/perf-kp-sql-collect-<TS>.txt", timeout=120000)
+```
+
+3.A.5 · LLM Read 采集结果 → 解析 metric → value 映射 (in-memory)。
+
+### 3.B · nothing 模式(Phase 2 命中 0 · 用户描述模糊)
+
+3.B.1 · 加载 BP 索引:
+
+```
+Read(file_path="<PLUGIN_ROOT>/data/kb/best-practice/INDEX.md")
+```
+
+(~6.0K tokens · 含 case_id + scope + title + KB line)。
+
+3.B.2 · 按 scope 分组采集对应参数(每条 BP 的 `related_param_names` + `detection_layer`):
+
+scope 分布(典型):
+- linux-mm (12) · vm.swappiness / dirty_ratio / THP / hugepages
+- linux-net (X) · sysctl net.* / 连接 backlog
+- linux-block (X) · scheduler / nr_requests / read_ahead_kb
+- storage-engine-wt (X) · WT cache size / eviction triggers
+- mongodb-config (X) · journal / oplog / replSetConfig
+- ...(详见 INDEX 完整列表)
+
+3.B.3 · 拼合并 cmd → SSH 一次跑(同 3.A.4 模板)→ Read 解析。
+
+mark phase 3 completed → mark phase 4 in_progress。
+
+---
+
+## Phase 4 · 推断与补充
+
+**目标**: 把 Phase 3 采集结果跟 case 阈值 / NotebookLM 答案对照 → 输出"确认根因"列表。
+
+⚠️ **根因来源强约束**(LLM 历史多次发散 · 必须钉死):
+
+每个进入"确认根因"列表的根因 · **来源必须能溯回到下面两个数据流之一的 stdout / Read 输出**:
+
+1. **KB 命中**:case_id verbatim 来自 Phase 2.3 Read 出的 KB.md 单 case 字段(DF `likely_causes[]` / Flame `mechanism_quote`)· `[参考N]` 用 case 的 `source_url` 字段
+2. **NLM 命中**:NLM 调用(Phase 4.A 单条 query / Phase 4.B BP batch / Phase 3 现场指标的临时 query 兜底)返回的 `answer` + `references` · `[参考N]` 用 NLM 返回的 `references[].source_id`
+
+NLM 返回的内容算可信源 · 跟 KB 等价 — 因为 NLM 是 Google 官方文档检索系统 · 它返回的 references 是真实文档链接。LLM 不必觉得 "KB 没有 → 不能写"· 只要 NLM 答得出来 + 给了 references · 就可以进表(置信度: 中)。
+
+**关键反例**(LLM 历史犯的错):
+
+- ❌ 凭训练数据知识写根因(`mongod tcmalloc 碎片是常见问题` · 没调 NLM 也没 KB Read)
+- ❌ 编一个 case_id(`bp-mongo-where-cpu-01` 这种 KB 没有 / NLM 没返回的)
+- ❌ 把 KB 多个 case 的字段拼一起编一个新根因
+- ❌ Phase 3 现场采到现象(\$where 烧 CPU)· **直接写进表**不调 NLM · 凭印象描述 + 编 URL
+
+✅ **正确做法 · 现场采到 KB 没覆盖的现象**:
+- Phase 4 时给该现象**单独发一条 NLM query** · 例如:`"MongoDB \$where JS 查询的性能影响 + 推荐做法?"`
+- 拿到 NLM answer + references · 现在这个根因有了可信源 · 可以进表
+- `参考来源` 列写 `[参考N]` · URL = NLM 返回的 `references[].source_id`(verbatim · 不许编)
+- 置信度: 中(NLM 兜底)
+
+**自检规则**(写完根因列表 LLM 必须自检):
+- 每个根因都能逐条说出来源:
+  - "case_id=X · KB 命中 · 来自 Phase 2.3 Read line=Y · likely_cause N" · 或
+  - "case_id=Y · BP 命中 · 来自 Phase 4.B NLM batch result" · 或
+  - "现场根因 X · NLM 命中 · 来自 Phase 4.A 单条 query 返回 / Phase 4.X 临时兜底 query 返回 · references[i].source_id=URL"
+- 不能溯源的根因 → **不进主诊断表** · 移到 Phase 5.2 报告的 `## 现场观测(无权威来源)` 独立段 · 标"请独立验证"
+- 不许 "我训练数据里见过这个问题" 当来源 — 不算
+- **特别强调**:Phase 3 现场采到的根因(\$where 烧 CPU / 异常 query 等)· 如果 NLM 不可用 · **必须先走 NLM-relogin 流程**(详见 Phase 0.10 #NLM-relogin) · 不许直接放弃 NLM 兜底然后把根因塞主表。NLM 真的连不上(用户拒绝重登录 / 重登录后仍失败)· 才允许走"现场观测"独立段。
+
+**为什么 KB 和 NLM 都算可信 · 但 LLM 自己写不算**:
+- KB.md 是团队蒸馏的 cases · 来自权威文档 · 有 source_url 链接验证
+- NLM 是 Google 检索 + Gemini 生成 · 答案绑定 references[].source_id 真实文档
+- LLM 训练数据里的"常识" · 用户没法点开链接验证 · 也可能过时(MongoDB / kernel 持续更新)
+- 报告"确认根因"是用户决策依据 · 必须有可点开的权威背书 → KB / NLM 都满足 · LLM 自由发挥不满足
+
+分两条路径(对应 Phase 3.A / 3.B):
+
+### NLM 调用统一错误处理(Phase 4.* / Phase 6 都遵守)
+
+任何 `notebooklm.mjs` 调用(query / query-batch)返回鉴权失败信号时 · LLM 必须:
+
+1. **触发 NLM-relogin 流程**(详见 Phase 0.10 #NLM-relogin 段)· 引导用户去 Chrome 重新登录 · stop wait
+2. 用户登录确认后 · 重新跑被中断的 NLM 调用
+3. 重试仍失败 → 问用户"再试 / 跳 NLM 走 KB-only / 中止"
+
+**鉴权失败信号识别**:
+- stdout JSON 含 `"error": "auth_expired"` / `"error": "unauthorized"` / `"error": "cookie_invalid"` 等
+- stderr 含 `401` / `403` / `Authentication failed` / `cookie expired` 等
+- spawn 返回 exitCode != 0 且 error message 跟鉴权相关
+
+**非鉴权失败**(网络超时 / API 限流 / NLM 服务侧 5xx)→ skip 当前 NLM call · 继续主流程 · 在报告里标"NLM 当前不可用 · 部分根因走 KB-only"。
+
+**❌ 反例 · LLM 自助 retry**:
+```
+⏺ NLM chat 超时(不是鉴权)。重试一次。
+
+  Bash(node /.../notebooklm.mjs --op query --domain mongo --query "..." )
+```
+LLM 自己写"超时 · 重试一次"narration · 然后再发同 query。**违规** · 几条理由叠加:
+1. SKILL.md 明文 "非鉴权失败 → skip + KB-only" · 没有"先重试一次再 skip"这一档 · LLM 在加 spec 里不存在的逻辑
+2. NLM 单次 query timeout 已经 60s · retry 一次再耗 60s · 用户白等 2 分钟 · 而 timeout 通常说明上游正在退化 · retry 命中概率不高
+3. 跟 30s 火焰图 / chat 输出字段竖排是同一类 LLM 偏见——"加点工程感"(retry / 长采样 / 友好叙述) · 但每一个都是在 spec 之外自由发挥
+4. 真要 retry 这件事是政策决定 · 该写进 SKILL.md 由 spec 表达 · 不该 LLM 在运行时自己决定
+
+**正解**:非鉴权超时 → 直接 skip 当前 NLM call · narration 用一句"NLM 当前不可用(非鉴权类失败) · 该根因走 KB-only" · 不再发同 query。
+
+**为什么"重试看上去合理"也不许 LLM 自决**:retry / 长采样 / 友好叙述这些都看上去是好工程,但**SKILL.md 没写 = 不该做**。如果实证发现"NLM 短暂超时占多数 · retry 命中率高"· 该走的路径是改 SKILL.md(把 retry 加进 spec) · 而不是 LLM 在每个 session 里自己决定加。"政策决定写在 spec · LLM 只执行" 是这套 skill 的硬边界。
+
+### 4.A · DF / Flame 路径(逐 step / 逐 case 处理)
+
+对每个命中 case 的每个 diagnostic_step:
+
+**有 `abnormal_pattern_threshold` (精确)**:
+- LLM 直接对比 [采集值] vs [threshold]
+- 偏离 → 确认关联的 likely_cause(通过 `linked_diagnostic_step_no`)
+- 正常 → 排除该 cause
+- **置信度: 高**
+
+**无 threshold (NULL · 描述性文字)**:
+
+构造单条 NLM query:
+
+```
+Write(file_path="/Users/<yourlogin>/.perf-kp-sql/tmp/perf-kp-sql-nlm-q-<TS>.txt", content="<查询字面>")
+```
+
+查询模板(LLM 拼):
+> [环境:OS=<...>, CPU=<...>, MongoDB=<...>] 当前 [step.metric_name] 值为 [采集值]。
+> 该指标的正常范围 + 异常判定标准是什么?
+> 上下文:[case.symptom_description]
+
+调单条:
+
+```
+Bash(command="node <PLUGIN_ROOT>/scripts/notebooklm.mjs --op query \
+       --domain auto \
+       --query \"<查询字面>\" \
+       --json", timeout=300000)
+```
+
+LLM 综合判定 NLM answer + step.abnormal_pattern_quote:
+- 偏离 → 确认 likely_cause
+- 正常 → 排除
+- **置信度: 中**
+
+Flame case 同 DF · 用 mechanism_quote 替代 likely_causes 描述。
+
+### 4.B · best-practice 巡检(全量经 NLM)
+
+**设计书强制**: 对每个 BP 一律喂 NLM 刷新最新推荐(决策 2 d')。NLM 不可用时退化为 KB-only(报告标记 NLM 缺失)。
+
+4.B.1 · 构造 BP 待查列表:
+
+```
+Write(file_path="/Users/<yourlogin>/.perf-kp-sql/tmp/perf-kp-sql-bp-list-<TS>.json", content="<JSON 数组>")
+```
+
+JSON 格式:
 ```json
-{
-  "ok": true,
-  "instances": [{"engine":"mongo","pid":"...","bind":"...","port":"..."}, ...],
-  "flame_capable": "oncpu+offcpu" | "oncpu" | "none",
-  "perf_path": "...",
-  "offcpu_path": "..."
-}
+[
+  {
+    "case_id": "bp-os-mm-vm-swappiness-1",
+    "param_name": "vm.swappiness",
+    "scope": "linux-mm",
+    "current_value": "60",
+    "kb_recommendation": "1",
+    "scenario_quote": "..."
+  }
+]
 ```
 
-#### 实例选择
+`scope` 用 BP 在 best-practice/INDEX.md 里的字段值 · notebooklm.mjs 按 scope 路由到对应 notebook(linux-* → os · storage-engine-/mongodb- → mongo · arch/bios-firmware → kunpeng if hwArch=kunpeng)。
 
-**0 实例** → 远端 mongod 没起。打:
-> ━ 远端未发现 mongod 进程 ━
-> 已扫:mongod 无 pgrep 命中。
-> 请确认目标主机 MongoDB 是否已启动,或继续以默认端口 27017 推断方式跑。
-
-Stop and wait for the next turn。
-
-**0 实例** + 用户继续 → **信用户**,走兜底:bind=127.0.0.1, port=27017, pid 留空(火焰图自动跳过 oncpu),打:
-```
-  · 警告 · 远端未发现 mongod 进程 · 按默认配置继续 · bind=127.0.0.1:27017
-  · 数据库实例 · mongo @ 127.0.0.1:27017(默认端口推断 · 火焰图采集将跳过)
-```
-
-**1 实例** → 直接锁定。
-
-**多实例** (多个 mongod) → ask the user (topic = `选择诊断目标`):
-```
-检测到多个 mongod 实例:
-  1. mongo @ <bind>:<port> (pid=<pid>)
-  2. mongo @ <bind>:<port> (pid=<pid>)
-请选择诊断目标。
-```
-Stop and wait for the next turn。用户选定后继续。
-
-#### 锁定的状态
-
-`engine` + `bind` + `port` + `pid` + `flame_capable` 在内存里保留。**Step 2 全部子步骤共享这套状态,绝不重新探测**。火焰图能力公告 + 硬件/OS 识别行**统一推迟到 task 1 收尾(Step 2.6)**;**实例识别行**则在下一步 1.3bis 立即出(用户需要在采集前看到探测结果)。
-
-### 1.3bis · 探测结果展示 + 凭据确认
-
-**目标**:
-- 让用户**采集前**就看到 1.3 探测到了什么(实例 + 火焰图能力)
-- 如果对应 engine 的 DB 凭据仍缺,**当场问**(避免 Step 2.7 才反向问)
-
-#### 1.3bis.1 · 展示探测结果
-
-打 2 行(无论凭据是否齐都打):
-```
-  · 数据库实例 · <engine> @ <bind>:<port> (pid=<pid>) [· 默认端口推断]
-  · 火焰图能力 · <on-CPU + off-CPU 双采 | 仅 on-CPU(offcputime-bpfcc 未装) | 不可用 · perf 未装>
-```
-
-#### 1.3bis.2 · 凭据确认(如缺则问)
-
-按 engine 检查必需凭据是否已齐:
-
-必需凭据:`mongo_user` + `mongo_password`(`auth_db` 默认 admin 可省)。
-
-**齐** → 跳过本子步,直接进 1.4。
-
-**缺** → ask the user(topic = `MongoDB 凭据`):
+4.B.2 · batch 调:
 
 ```
-━ MongoDB 凭据(已探测命中) ━
-远端检测到 mongod 实例 @ <bind>:<port> (pid=<pid>)。
-连接需要凭据,请提供:
-  - mongo_user(必填,匿名连接绝大多数 mongo 部署会被拒)
-  - mongo_password(必填)
-  - auth_db(默认 admin · 可省)
-直接回 "跳过" = 仍按匿名试一次(失败会在采集阶段反向问)。
+Bash(command="node <PLUGIN_ROOT>/scripts/notebooklm.mjs --op query-batch \
+       --from-bp-list /Users/<yourlogin>/.perf-kp-sql/tmp/perf-kp-sql-bp-list-<TS>.json \
+       --hw-arch <kunpeng|x86_64> \
+       --json", timeout=600000)
 ```
 
-Stop and wait for the next turn。
+内部按 BP scope 路由到 notebook(linux-* → os · storage-engine-/mongodb- → mongo · arch/bios → kunpeng)· chunk size 5 控制单 ask prompt 长度 · chunk 间 + notebook 间各 2s 节流。
 
-**用户回 "跳过" / 空 / 拒绝** → 标记 `db_creds_skip=true`,进 1.4(Step 2.7 失败仍走"连不上反向问")。
+实测 93 BP / 3 notebook ≈ 7 min。
 
-**用户给凭据** → 收齐进 1.4。
+4.B.3 · LLM 解析返回 → 每个 BP 综合判定(设计书 §4):
 
-> 注意:1.2bis 用户已选 "1. 补全凭据" 时,1.3bis.2 自然跳过(凭据已齐);只 1.3bis.1 的展示行还会打,告诉用户探测命中了什么。
-
-### 1.4 · 声明 task 清单
-
-Declare a 5-phase task list using the agent's task-tracking facility (see "Task tracking pattern" in the Architecture section above). On Claude Code use `TodoWrite`; on OpenAI Codex CLI use `update_plan`; otherwise render as plain text.
-
-If a previous task list exists from an earlier run in the same session, replace it (idempotent — both `TodoWrite` and `update_plan` overwrite the whole list). Do NOT append.
-
-The 5 phases (English subject for portability, with Chinese display titles):
-
-| # | Display title (subject) | Spinner verb (activeForm) | Count placeholder |
-|---|-------------------------|---------------------------|-------------------|
-| 1 | OS/硬件采集 (50 项)     | 采集 OS/硬件              | 50 (fixed) |
-| 2 | MongoDB 运行时采集 (18 项) | 采集运行时           | 18 (fixed) |
-| 3 | 规则诊断 (44 条)        | 诊断规则                  | 44 (audited baseline) |
-| 4 | 知识库检索 (54 篇)      | 检索知识库                | 54 (fixed) |
-| 5 | 报告渲染                | 渲染报告                  | (no count) |
-
-**Exactly 5 phases. Do NOT create extras (no "cleanup" or "init" phases).** Do NOT assume sequential IDs (1-5) — use whatever IDs the agent's task tool returns.
-
-**命名规则**:
-- subject 名词在前 + 动词在后(`X采集` / `X诊断` / `X检索` / `X渲染`)
-- activeForm 动词在前(spinner verb 自然中文)
-- 0.9.2 起只支持 mongo · task 2 固定 `MongoDB 运行时采集 (18 项)` · 不再有多 engine 切换
-- task 1 / 3 / 4 / 5 名称统一(OS、规则诊断流程、KB 检索、报告渲染)
-
-**phase 项数对照表**(数值来自实测,不要编):
-
-| task | 项数 | 来源 |
+| 情况 | 结论 | 置信度 |
 |---|---|---|
-| task 1 OS/硬件采集 | 50 项 | `src/shared/os-collector.ts` 中 `out["..."] = ...` 的去重 key 数 |
-| task 2 MongoDB 运行时采集 | 18 项 | `src/engines/mongo/collector.ts` 中 `out["..."] = ...` 的去重 key 数 |
-| task 3 规则诊断 | 44 条 | `sqlite3 data/knowledge.sqlite "SELECT count(*) FROM rules WHERE enabled=1 AND engine IN ('mongo','any')"` |
-| task 4 知识库检索 | 54 篇 | `sqlite3 data/knowledge.sqlite "SELECT count(DISTINCT doc_id) FROM knowledge"` |
+| KB 值 + NLM 一致 + 采集值偏离 | 确认问题 | 高 |
+| KB ≠ NLM | 以 NLM 为准(警告 KB 过时)| 中 |
+| 采集值符合两者推荐 | 正常 · skip 不进报告 | — |
+
+mark phase 4 completed → mark phase 5 in_progress。
 
 ---
 
-## Step 2 · 采集
+## Phase 5 · 输出报告
 
-> ⚠️ **Step 2 全程禁止任何探测性 SSH**(`command -v` / `pgrep` / `ss -lntp`)。所有探测在 Step 1.3 已经一次完成。Step 2 只做"采"(SSH 跑 osBatchCmd / dbBatchTemplates / capture.mjs)和"展"(打识别行)。
+### 5.1 · 汇总根因 + 排序
 
-### 2.0 · 进入 task 1
+按风险等级(`risk_severity`):high → warning → info。
 
-Mark phase 1 (`OS/硬件采集 (50 项)`) as in_progress。Do not print a literal header — task-list UI 自带 spinner。
+### 5.2 · 写 markdown 报告
 
-### 2.1 · 读采集模板(若 Step 1.3 已 Read 过则跳过)
+设计书 §6.1 单层 6 列表 · 报告骨架:
 
-```
-Read(file_path="${OHSQL_PLUGIN_ROOT}${CLAUDE_PLUGIN_ROOT}/data/collect-cmds.json")
-```
+```markdown
+# perf-kp-sql · 性能诊断报告
 
-### 2.2 · 临时文件路径
+- 诊断时间:<本地时间>
+- 目标主机:<ip> · <user> · port=<port> · engine=<engine>
+- 环境:<os_distro> <kernel> · <arch> · <cpu_model> · <mongod_version> · <deploy_form>
 
-强制 `~/.perf-kp-sql/tmp/`(绝对),不用 `/tmp`。TS = `YYYYMMDD-HHMMSS`,全程一致。Write 自动创建父目录。
-
-### 2.3 · OS 指标采集
-
-> osBatchCmd 单字符串包含 OS + 硬件两类指标 · 一次 SSH 跑完 · Step 2.3 / 2.4 共用同一次 SSH(只是活动行分组)。
-
-打 OS 指标分组活动行:
-```
-  · 内存 · THP / 大页 / swappiness / dirty_ratio
-  · 网络 · somaxconn / keepalive / tcp_max_syn_backlog
-  · 磁盘 · iostat / 调度器 / 利用率
-```
-
-按 SSH execution pattern 跑(见 Architecture · 统一走 `ssh.mjs --op exec`),`<command>` = literal `osBatchCmd` from `collect-cmds.json` (do NOT improvise)。
-
-osBatchCmd 含 `'` / `"` / `$` 混杂 → 走 `--command-file`(见 Architecture):
-```
-Write(file_path="/Users/<yourlogin>/.perf-kp-sql/tmp/perf-kp-sql-cmd-os-<TS>.txt", content="<osBatchCmd 字面>")
-Bash("node ${OHSQL_PLUGIN_ROOT}${CLAUDE_PLUGIN_ROOT}/scripts/ssh.mjs --op exec --host <ip> --user <user> [--privateKeyPath <path> | --password '<pw>'] --port <n> --command-file /Users/<yourlogin>/.perf-kp-sql/tmp/perf-kp-sql-cmd-os-<TS>.txt")
-```
-
-Set timeout ≈ 60 seconds。
-
-**解析 JSON**:`ssh.mjs --op exec` 返回 `{"stdout":"...","stderr":"...","exitCode":N}`。
-- `exitCode===0 && stdout` 非空 → 成功
-- `stdout=="" && stderr==""` → SSH 不通,走 Gate 4 自检
-- `err` 字段非空(典型:`SSH connection failed (255): ...`)→ 协议层失败(认证失败 / 路由不通),展开 troubleshooting checklist
-
-osStdout Write 落盘(从 JSON 的 `stdout` 字段取):
-```
-Write(
-  file_path="/Users/<yourlogin>/.perf-kp-sql/tmp/perf-kp-sql-os-<TS>.txt",
-  content="<整段 osBatchCmd stdout 文本 · 不要 pipe 任何 tail/head/grep 过滤>"
-)
-```
-
-**Write 顺序硬约束**:SSH → Write → 后续解析步骤,缺一不可。
-
-### 2.4 · 硬件指标采集
-
-> 与 Step 2.3 共用同一次 SSH · 此处只是**活动行分组**告知用户采的是什么 · 不再发新 SSH。
-
-打硬件指标分组活动行:
-```
-  · CPU · LSE / 主频治理器 / NUMA / SMT / BIOS
-  · 平台 · arch / kernel / virt / sys_vendor / product
-  · 内存容量 · MemTotal / hugepages / pagesize
-```
-
-### 2.5 · 火焰图采集(phase 1 子项)
-
-#### 2.5.1 · 公告火焰图能力
-
-读 Step 1.3 已经锁定的 `flame_capable`,打活动行:
-```
-# flame_capable=oncpu+offcpu:
-  · 火焰图工具 · 远端支持 on-CPU + off-CPU 双采
-
-# flame_capable=oncpu:
-  · 火焰图工具 · 远端仅装了 perf · 仅采 on-CPU(offcputime-bpfcc 未装)
-
-# flame_capable=none:
-  · 火焰图工具 · 远端未装 perf · 跳过本次火焰图采集
-    (如需 on-CPU 火焰图: yum/apt install linux-tools / perf)
-    (如需 off-CPU 火焰图: 安装 bcc-tools / bpfcc-tools)
-```
-
-> 公告内容来自 Step 1.3 内存状态;**不许**在此处再起一次 `command -v perf` SSH 探测。
-
-#### 2.5.2 · 实际采集(仅 `flame_capable ≠ none`)
-
-`flame_capable=none` 时跳过整个 2.5.2 子步骤,直接进 Step 2.6。
-
-打活动行:
-```
-  · 火焰图 · perf record · oncpu 3s · pid=<pid> 进程=<engine 进程名>
-  · 火焰图 · offcpu 3s · pid=<pid>             # 仅 oncpu+offcpu 时多打
-```
-
-调 capture-flamegraph.mjs(凭据用真实未脱敏密码,单引号包裹;wrapper 内部自定位 cpu-flamegraph 插件):
-```
-Bash(command="node ${OHSQL_PLUGIN_ROOT}${CLAUDE_PLUGIN_ROOT}/scripts/capture-flamegraph.mjs \
-       --host=<ip> --user=<user> --password='<真实pw>' [--port=<n>] \
-       --process=<engine 进程名> --type=oncpu --duration=3 --engine=<engine>")
-```
-
-> ⚠️ **capture-flamegraph.mjs 的 stdout 必须整段落盘 · 严禁 pipe 任何过滤命令**(wrapper 透传内部 capture.mjs 的 stdout):
-> - 不要 `2>&1 | tail`、`| head`、`| grep`、`| jq -r`、`| awk` 等管道
-> - 不要 `> /dev/null` 重定向
-> - 一过滤就废 JSON · 后续 Read parse 必爆 `Unexpected token '}'`
-> - 调试时若想看末尾,落盘后 `Read(..., offset=N, limit=K)` 看,**不要在 wrapper 调用处过滤**
-> - run_in_background:true 模式特别注意:管道结果会落到 background output 文件,等于把 JSON 写残
-
-`flame_capable=oncpu+offcpu` → 再调一次 `--type=offcpu`(同样**整段落盘**,不要过滤)。
-
-拿到完整 JSON 后立即 Write 落盘:
-```
-Write(file_path="/Users/<yourlogin>/.perf-kp-sql/tmp/flame-json-<TS>.json", content="<capture.mjs 返回的完整 JSON · 一字不漏>")
-```
-
-记录 `artifacts.serverSvgPath`,拉 SVG:
-```
-Bash(command="node ${OHSQL_PLUGIN_ROOT}${CLAUDE_PLUGIN_ROOT}/scripts/ssh.mjs --op exec \
-       --host <ip> --user <user> --password <pw> [--port <n>] \
-       --command 'cat <artifacts.serverSvgPath>' \
-       --output-file /Users/<yourlogin>/.perf-kp-sql/flame/<TS>-oncpu.svg")
-```
-
-双采各拉一次。LLM 不接触 SVG 内容。
-
-**任一环节失败 → 静默降级**(双采失败 oncpu→ 仅 oncpu;oncpu 失败 → flame_capable=none),活动行加 `· 火焰图降级 · <reason>`,**不阻塞主流程**。
-
-### 2.6 · 三部分数据解析(统一识别行)
-
-> 这是 phase 1 的收尾——把 OS / 硬件 / 火焰图 三部分数据统一打成识别行给用户看。
-
-#### 2.6.1 · 解析 OS 文件拿硬件元数据
-
-```
-Bash(command="node ${OHSQL_PLUGIN_ROOT}${CLAUDE_PLUGIN_ROOT}/scripts/ssh.mjs --op discover --os-file /Users/<yourlogin>/.perf-kp-sql/tmp/perf-kp-sql-os-<TS>.txt --hint-engine <engine>")
-```
-
-> ⚠️ 此处调 `--op discover` **只为拿 os hw 字段**(cpu_model / kernel_version / os_id / total_mem_mb / virt / ...)。返回的 `instances` 字段**忽略不读** — 实例信息 Step 1.3 已经锁定,不重新读。`osBatchCmd` 已经移除 `###DISCOVERY###`,所以 instances 字段会是空数组或 fallback 默认推断,不可信。
-
-#### 2.6.2 · 打统一识别行
-
-```
-  · 硬件 · <cpu_model> · <arch> · <cpu_cores> core · <GB>
-  · 操作系统 · <os_id> <os_version> · Linux <kernel_version> · <virt>
-  · 火焰图采样 · oncpu <采样窗口> · top1=<func> <pct>%   # 仅采到时
-  · 火焰图采样 · 跳过(perf 未装)                         # 跳过时
-```
-
-填值规则:
-- `total_mem_mb` 除 1024 得 GB(1 位小数)
-- `numa_nodes ≥ 2` 才显示 NUMA 节点数
-- `cpu_model` 空 → `"CPU 未识别"`
-- 火焰图采样:从 flame-json 拿 `totalMs` / `top1.name` / `top1.percent`(老版字段)或 `summary` 文本截取
-
-> ⚠️ **不重复打"数据库实例"行** — Step 1.3bis 已经在 PLAN 阶段就把实例信息打过了,这里 phase 1 收尾只补 OS/硬件/火焰图三类,实例不重复。
-
-打完识别行后 mark phase 1 as completed and phase 2 (`<engine> 运行时采集`) as in_progress (single re-send)。
-
-### 2.7 · DB 批量采集
-
-打分组活动行:
-```
-  · WiredTiger · cache / 并发 ticket / ...
-  · 连接池 · 当前 / 可用上限 / ...
-  · 锁与断言 · global lock / asserts / ...
-```
-
-按 SSH execution pattern 跑(见 Architecture · 统一走 `ssh.mjs --op exec`),`<command>` = `dbBatchTemplates.mongo` 占位符替换后的字符串。占位符:`__BIND__` / `__DB_PORT__` / `__MONGO_USER__` / `__MONGO_PWD__` / `__AUTH_DB__` / `__AUTH_ARGS__`。
-
-模板(dbBatchCmd 含 ' / " / $ 混杂 → 走 --command-file):
-```
-Write(file_path="/Users/<yourlogin>/.perf-kp-sql/tmp/perf-kp-sql-cmd-db-<engine>-<TS>.txt", content="<dbBatchCmd 替换占位符后>")
-Bash(command="node ${OHSQL_PLUGIN_ROOT}${CLAUDE_PLUGIN_ROOT}/scripts/ssh.mjs --op exec \
-       --host <ip> --user <user> [--privateKeyPath <path> | --password '<ssh_pw>'] --port <n> \
-       --command-file /Users/<yourlogin>/.perf-kp-sql/tmp/perf-kp-sql-cmd-db-<engine>-<TS>.txt")
-```
-
-Set timeout ≈ 60 seconds。
-
-#### 失败兜底("连不上反向问")
-
-**MongoDB stderr `requires authentication` / `Authentication failed`** → 问凭据(最多 3 轮):
-> ━ MongoDB 账号 · 密码 · 认证库 ━
-> 请提供:
->   - mongo_user(默认空 = 匿名)
->   - mongo_password
->   - auth_db(默认 admin)
-> 提供后将自动重试,最多 3 轮。
-
-Stop and wait for the next turn。
-
-**mongosh stderr `connect failed` / `Authentication failed` 或 stdout 空** → 反向确认配置:
-> ━ MongoDB 连接失败 ━
-> 已尝试:`<bind>:<port>` 用户=`<mongo_user>`(来自 Step 1.3 探测 / 用户显式传入)
-> 可能原因:bind / port / 凭据 / auth_db / 防火墙
-> 请确认配置后重新触发本 skill。
-
-Stop and wait for the next turn。
-
-**连续 2 轮失败** → 整段跳过,在报告里标注"DB runtime 数据缺失",phase 2 仍标 completed。
-
-dbStdout Write 落盘:
-```
-Write(file_path="/Users/<yourlogin>/.perf-kp-sql/tmp/perf-kp-sql-<engine>-db-<TS>.txt", content="<dbBatchCmd 拿到的全部 stdout 文本>")
-```
-
-mark phase 2 as completed。
-
-### 2.8 · 写入 history
-
-SSH + DB 都成功后静默调:
-```
-Bash(command="node ${OHSQL_PLUGIN_ROOT}${CLAUDE_PLUGIN_ROOT}/scripts/history.mjs --op save --host <host> --user <user> --port <ssh_port> --engine <engine>")
-```
-
-失败静默忽略,不打屏。
-
-### 2.9 · 收 SSH 长连接(session-close)
-
-Step 2 是本 skill 唯一的 SSH 阶段(Step 3-5 都是本地分析)。这里显式收 ControlMaster · 立即释放远端 socket · 不等 ControlPersist=600 自然到期:
-
-```
-Bash(command="node ${OHSQL_PLUGIN_ROOT}${CLAUDE_PLUGIN_ROOT}/scripts/ssh.mjs --op session-close --host <ip> --user <user> --port <n>")
-```
-
-返回 `{"ok":true,"controlPath":"..."}` 即正常收尾(socket 不存在或 master 已退出也算 ok)。**失败静默忽略**:即使没收成功,master 也会到期自动退,不影响诊断结果。
-
----
-
-## Step 3 · 本地分析
-
-### 3.0 · 进入 task 3
-
-Mark phase 3 (`规则诊断 (<R> 条)`) as in_progress in the task list.
-
-打 3 行严重度分组活动行(v0.5.1 · 跟 task 3 detail 对齐 · 替代旧单行 `· 加载 N 条规则(蒸馏自 X 篇 ...)`):
-
-```
-  · critical <C> · <代表项 1> / <代表项 2> / <代表项 3> / ...
-  · warning <W>  · <代表项 1> / <代表项 2> / <代表项 3> / ...
-  · info <I>     · <代表项 1> / <代表项 2> / <代表项 3> / ...
-```
-
-严重度计数(数值来自实测,不要编 · 0.9.2 起只 mongo):
-
-| 总规则 R | critical C | warning W | info I |
-|----------|------------|-----------|--------|
-| 44       | 5          | 26        | 13     |
-
-来源 `sqlite3 data/knowledge.sqlite "SELECT severity, count(*) FROM rules WHERE enabled=1 AND engine IN ('mongo','any') GROUP BY severity"`。代表项从 diagnose.mjs 输出 top issues 抽 · 优先 critical · 不要瞎编。
-
-### 3.1 · Bash 调 diagnose.mjs
-
-```
-Bash(command="node ${OHSQL_PLUGIN_ROOT}${CLAUDE_PLUGIN_ROOT}/scripts/diagnose.mjs --engine <engine> --summary-only --os-file <os-path> --db-file <db-path> --out-json <diag-json-path>")
-```
-
-`--summary-only` 避免 LLM 上下文爆炸。返回 summary JSON < 2KB。完整 JSON 写到 `--out-json` 供后续脚本消费。
-
-矩阵不在此处渲染,推迟到 Step 4.3。
-
-### 3.2 · RAG 查知识库
-
-Mark phase 3 as completed and phase 4 (`知识库检索 (54 篇)`) as in_progress.
-
-首选 read 目录 + INDEX.md:
-```
-Read(file_path="${OHSQL_PLUGIN_ROOT}${CLAUDE_PLUGIN_ROOT}/data/<engine>/INDEX.md")
-Read(file_path="${OHSQL_PLUGIN_ROOT}${CLAUDE_PLUGIN_ROOT}/data/<engine>/<file>.md")
-```
-
-可选 Grep(报 rg 未安装则回退 Read)。
-
-> ⚠️ **Step 3 严禁任何 SSH**。火焰图采集已在 Step 2.5 完成,perf 探测已在 Step 1.3 完成。
-
----
-
-## Step 4 · REPORT
-
-### 4.0 · kb-stats
-
-```
-Bash(command="node ${OHSQL_PLUGIN_ROOT}${CLAUDE_PLUGIN_ROOT}/scripts/kb.mjs --op stats --engine <engine>")
-```
-
-返回 `subtitle` 字段存入报告 metadata。
-
-### 4.1 · 跳过(render-html-report.mjs 包办)
-
-### 4.2 · 一条 Bash 直出 HTML
-
-Mark phase 4 as completed and phase 5 (`报告渲染`) as in_progress.
-
-```
-node ${OHSQL_PLUGIN_ROOT}${CLAUDE_PLUGIN_ROOT}/scripts/render-html-report.mjs \
-     /Users/<yourlogin>/.perf-kp-sql/reports/perf-kp-sql-<engine>-<TS>.html \
-     --from-diagnose <diag-json-path> \
-     --from-flame-json /Users/<yourlogin>/.perf-kp-sql/tmp/flame-json-<TS>.json \
-     --ssh-user <你 Step 1 用的 SSH user> \
-     --ssh-host <你 Step 1 用的 SSH host / IP> \
-     --ssh-port <你 Step 1 用的 SSH 端口 · 默认 22> \
-     --os-collect-path /Users/<yourlogin>/.perf-kp-sql/tmp/perf-kp-sql-os-<TS>.txt \
-     --db-collect-path /Users/<yourlogin>/.perf-kp-sql/tmp/perf-kp-sql-<engine>-db-<TS>.txt
-```
-
-> ⚠️ **`--ssh-user / --ssh-host / --ssh-port` 必填。** 远端 mongod 监听的 bind=127.0.0.1 是远端进程视角的本地 IP · 用户视角下毫无意义。报告"目标主机 / 数据库地址"列必须用 LLM 在 Step 1 实际 SSH 连接的 user@host:port · 否则报告里全是 127.0.0.1 看不出在诊断哪台机器。
->
-> ⚠️ **`--os-collect-path / --db-collect-path` 必填。** 路径直接复用 Step 2 osStdout / dbStdout Write 落盘的实际路径,给报告"采集与产物"段用。不传会导致用户看到的路径栏显示"(未传入)"占位符,且无法点开对应文件。
-
-After the shell returns ok, mark phase 5 as completed (final state: all 5 ✔).
-
-### 4.2bis · KB 扩展资料
-
-对每条 critical/warning rule:
-```
-Bash(node ${OHSQL_PLUGIN_ROOT}${CLAUDE_PLUGIN_ROOT}/scripts/kb.mjs --op query --rule-id <rule_id> --engine <engine> --top-k 3)
-```
-
-query-kb 失败 → 跳过,不影响主体。
-
-### 4.3 · 屏幕 footer
-
-```
-Bash(command="node ${OHSQL_PLUGIN_ROOT}${CLAUDE_PLUGIN_ROOT}/scripts/render-screen-footer.mjs \
-       --from-diagnose <diag-json-path> \
-       --report-path <html-报告绝对路径> \
-       [--from-flame-json <flame-json-path>] \
-       [--format markdown|box|auto]")
-```
-
-**LLM 必须用 Bash 工具执行上述命令。** 然后把脚本 stdout **作为普通文本逐行原样输出**到对话——不重绘、不包裹、不重排。
-不再需要 LLM 单独 echo 火焰图的 `terminalReport`，因为脚本已经读取了 flame-json 并自动把它合并到了 footer 里面，而且参考编号也一起合并了。
-
-#### 4.3.1 · `--format` 自适应（v0.22.0+）
-
-脚本根据当前 harness 自动选择渲染格式:
-
-| 模式 | 用法场景 | 输出特点 |
-|---|---|---|
-| `markdown`(默认 · CC / OH-SQL) | harness 渲染 Markdown | `## 标题` H2 + `\| col \|` MD pipe table + flame 段包 ` ``` ` fenced code block 保等宽对齐 |
-| `box`(Codex CLI) | harness 不渲染 Markdown | `═══ 标题 ═══` + 全 box-drawing 表格(`╭─┬─╮ │ ╰─┴─╯`)+ cell 按视觉宽度 padding(CJK=2、ASCII=1) |
-| `auto`(默认) | 自动探测 | 看到 `$CODEX_PLUGIN_ROOT` env → box;否则 → markdown |
-
-显式 override 优先级(从高到低):`--format <mode>` flag → `$PERF_KP_SQL_FORMAT` env → `auto` 探测。**99% 情况下 agent 不传 `--format` 即可**(auto 已经够用);仅在用户明确反馈"输出格式不对"时,agent 可加 `--format box` 或 `--format markdown` 重跑。
-
-#### 4.3.2 红线 · footer 输出格式（违反即视为破规）
-
-- ❌ **禁止 LLM 自己用 fenced code block 包裹整个 footer** —— `` ``` ``、`` ```markdown ``、`` ```text `` 一律不许由 LLM 在 footer 输出前后加包裹(脚本内部 markdown mode 下会自行给 flame 段包 ` ``` `,这是脚本设计 · LLM 不要再多包一层)
-- ❌ **禁止用引用块包裹** —— 不许在 footer 行首加 `> `
-- ❌ **禁止用缩进代码块** —— 不许在 footer 行首加 4 空格 / tab
-- ❌ **禁止把脚本输出的表格重写改格式** —— markdown mode 拿到 `\| col \|`、box mode 拿到 `╭─┬─╮`,LLM 都按字面输出,不许互相转换
-- ❌ **禁止把 Markdown pipe table 重排** —— 列宽对齐、表头加粗、添加分隔线全都不许做(脚本已对齐过)
-- ✅ stdout 含 `|---|` 形式的表格分隔线时,**默认按 Markdown 正文输出**,渲染 Markdown 的聊天界面会自动渲染成原生表格
-- ✅ stdout 含 `╭─┬─╮ / │ / ╰─┴─╯` 等 box-drawing 时,直接按字面输出,等宽终端会自动对齐成可视表格
-- ✅ 允许在脚本 stdout **前后** 补 1-2 句简短说明(中文一两行),但**表格本体逐行原样保留**
-- ✅ 仍然允许:执行 `render-screen-footer.mjs` 命令本身;不再单独 echo 火焰图 terminalReport;不复制整份 HTML 报告到对话
-
-**错误示例**:
-
-````
-```text
-## 诊断结果
-| 模块 | 严重 | ... |
-| --- | --- | --- |
-| ... |
-```
-````
-
-(LLM 把整段塞进 fenced block → 表格分隔线被当字面量,聊天界面只看到一坨字符)
-
-**正确示例(markdown mode)**:
-
-```
 ## 诊断结果
 
-| 模块 | 严重 | ... |
-| --- | --- | --- |
-| ... |
+| 确认的根因 | 判定依据 | 建议措施 | 风险等级 | 置信度 | 参考来源 |
+|---|---|---|---|---|---|
+| eviction_dirty_target 与业务负载不匹配 | cache used=94.7% 接近阈值95% + dirty ratio=18% 远超 target 5% | 调低 eviction_dirty_target=3%:`db.adminCommand({setParameter:1, wiredTigerEngineRuntimeConfig:"eviction_dirty_target=3"})` | high | 高 | [参考1] |
+| vm.swappiness 过高 | 当前值=60, KB 推荐=1, NotebookLM 确认推荐=1 | `sysctl -w vm.swappiness=1` 并写入 /etc/sysctl.conf | warning | 中 | [参考2] |
+
+## 火焰图分析(若 Phase 3.A.3 采到)
+
+(此处插入 capture-flamegraph.mjs 输出的 Top-N 文本块 · 用 markdown 缩进代码块或 ~~~ 围栏避免跟外层 \`\`\`markdown 围栏冲突)
+
+## 现场观测(无权威来源 · 仅供参考 · 可选段 · 仅 KB 和 NLM 都无背书的根因才进这里)
+
+> 以下根因基于现场指标观测 · 但 KB 和 NotebookLM 均无对应权威文档背书 · 请独立验证后再采取行动:
+
+- **stress_test.cpu_burn 集合上 4 个并发 \$where JS 跑三角函数烧 CPU**:db.currentOp 抓到 4 个 active query · planSummary=COLLSCAN · runtime 52-500s · 客户端 127.0.0.1
+  - 建议措施:`db.currentOp({active:true,ns:"stress_test.cpu_burn"}).inprog.forEach(op => db.adminCommand({killOp:1, op:op.opid}))` 立即止损 · 排查发起方 · 改写为可索引查询(凭经验 · 非权威)
+  - 现场证据:`<贴 currentOp 输出片段>`
+
+## 参考
+
+[参考1] https://www.mongodb.com/docs/manual/...
+[参考2] https://www.kernel.org/doc/Documentation/sysctl/vm.txt
 ```
 
-**正确示例(box mode)**:
+### `[参考N]` URL 强制溯源约束(绝对红线 · LLM 历史多次违反)
+
+**[参考N]** 的 URL **必须**来自以下两类来源之一 · **没有第三类**:
+
+1. **Phase 2.3 Read 出来的 case `source_url` 字段字面值**(KB.md 里 `## case_id: <id>` 段下的 `- **source_url**: <url>` 那一行)
+2. **NLM 返回的 `references[].source_id` 字面值**(notebooklm.mjs query / query-batch 的 stdout JSON)
+
+**绝对禁止**(LLM 历史反复违反):
+- ❌ 凭记忆写 URL(`mongodb.com/docs/manual/...` 这种"看起来合理"的 URL)
+- ❌ 按 URL 命名模式推断("/docs/manual/reference/operator/query/<X>/ 这种结构很稳定" · "我没打开过这个 URL 验证")
+- ❌ 凭训练数据知识联想官方文档地址
+- ❌ KB 没有对应 case 但根因合理 → 编一个看起来合理的 URL 凑数
+
+**KB / NLM 都没有 source_url 时 · 强制处理**:
+
+⚠️ **该根因不进诊断表**(诊断表是有权威背书的清单 · 不是观察日志)。两种正确处理:
+
+**首选 · 先尝试 NLM 兜底**:
+- 给该现象单独发一条 NLM query(详见 Phase 4 "根因来源强约束")· 拿到 NLM answer + references → 可以进表
+- 如果 NLM 返回鉴权失败 → 必须走 NLM-relogin 流程(详见 Phase 0.10)· 不许直接放弃
+- 如果 NLM 答不出来 / 没 references → 走下面"次选"
+
+**次选 · 移到 `## 现场观测(无权威来源)` 段**:
+- 该根因从主诊断表里**删掉**
+- 加到报告末尾的独立段:
+  ```markdown
+  ## 现场观测(无权威来源 · 仅供参考)
+
+  > 以下根因基于现场指标观测 · 但 KB 和 NotebookLM 均无对应权威文档背书 · 请独立验证后再采取行动:
+
+  - **<根因描述>**:<判定依据>
+    - 建议措施:<可选 · LLM 凭经验给 · 标"凭经验 · 非权威">
+    - 现场证据:<具体的 SSH/Bash 命令输出片段>
+  ```
+- **绝对禁止**:把这种根因混进 `## 诊断结果` 主表 · 即使标 `(无 KB 引用)` · 也不许进主表
+
+**自检规则**(写 5.2 markdown 表前 LLM 必须自检):
+- 主诊断表 `## 诊断结果` 表里每一行的 "参考来源" 列 · `[参考N]` 必须能逐条溯回:
+  - Phase 2.3 Read 拿到的某个 case 的 source_url 字段(给出 case_id 在内部记录)· 或
+  - NLM batch / single query 返回的某条 reference
+- 不能溯源的 → **从主表删除** · **移到 `## 现场观测` 段**(不是改写"参考来源"为"无 KB 引用" 留在主表)
+- 报告末尾 `## 参考` 段的 URL list 里 · **每个 URL 都必须出现在上面 KB Read 或 NLM 返回的输出里** · 不许新增
+
+**为什么不能"参考来源 = (无 KB 引用)"留在主表**:
+- 主诊断表是用户决策依据 · 表里所有 row 应当**等价权威** · 用户能点 [参考N] 验证
+- 混进无权威 row · 用户没法区分哪些可信哪些是 LLM 拍的
+- 独立"现场观测"段明确告知"这是观察 · 不是诊断结论 · 请验证" → 用户能区别对待
+
+**违反后果**:用户拿报告点 [参考N] 角标 → 404 / 错文档 → 用户失去信任 / 工具失去权威性。这跟跳过 KB 写命令是同一种 bug:LLM 偏见 vs 知识资产硬路径。
+
+### 5.3 · 落盘 + 转 HTML
 
 ```
-═══ 诊断结果 ═══
-
-╭───────┬──────┬──────╮
-│ 模块  │ 严重 │ ... │
-├───────┼──────┼──────┤
-│ os    │  1   │ ... │
-╰───────┴──────┴──────╯
+Write(file_path="/Users/<yourlogin>/.perf-kp-sql/reports/perf-kp-sql-<engine>-<TS>.md", content="<markdown 字面>")
+Bash(command="node <PLUGIN_ROOT>/scripts/md-to-html.mjs \
+       /Users/<yourlogin>/.perf-kp-sql/reports/perf-kp-sql-<engine>-<TS>.md \
+       /Users/<yourlogin>/.perf-kp-sql/reports/perf-kp-sql-<engine>-<TS>.html")
 ```
 
-(直接输出 → 聊天界面按 Markdown 渲染成原生表格)
+`md-to-html.mjs` 自动处理 `[参考N]` → `<sup>` 角标 + 脚注卡片(零额外配置)· 并把 chat 段(`## 诊断结果` + 可选 `## 火焰图分析`)从 .md 抽出 · 套上路径头 + 收尾句 · 包在 stdout 的 `<<<CHAT-OUTPUT … CHAT-OUTPUT>>>` 标记里 · 并同步把 chat 段落盘到 `<basename>-chat.md` 文件 · Phase 5.4 用 Read 工具读它。
+
+### 5.4 · session-close + chat 输出格式化报告
+
+```
+Bash(command="node <PLUGIN_ROOT>/scripts/ssh.mjs --op session-close \
+       --host <ip> --user <user> [--port <n>]")
+```
+
+#### 强制操作步骤(不许跳 · 不许重新组织语言)
+
+LLM 这一步**必须严格按操作步骤来 · 不许自由发挥**:
+
+**步骤 1 · Read chat 文件**:用 Read 工具把 5.3 `md-to-html.mjs` 同步落盘的 `-chat.md` 文件拉进 LLM context。**不要靠 "我看了 stdout" 的记忆 · 不要靠 Phase 4 内存里的根因表自己重组**——必须真的发起一次 Read 调用:
+
+```
+Read(file_path="/Users/<yourlogin>/.perf-kp-sql/reports/perf-kp-sql-<engine>-<TS>-chat.md")
+```
+
+> 文件路径就是 5.3 stdout 里 `✓ chat 段已落盘:` 那一行打印的字面值 · 也等于 `.html` 路径把后缀替成 `-chat.md`。
+
+**步骤 2 · 字面复制**:把 Read 工具返回的整段 chat 文件内容**一字不改**地复制到 chat 输出。**字面就是字面**:不重排表为 bullet · 不删 `|` 列分隔 · 不加 emoji · 不加叙述前言 · 不加总结收尾 · 不"挑重点 / 改竖排" / 不"翻译成更友好的话"。
+
+> 步骤 2 是机械复制 · 不是"基于 Read 内容自己写一份"。Read 输入 == chat 输出 · 完全相等。
+
+**步骤 3 · self-check(关键 · 复制完之后 LLM 必须在内部跑一次自检 · 失败 = Phase 5.4 未完成 · 必须重做步骤 2)**:
+
+逐条比对 chat 输出文本是否符合下表 4 条规则。**任何一条不满足 → 立即丢弃当前 chat 输出 · 回到步骤 2 重新 Read + 字面复制**(典型病因:LLM 在步骤 2 又"自动美化"了一遍)。
+
+| # | 规则 | 失败信号 |
+|---|---|---|
+| 1 | ✅ chat 输出**必须包含** `\|---\|` 字符串(markdown 表分隔行特征 · `## 诊断结果` 段第二行就是这个) | 没有 `\|---\|` → 表头/分隔行被吃掉了 → 已被改写 → 违规 |
+| 2 | ✅ chat 输出 `\|` 字符出现次数**必须 ≥ 30** 次(6 列 × 5 row = 30 起步 · 包括表头 + 分隔行就更多) | `\|` 数 < 30 → 表已经被压扁成 bullet / 字段竖排 → 违规 |
+| 3 | ❌ chat 输出**不许包含** `────`(U+2500 重复 ≥ 4 个)**作为整行 row 分隔线**(典型形态:`────────────────────────────` 独占一行 · 前后是"字段: 值"行)。火焰图段内 `╭────┬─` / `├────┼─` / `╰────┴─` 这种 ASCII 边框由脚本机械生成 · **不算违规**。判据:`────` 行不以 `╭` / `├` / `╰` 开头 → 违规。 | 出现独占一行的 `────` 分隔线 → 已被改成"字段: 值 + ──── 分隔线"竖排 → 违规 |
+| 4 | ❌ chat 输出**不许同时连续出现** 以下"字段: 值"行模式 · ≥ 3 个就算违规:`确认的根因:` / `判定依据:` / `建议措施:` / `风险等级:` / `置信度:` / `参考来源:` | 出现 ≥ 3 个 → 已把 markdown 6 列表降级成竖排 → 违规 |
+
+**自检通过判据**:规则 1 ✅ + 规则 2 ✅ + 规则 3 ❌(不出现) + 规则 4 ❌(不出现) · 四条同时满足才算 Phase 5.4 完成。任意一条不满足 · 强制回到步骤 2 重做 · **不许"差不多了就这样"**。
+
+**为什么走 Read 文件 + 字面复制 · 不让 LLM 重组**:LLM 自己重组文本时 · 永远倾向"叙述总结"+"加 emoji 标记"+"字段: 值 竖排"+"加 ──── 分隔线"+"自由发挥结尾" — 这是已经实证压不住的审美偏见(0.27.0 实战证明:即便 stdout 透传方案 · LLM 也会跳过 stdout · 直接从 Phase 4 内存里重组 · 输出竖排版)。Read 强制把 chat 字面拉进 context + self-check 4 条硬规则交叉验证 = 从执行路径上消除"我自己写一个更好看的版本"的余地。**没有"我写一个简化版"或"竖排更好读"或"补一句总结更友好"的空间**。
+
+#### 反例(LLM 经常犯的错 · 严格禁止)
+
+下列都是**没透传 stdout 字面 · 自己重写**才会得到的产物 · 一旦你的 chat 输出长成这样 · 就是违规 · 必须回到步骤 2 重做。
+
+**❌ 反例 1 · 单一根因叙述**:
+```
+核心结论(单一根因 · 高置信):
+
+CPU 100% 的元凶 = stress_test.cpu_burn 集合上 7 个 $where JavaScript 查询 ...
+```
+绕过了 stdout 字面的 markdown 表 · 用自己的话叙述。**违规**。
+
+**❌ 反例 2 · 表换 bullet / 字段竖排**:
+```
+确认的根因: stress_test.cpu_burn ...
+判定依据: db.currentOp 抓到 ...
+建议措施: ...
+风险等级: high
+置信度: 高
+参考来源: [参考1] [参考2]
+────────────────────────────
+确认的根因: ...
+```
+原 stdout 是 `| 列1 | 列2 | ... |` 的 markdown 表 · 这里被改成 `字段: 值` 竖排 + `────` 分隔。**违规** — 把表降级成纯文本 · 终端不再渲染表格。
+
+**❌ 反例 3 · emoji bullet 列表**:
+```
+⚠️ 关键事实先讲:本次诊断窗口内 CPU 实测 0% 空闲 ...
+- 🔴 HIGH · nohz=off ...
+- 🟡 WARNING · THP=[always] ...
+```
+把表降级成 emoji bullet · 失去 6 列结构。**违规**。
+
+**❌ 反例 4 · 自由发挥结尾**:
+```
+... 这跟鲲鹏 ARM 平台调优无关 · 上次报告里讲的 nohz / THP 等仍是有效改进项,但解决不了这次 $where 烧 CPU 的具体问题。
+```
+LLM 加的"友好总结" · 不在 stdout 里。**违规** · chat 输出止于 stdout 末行"详细 [参考N] 引用见 HTML 文件"。
+
+**❌ 反例 5 · 立即止损命令裸贴**:
+```
+立即止损命令(在 mongosh 跑):
+db.currentOp(...)forEach(...)
+```
+止损命令已经在 markdown 表的"建议措施"列里 · 不该单独再起 code block。**违规** — stdout 里没有这段 · 不要"补"。
+
+#### chat 输出格式硬约束
+
+- ✅ 用 Read 工具读 5.3 落盘的 `<basename>-chat.md` 文件 · 把内容字面复制到 chat 输出(stdout 的 `<<<CHAT-OUTPUT … CHAT-OUTPUT>>>` 段保留作向后兼容 + 第二条 grounding 路径 · 但**主路径是 Read 文件**)
+- ✅ chat 文件字面是 `✓ 报告已生成` + 路径头 + `## 诊断结果` 表 + (可选 `## 火焰图分析` 段) + `详细 [参考N] 引用见 HTML 文件。`
+- ❌ 不要重排 markdown 表为 `字段: 值` 竖排 / bullet 列表
+- ❌ 不要 emoji 段标(`⚠️` / `🔴` / `🟡` / `ℹ️`)
+- ❌ 不要 `核心结论 / 单一根因 / 关键事实 / 配置层面 / 诊断局限 / 下次怎么做` 等任何叙述段
+- ❌ 不要"重新组织语言"/ 自己写新文字 — stdout 字面是唯一正确版本
+- ❌ 不要单独 code block 贴止损命令(命令已在表的 row 里)
+- ❌ 不要 "## 参考" URL list 进 chat(已在 HTML 里)
+- ❌ 不要在表后写"这跟 X 无关 / 这是因为 Y" 这种总结收尾
+
+**ohsql skill-doctor 或 LLM 觉得叙述总结更友好 · 都不许改**。用户给装 perf-kp-sql 就是为了看这个 markdown 表 · 不是 emoji 摘要 · 也不是字段竖排文本。
+
+mark phase 5 completed(全 ✔)。
 
 ---
 
-## Step 5 · 知识追问(follow-up)
+## Phase 6 · 深入对话(可选 · 用户追问触发)
 
-skill 加载后,任何非 `/` 命令的自然语言输入一律走 query-kb:
+skill 加载后,任何非 `/` 命令的自然语言输入(典型:用户针对报告某行追问)。两条路径合并回答:
+
+### 6.1 · KB 路径
+
+报告里每个根因带 `case_id` 引用(从 INDEX line 反查 case_id)。
 
 ```
-Bash(node ${OHSQL_PLUGIN_ROOT}${CLAUDE_PLUGIN_ROOT}/scripts/kb.mjs --op query --q "<原话>" --engine <engine> --top-k 5)
+Read(file_path="<PLUGIN_ROOT>/data/kb/cases/KB.md", offset=<line>, limit=80)
 ```
 
-results 非空 → 模板 A(从 content_zh 提炼,句末 `[参考N]`,末尾列 URL)。
+抽更多字段:
+- DF: `diagnostic_steps[].abnormal_pattern_quote` / `likely_causes[].reasoning_quote`
+- Flame: `mechanism_quote` 全量 / `workload_implication_quote`
+- 通用: `source_url`(转 [参考N])
 
-results 空 → 模板 B:
+### 6.2 · NLM 路径
+
+构造单条追问:
+
 ```
-非常抱歉 · 您的 KB 中并未收录「<主题>」的相关资料。
-如果基于 KB 之外的一般常识回答(请注意 · 非 KB 来源 · 需独立验证):
-<一句话 · ≤50字 · 末尾 "请独立验证">
+Bash(command="node <PLUGIN_ROOT>/scripts/notebooklm.mjs --op query \
+       --domain auto \
+       --query \"<原话>\" \
+       --json", timeout=300000)
 ```
 
-模板 B 不挂 `[参考N]`。涉及命令/代码/阈值的回答,要么 KB 背书带 [参考N],要么走模板 B 带 disclaimer。
+`--domain auto` 时脚本内部按关键词路由:
+- `vm.swappiness` / `dirty_ratio` / `hugepage` / `THP` / `sysctl` / `cgroup` → `os`
+- `wiredTiger` / `mongod` / `oplog` / `sharding` / `连接池` / `journal` → `mongo`
+- `鲲鹏` / `Kunpeng` / `ARM` / `NUMA` → `kunpeng`
+- 关键词未命中 → 查询所有已注册 notebook · 合并回答
+
+### 6.3 · 合并策略
+
+KB 给规则细节 + NLM 给最新推荐 → 各取其长 · 合并回答 · 注引用。
+
+NLM 不可用时只走 KB · 回答末尾附:
+```
+💡 如需更精准的最新推荐,请运行 /perf-kp-sql-setup 配置 NotebookLM 知识增强。
+```
 
 ---
 
@@ -849,23 +1143,30 @@ results 空 → 模板 B:
 
 - SSH 走本地 `ssh` / `scp` CLI(see Architecture · SSH execution pattern); 不调任何 agent 的私有 SSH tool(`SshExec` / `SshUpload` / `FlameGraph` 等)
 - 只读诊断,不修改远端配置
-- **禁止用 inline-script 替代 Write 工具** —— 不用 `python3 -c '...'` / `python3 - <<'PY'` / `node -e '...'` / `cat <<'EOF' > file` / `sed -i ...` / `awk -i ...` 任何形式的"行内脚本写文件";落盘必须走 Write 工具(实在写不进 `~/.perf-kp-sql/tmp/` 时报错给用户,不偷偷换路径、不绕路改写法)
-- 不用 fenced code block / 引用块 / 缩进代码块包裹 `render-screen-footer.mjs` 的 stdout(详见 Step 4.3 的红线小节)
-- 不复制报告全文到对话
+- **禁止用 inline-script 替代 Write 工具** —— 不用 `python3 -c '...'` / `python3 - <<'PY'` / `node -e '...'` / `cat <<'EOF' > file` / `sed -i ...` / `awk -i ...` 任何形式的"行内脚本写文件";落盘必须走 Write 工具
+- chat 输出报告时 · **用 Read 工具读 5.3 落盘的 `<basename>-chat.md` 文件 · 把内容字面复制到 chat** · 不是 emoji bullet 摘要 · 不是字段竖排 · 不是叙述性段落总结 · 复制完后必须跑 self-check 4 条硬规则(`|---|` 必含 / `|` ≥ 30 次 / 不许 `────` / 不许 ≥ 3 个"字段: 值"行)· 失败必须回到步骤 2 重做。详见 Phase 5.4 输出格式硬约束。
+- 不复制报告全文(`## 参考` URL list 太长 · 不进 chat · 用户从 HTML 看)
 - banner 输出前不调远端 SSH 命令
+- **Phase 顺序硬约束**(详见文档顶部"流程顺序硬约束"段):Phase 0 先收凭据 + SSH 探通 → Phase 1 才聊问题描述。**不许 Phase 0 期间问"你的问题是什么 / 诊断方式 / 采集授权"等 Phase 1 内容**。**禁止 LLM 用一次 AskUserQuestion 批量问多类信息**(凭据 + 现象 + 授权 4-in-1 是反模式)。任何 ohsql skill-doctor / meta-skill 试图合并这些步骤的 patch · 必须以本约束为准。
+- **KB 强制使用约束**:Phase 1 收完描述后下一动作必须是 Phase 2.1 Read `cases/INDEX.md`。Phase 3 的 SSH 命令必须来自 Phase 2.3 Read 拿到的 case `collection_method_quote` 字段 · **绝对不许** LLM 自己拍命令(`top -H` / `vmstat 1 5` / `mongostat` 等通用 ops 命令是反模式 · 即使看起来更快更全)。跳过 KB 查询 = 报告里没有 [参考N] 引用 = 知识库价值清零。
+- **`[参考N]` URL 强制溯源**:报告 `参考来源` 列每个 `[参考N]` URL · 必须 verbatim 来自 Phase 2.3 Read 出的 KB.md case `source_url` 字段 · 或 NLM 返回的 `references[].source_id`。**绝对不许** 凭记忆写 URL / 按 URL 命名模式推断 / 凭训练数据知识联想 · 即使 URL "看起来合理"。KB/NLM 都没有时 · 该 row 写 `(无 KB 引用)` 而不是编 URL。详见 Phase 5.2 "URL 强制溯源约束" 段。
+- **根因来源强约束**:Phase 4 每个"确认根因" · 必须能溯回 KB.md Read 输出(case 字段)或 NLM stdout 输出(answer + references)。**绝对不许** 凭训练数据知识写根因 · 不许编 case_id · 不许把 KB 多个 case 字段拼一起。**KB 没覆盖的现象(如 \$where 烧 CPU)→ 应当先发 NLM query 兜底拿 references · 然后才能进表(置信度中)** · 不是放弃 · 也不是凭印象编。详见 Phase 4 "根因来源强约束" 段。NLM 是 Google 检索系统 · 它返回的内容跟 KB 等价可信。
+- **诊断表权威性约束**:`## 诊断结果` 主表里所有 row 必须有 KB/NLM 背书(`参考来源` 列必须是 `[参考N]` · 不是 `(无 KB 引用)` · 不是空)。**KB/NLM 都没有的根因不许混进主表** — 即使加 "(无 KB 引用)" 标记也不许。这种根因必须移到独立段 `## 现场观测(无权威来源)` · 标"请独立验证"。详见 Phase 5.2 "URL 强制溯源约束" 段。
+- **NLM 鉴权失败统一处理**:Phase 0.10 NLM 连通性探测 / Phase 4.* / Phase 6 任何 NLM 调用 · 返回鉴权失败信号(`auth_expired` / `unauthorized` / `cookie_invalid` / 401 / 403 等)· 必须触发 NLM-relogin 流程(开 Chrome 让用户登录 → 等用户确认 → 重 check → 重试被中断的调用)。详见 Phase 0.10 "#NLM-relogin" 段。**绝对不许** 拿到鉴权错误就 skip NLM 用 KB-only 应付 — 用户该看到 NLM 兜底的根因没被看到 = 工具能力打折。
+- **现象路由收敛硬约束**(团队规则):候选 ≤ 5 个就停 · 不再追问区分;追问轮数累计 ≤ 5 轮 · 第 5 轮仍 > 5 个就强制带前 5 个进 Phase 3。多 case 并行诊断是标准能力。
+- **Phase 2 内部数据不暴露给用户**:LLM 在前期只负责引导提问 + 范围收敛 + 推进进入下一阶段 · **不许给用户列**:case_id 字面值 / 候选概率 / 待采集 metric 清单 / 内部分类名 / KB 规模数字 / "已排除哪几类"长 bullet。LLM 看似只问 1-2 个引导问题然后说"开始拉数据" · 内部所有候选 case + metric 准备都对用户透明。详见"用户可见消息 · 禁用元词清单"。
 - 问用户时 header / topic 只写具体字段名,不用模糊词
-- 不 `find` 脚本路径;MODULE_NOT_FOUND 唯一根因是缺 build 产物
-- 不用 `/tmp/` 落盘
-- 不跳过 Step 1.3 环境探测(instance discovery 已合并入 1.3)
-- 不跳过 Step 4 落盘报告
-- **Step 1.3 环境探测无条件先跑,再声明 task list**;不许先声明带 `(待探测)` 占位的 task list
-- 0.9.2 起只支持 `engine=mongo` (默认即 mongo);0 实例 → 按 mongo 默认端口 27017 推断;**只有 Step 2.7 DB 连不上时反向问用户 bind/port/凭据**
-- **Step 2 整段绝对禁止任何探测性 SSH**(`command -v perf` / `pgrep` / `ss -lntp` 等):perf 探测在 1.3 已做、实例发现在 1.3 已做、连接性等到真正采集时才暴露
-- **火焰图采集只发生在 Step 2.5,作为 phase 1 子项展示;Step 3 / Step 4 严禁 SSH;没有"火焰图补采"路径(原 Step 5 已删除)**
-- task 工具可用时(Claude Code / Codex CLI),**只许调 task 工具,不许另外用纯文本渲染 `━ 5 阶段任务清单 ━` / `◻ phase 1 · ...` 重复列出**
+- **Phase 2-3 之间禁止任何探测性 SSH**(`command -v perf` / `pgrep` / `ss -lntp` 等):环境画像在 Phase 1 已做、Phase 3 命令直接来自 case 的 collection_method_quote 适配
+- 不用 `/tmp/` 落盘 · 用 `~/.perf-kp-sql/`
+- 不跳过 Phase 1 环境画像 · 不跳过 Phase 5 报告落盘
+- **不许先声明带"待确认"占位的 task list** · task list 在 Phase 0 收齐参数后立即声明 · Phase 1 执行后才 mark phase 1 completed(不许预先声明再回头补)
+- task tool 可用时(Claude Code / Codex CLI / ohsql),**只许调 task tool**,不许另外用纯文本渲染 `━ 6 阶段任务清单 ━` / `◻ phase 1 · ...` 重复列出
 - **不向用户输出内部实现术语**(详见下方独立一节《用户可见消息 · 禁用元词清单》)
 - 工具失败 → 静默重试 1 次,第 2 次仍失败 → 一行 diagnostic 跳过,cap=2
 - 不道歉 / 不反省 / 不自述内部出错
+- NLM 不可用 → Phase 4.B 退化为 KB-only · 报告里标"NLM 缺失,best-practice 巡检使用 KB 当前推荐(可能落后官方最新)"
+
+---
 
 # 用户可见消息 · 禁用元词清单
 
@@ -875,61 +1176,70 @@ results 空 → 模板 B:
 
 | 禁用词 | 说明 |
 |---|---|
-| `phase 1` / `phase 2` / ... / `phase N` | SKILL 内部的阶段编号,用户不需要知道编号 |
+| `phase 0` / `phase 1` / ... / `phase N` | SKILL 内部的阶段编号,用户不需要知道编号 |
 | `task 1` / `task 2` / `task N` | task 工具的内部 id,用户看 spinner 就够了 |
 | `task list` / `任务清单`(用作元词) | task 工具 UI 已经显示,不要在文字消息里再提 |
-| `Step 1.0bis` / `Step 1.3` / `Step 2.5` / `Step X.Y` | SKILL 章节坐标 |
-| `flame_capable` / `flame_capable=oncpu` | 内部状态字段名 |
-| `db_creds_skip` / `_notes` / `hint_engine` 等程序字段 | 程序状态变量 |
-| `数字硬编` / `数据硬编` / `phase 项数对照表` | SKILL 文档术语 |
-| `1.2bis` / `1.3bis` 等小步编号 | 同 Step |
-| `osBatchCmd` / `dbBatchTemplates` / `probeCmd` | 程序模板名 |
-| `--op probe-parse` / `--op discover` 等命令行参数 | 程序参数 |
+| `Phase 1.1` / `Phase 2.3` / `Phase X.Y` | SKILL 章节坐标 |
+| `Gate 2` / `Gate 3` / `Gate 4` | SSH 门内部编号 |
+| `nothing 模式` / `nothing-mode` | Phase 2 内部分支命名 |
+| **`case_id` 字面值**(全部场景 · 包括 Phase 2 候选 / Phase 5 报告 / Phase 6 追问)| 内部数据 ID · 给用户讲就说"对应规则" / "我查到的一个匹配项" |
+| **内部 metric 名清单**(`db.serverStatus().wiredTiger.cache` / `top -H` / `numastat -m` 等准备拉的命令)| Phase 3 LLM 自己 SSH 执行 · 用户给凭据后我自己拉 · 不需要列给用户看 |
+| **内部分类名**(`symptom_category` / `case_pattern` / `scope` / `bucket` 等 INDEX 列名)| KB 内部数据 schema · 用户不关心 · 用人话替代("查询慢" / "内存压力" / 等) |
+| **内部统计数字**(`93 条 best-practice` / `109 case` / `11 个 symptom_category` / `45% 概率`)| 内部 KB 规模 / LLM 估算 · 给用户看反而困惑 · 直接给追问问题或开始 SSH |
+| **case 候选概率 / 置信度**(`45% / 35% / 20%` / "置信度 45/35/20")| Phase 4 报告才标置信度 · Phase 2 不标 |
+| `--op query-batch` / `--from-bp-list` 等命令行参数 | 程序参数 |
 
 **判断规则**:看输出时把每个英文坐标词圈出来 — 如果用户得在脑里翻译成"哦,这是第几阶段哪一步",**就违规**。直接说做什么。
 
 **错 / 对对照**:
 
-| 错(我之前犯过) | 对 |
+| 错 | 对 |
 |---|---|
-| `声明 task list(mongo,task 2 挂 engine 前缀)` | `采集计划已就绪。` 或不说 |
-| `phase 1 → completed · phase 2 → in_progress` | `OS/硬件采集完成,进入 MongoDB 运行时采集。` |
-| `Step 2.6 · 三部分数据解析(统一识别行)` | `汇总采集结果:` |
-| `Step 2.5 火焰图采集(flame_capable=oncpu, 仅 on-CPU)` | `开始采火焰图(仅 on-CPU)。` |
-| `flame_capable=none → 整段跳过 Step 2.5.2` | `远端无 perf,跳过火焰图采集。` |
-| `1.2bis 触发了 → 用户选 2(自动探测)` | `按"自动探测"继续。` |
-| `调 probe-parse 解析后 instances 字段为 1` | `远端检测到 1 个数据库实例。` |
+| `phase 1 → completed · phase 2 → in_progress` | `环境画像完成,开始匹配现象。` |
+| `Phase 4.B 跑 query-batch` | `开始批量刷新最佳实践推荐。` |
+| `case_id=bp-os-mm-vm-swappiness-1 命中` | `匹配到一条规则:vm.swappiness 设置不当。` |
+| `nothing 模式触发,加载 best-practice/INDEX.md` | `用户描述模糊,转入巡检模式。` |
+| `Gate 4 自检触发` | (静默重试,不公开)|
+| Phase 2 列 `· kunpeng-nohz-clock-tick-overhead-03 · 周期时钟中断` | `根据描述 · 我大致定位到几个方向 · 接下来需要在你的机器上拉一些指标做验证 · 请提供 SSH 凭据。` |
+| Phase 2 列 `查询/聚合: 45% · WiredTiger: 35% · 鲲鹏: 20%` | (整段不要 · 直接问"是单机还是副本集?"或者"请给 SSH 凭据") |
+| Phase 2 列 `我准备拉这些指标:db.currentOp() / db.serverStatus().wiredTiger.cache / ...` | (整段不要 · Phase 3 自己拉) |
+| Phase 2 列 `已排除:副本集复制问题 / 偶发连接风暴 / 短时尖刺` | (整段不要 · 内部排除是 LLM 自己的事 · 用户不关心) |
 
 **特例 — 调试 / 诊断给用户的错误信息可以含实现术语**:
-- 当用户**显式提到**这些词时(例:"为什么 Step 1.3 报错"),可以在回话里复用,因为这是技术对话上下文
-- 报错诊断行(给开发者读的,如 `Permission denied (publickey,...)`)可以原样显示,因为是系统层面的
+- 当用户**显式提到**这些词时(例:"为什么 Phase 1 报错"),可以在回话里复用
+- 报错诊断行(给开发者读的,如 `Permission denied (publickey,...)`)可以原样显示
 
 **工程化提示**:写完一段用户可见消息,**回头扫一遍**,搜上面禁用清单里的词,有就改写。
+
+---
 
 # 参考文件
 
 | 文件 | 用途 |
 |---|---|
-| `data/collect-cmds.json` | `probeCmd`(Step 1.3 探测) + `osBatchCmd` + 3 engine `dbBatchTemplates` |
-| `data/common/` | Kunpeng + OS 通用知识库 |
-| `data/<engine>/INDEX.md` | per-engine KB 目录 |
-| `data/<engine>/rules.json` | per-engine 规则 JSON |
-| `data/<engine>/*.md` | per-engine 文档 |
+| `data/kb/cases/INDEX.md` | DF + Flame 路由表(Phase 2 加载) |
+| `data/kb/cases/KB.md` | DF + Flame 完整字段(Phase 2.3 / Phase 6 用 Read offset+limit) |
+| `data/kb/best-practice/INDEX.md` | BP 巡检表(Phase 3.B nothing 模式加载) |
+| `data/kb/best-practice/KB.md` | BP 完整字段(Phase 6 追问) |
+| `data/collect-cmds.json` | (legacy · Phase 1 不强依赖 · 内嵌固定 8 条命令)|
 | `scripts/ssh.mjs --op exec` | SSH 远端执行 |
-| `scripts/ssh.mjs --op probe-parse` | Step 1.3 解析 probe 文件 → JSON(instances + flame_capable) |
-| `scripts/ssh.mjs --op discover` | Step 2.6 解析 OS 文件 → 取 hw 字段(instances 字段已废,因 osBatchCmd 不再产 ###DISCOVERY###) |
-| `scripts/history.mjs --op load` | 读历史连接 |
-| `scripts/history.mjs --op save` | 写历史连接 |
-| `scripts/diagnose.mjs` | 本地分析脚本 |
-| `scripts/kb.mjs --op query` | KB 混合检索 |
-| `scripts/kb.mjs --op stats` | KB 统计 |
-| `scripts/render-html-report.mjs` | HTML 报告生成 |
-| `scripts/render-screen-footer.mjs` | 屏幕 footer 生成 |
+| `scripts/ssh.mjs --op session-close` | 流程末尾收 master |
+| `scripts/notebooklm.mjs --op query` | NLM 单条查询 |
+| `scripts/notebooklm.mjs --op query-batch` | NLM 全量 BP 巡检 batch |
+| `scripts/md-to-html.mjs` | markdown 报告 → HTML 转换 + chat 块抽取(stdout 含 `<<<CHAT-OUTPUT … CHAT-OUTPUT>>>` 段 + 同步落盘 `-chat.md` 文件供 Phase 5.4 Read) |
+| `scripts/history.mjs --op load|save` | 历史连接 |
+| `scripts/capture-flamegraph.mjs` | 火焰图采集 wrapper(透传到姐妹 skill `cpu-flamegraph` · 详见 Architecture「外部依赖」段)|
+
+---
 
 # 输出契约
 
-- 报告文件名:`perf-kp-sql-<engine>-<TS>.html`,TS = `YYYYMMDD-HHMMSS`
+- 报告文件名:`perf-kp-sql-<engine>-<TS>.md` + `perf-kp-sql-<engine>-<TS>.html`,TS = `YYYYMMDD-HHMMSS`
+- 路径:`~/.perf-kp-sql/reports/`
 - 诊断完直接给结论,不追问"要不要补做 X"
+- 报告 markdown 字面是 LLM 直出 · HTML 是 `md-to-html.mjs` 机械生成 · chat 块也是 `md-to-html.mjs` 机械抽取(stdout 的 `<<<CHAT-OUTPUT … CHAT-OUTPUT>>>` 标记内 + 同步落盘到 `<basename>-chat.md` 文件供 Phase 5.4 Read) · 四者内容必须 100% 一致(脚注 [参考N] 由 md-to-html 自动转 `<sup>`)
+
+---
 
 # Invocation
 

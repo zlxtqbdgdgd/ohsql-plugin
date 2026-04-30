@@ -3,8 +3,6 @@ import { createRequire } from "module";
 import { fileURLToPath as __fileURLToPath } from "url";
 import { dirname as __pathDirname } from "path";
 const require = createRequire(import.meta.url);
-const __filename = __fileURLToPath(import.meta.url);
-const __dirname = __pathDirname(__filename);
 
 // plugins/perf-kp-sql/src/cli-ssh.ts
 import { spawn } from "node:child_process";

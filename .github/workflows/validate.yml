@@ -30,11 +30,20 @@ jobs:
             test -f "${plugin}README.md" || echo "Warn: $plugin missing README.md"
             ls "${plugin}skills/" >/dev/null
           done
-          # perf-kp-sql specifics
-          test -f plugins/perf-kp-sql/data/knowledge.sqlite
+          # perf-kp-sql specifics (KB scheme E · markdown-only · 无 SQLite/native dep)
+          test -f plugins/perf-kp-sql/skills/perf-kp-sql/SKILL.md
           test -x plugins/perf-kp-sql/skills/perf-kp-sql-setup/scripts/check-health
+          # KB markdown bundles (cases + best-practice 双索引 / 双 KB)
+          test -f plugins/perf-kp-sql/data/kb/cases/INDEX.md
+          test -f plugins/perf-kp-sql/data/kb/cases/KB.md
+          test -f plugins/perf-kp-sql/data/kb/best-practice/INDEX.md
+          test -f plugins/perf-kp-sql/data/kb/best-practice/KB.md
+          # 主流程脚本(SSH wrapper / NLM / 报告渲染 / 火焰图 wrapper)
+          test -f plugins/perf-kp-sql/scripts/ssh.mjs
+          test -f plugins/perf-kp-sql/scripts/notebooklm.mjs
+          test -f plugins/perf-kp-sql/scripts/md-to-html.mjs
+          test -f plugins/perf-kp-sql/scripts/capture-flamegraph.mjs
+          # cpu-flamegraph 姐妹 plugin(perf-kp-sql 的硬依赖)
           test -f plugins/cpu-flamegraph/skills/cpu-flamegraph/scripts/capture.mjs
           test -f plugins/cpu-flamegraph/skills/cpu-flamegraph/vendor/flamegraph.pl
-          test -f plugins/perf-kp-sql/scripts/diagnose.mjs
-          test -f plugins/perf-kp-sql/scripts/kb.mjs
           echo "All required artifacts present."
