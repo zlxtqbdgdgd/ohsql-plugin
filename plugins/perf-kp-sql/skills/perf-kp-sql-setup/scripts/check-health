@@ -116,13 +116,16 @@ nlm_installed=0
 if command -v notebooklm >/dev/null 2>&1; then
   nlm_installed=1
   ok "notebooklm CLI"
-  # check auth (本地 cookie 文件 sanity · 不是 Google 侧 session 验证)
-  nlm_auth="$(notebooklm auth check --test 2>&1)"
-  if [ $? -eq 0 ]; then
-    ok "notebooklm auth (本地 cookie 文件 OK · 不验 Google 侧 session)"
+  # check auth · 两层 (本地 cookie sanity + 真打 API 验 Google 侧 session)
+  # 真 API 调用走 notebooklm.mjs --op check · 它内部已实现两层验证
+  nlm_check_json="$(node "$PLUGIN_ROOT/scripts/notebooklm.mjs" --op check --json 2>/dev/null)"
+  nlm_authed="$(echo "$nlm_check_json" | python3 -c "import sys,json; d=json.load(sys.stdin); print('1' if d.get('authenticated') else '0')" 2>/dev/null || echo 0)"
+  if [ "$nlm_authed" = "1" ]; then
+    ok "notebooklm auth (Google API 验证通过)"
   else
-    warn "notebooklm auth expired or not configured"
-    hint "fix: 跑 'notebooklm login' (需要 Playwright)· 完成 Google 账号登录"
+    warn "notebooklm auth: Google 侧 cookie 过期 / 失效"
+    hint "fix: 跑 'notebooklm login' 弹 Chromium 重新登录 Google 账号"
+    hint "(本地 cookie 文件 sanity 可能通过 · 但 Google 侧 session 已过期)"
   fi
   # check Playwright browser extras (notebooklm login 需要 · 处理 Google 401 必须有)
   pw_check="$(python3 -c "from playwright.sync_api import sync_playwright" 2>&1)"

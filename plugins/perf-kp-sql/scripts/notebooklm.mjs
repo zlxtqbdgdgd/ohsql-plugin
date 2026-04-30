@@ -122,8 +122,22 @@ async function concurrentBatch(items, concurrency, fn) {
 }
 
 function checkAuth() {
-  const r = nlmExec(["auth", "check", "--test"], { timeoutMs: 15_000 });
-  return r.status === 0;
+  // 两层验证:
+  // 1. 本地 cookie 文件 sanity (auth check --test) — 文件存在 / 格式合法 / cookie 域 OK
+  // 2. 真打一次 API 验证 Google 侧 session 也 OK (list 命令)
+  // 因为 auth check --test 只验本地 · Google 侧 cookie 过期时它仍会通过 · 但 API 调用 401。
+  const localR = nlmExec(["auth", "check", "--test"], { timeoutMs: 15_000 });
+  if (localR.status !== 0) return false;
+
+  // 真 API 调用验证 (list 是无副作用的轻量 API · stdout 为 401 表明 Google 侧过期)
+  const apiR = nlmJson(["list"], { timeoutMs: 30_000 });
+  if (!apiR.ok) {
+    // list --json 失败 · 可能是 401 / 网络 / 其他
+    return false;
+  }
+  // list 返回错误对象({error: true, ...}) · 也算认证失败
+  if (apiR.data?.error === true) return false;
+  return true;
 }
 
 // ── op: check ────────────────────────────────────────────────────────
@@ -151,38 +165,58 @@ function opCheck() {
 // ── op: setup ────────────────────────────────────────────────────────
 
 async function opSetup(urlsFile) {
-  // Step 9: install pip packages
-  console.error("→ 检查 notebooklm CLI...");
-  if (!isCliInstalled()) {
-    console.error("→ 安装 notebooklm-py + rookiepy...");
-    const pip = spawnSync("pip", ["install", "notebooklm-py[browser]", "rookiepy"], {
-      encoding: "utf8",
-      timeout: 120_000,
-      stdio: ["pipe", "pipe", "pipe"],
-    });
-    if (pip.status !== 0) {
-      console.error(`pip install 失败: ${pip.stderr}`);
-      // 尝试 pip3
-      const pip3 = spawnSync("pip3", ["install", "notebooklm-py[browser]", "rookiepy"], {
-        encoding: "utf8",
-        timeout: 120_000,
-        stdio: ["pipe", "pipe", "pipe"],
-      });
-      if (pip3.status !== 0) {
-        return out({
-          ok: false,
-          error: "pip install notebooklm-py[browser] rookiepy 失败",
-          detail: (pip3.stderr ?? "").slice(0, 500),
-        });
-      }
-    }
-    // install playwright chromium
-    console.error("→ 安装 Playwright Chromium...");
-    spawnSync("playwright", ["install", "chromium"], {
+  // Step 9: 安装/升级 pip packages
+  // 不能只看 isCliInstalled() · 因为老的基础版 notebooklm 也会让它返 true ·
+  // 但缺 [browser] extras → Playwright 没装 → notebooklm login 跑不了。
+  // 始终跑 pip install -U notebooklm-py[browser] rookiepy 确保 extras 在。
+  console.error("→ 安装/升级 notebooklm-py[browser] + rookiepy...");
+  const pipArgs = ["install", "-U", "notebooklm-py[browser]", "rookiepy"];
+  let pipOk = false;
+  for (const cmd of ["pip3", "pip"]) {
+    const r = spawnSync(cmd, pipArgs, {
       encoding: "utf8",
       timeout: 180_000,
       stdio: ["pipe", "pipe", "pipe"],
     });
+    if (r.status === 0) {
+      pipOk = true;
+      break;
+    }
+    console.error(`${cmd} install 失败: ${(r.stderr ?? "").slice(0, 300)}`);
+  }
+  if (!pipOk) {
+    return out({
+      ok: false,
+      error: "pip install notebooklm-py[browser] rookiepy 失败 · 请手动跑:pip install -U 'notebooklm-py[browser]' rookiepy",
+    });
+  }
+
+  // 验 Playwright Python 包真装上(extras 可能装了但 Playwright 仍缺)
+  console.error("→ 验证 Playwright Python 包...");
+  const pwCheck = spawnSync("python3", ["-c", "from playwright.sync_api import sync_playwright"], {
+    encoding: "utf8",
+    timeout: 15_000,
+    stdio: ["pipe", "pipe", "pipe"],
+  });
+  if (pwCheck.status !== 0) {
+    return out({
+      ok: false,
+      error: "Playwright Python 包仍缺 · 即使装了 notebooklm-py[browser] · 请手动跑:pip install playwright",
+      detail: (pwCheck.stderr ?? "").slice(0, 300),
+    });
+  }
+
+  // 装 chromium browser(notebooklm login 必需)
+  console.error("→ 安装 Playwright Chromium...");
+  const chromR = spawnSync("playwright", ["install", "chromium"], {
+    encoding: "utf8",
+    timeout: 180_000,
+    stdio: ["pipe", "pipe", "pipe"],
+  });
+  if (chromR.status !== 0) {
+    // 不致命 · 但提示
+    console.error(`playwright install chromium 失败:${(chromR.stderr ?? "").slice(0, 300)}`);
+    console.error("→ 后续 notebooklm login 可能跑不起来 · 请手动跑:playwright install chromium");
   }
 
   // Step 10: cookie extraction via rookiepy (auto-detect browser)
