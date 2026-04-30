@@ -152,24 +152,41 @@ Bash(command="node <PLUGIN_ROOT>/scripts/notebooklm.mjs --op setup --json")
 ```
 
 `notebooklm.mjs --op setup` 内部自动完成:
-1. `pip install notebooklm-py[browser] rookiepy`（如缺失）
-2. `playwright install chromium`（如缺失）
-3. rookiepy 从 Chrome cookie 数据库提取 Google 认证信息
+1. `pip install notebooklm-py[browser] rookiepy`(如缺失 · 含 Playwright 依赖)
+2. `playwright install chromium`(如缺失 · `notebooklm login` 路径需要)
+3. rookiepy 从 Chrome cookie 数据库提取 Google 认证信息(初次登录路径)
 
 安装失败不阻塞 — NotebookLM 是可选增强。
 
+⚠️ **Playwright + chromium 是 `notebooklm login` 必需依赖**。即使初次 setup 用 rookiepy 提 Chrome cookie 登录成功 · 后续 Google 侧 session 过期(API 返 401)时 · 必须跑 `notebooklm login` 走 Playwright 重新登录 — 那时缺 Playwright 就走不了。setup 必须装齐这两个 · 不许跳过。
+
 ### Step 10: 认证检查
 
-setup 脚本内部已执行 `notebooklm auth check --test`。
+setup 脚本内部已执行 `notebooklm auth check --test`(本地 cookie 文件 sanity check)。
 
-如果认证失败,提示用户:
+如果认证失败,**首选**让用户跑 `notebooklm login`(Playwright 路径 · 弹 Chromium 让用户登录 Google · 自动写 cookie):
 
 ```
-⚠️ NotebookLM 认证未通过。请先在 Chrome 浏览器中:
-1. 打开 https://notebooklm.google.com/
-2. 确认已登录 Google 账号
-3. 重跑 /perf-kp-sql-setup
+⚠️ NotebookLM 认证未通过。请在终端跑:
+
+  notebooklm login
+
+会弹出一个 Chromium 窗口 · 完成 Google 账号登录后窗口自动关闭 · cookie 写到
+~/.notebooklm/storage_state.json。
+
+完成后告诉我"已登录" · 我会重新探测 NLM 并继续 setup。
 ```
+
+如果 `notebooklm login` 报 "Playwright not installed" · 说明 Step 9 的 Playwright 装失败了 · 提示用户手动跑:
+
+```
+pip install 'notebooklm-py[browser]'
+playwright install chromium
+```
+
+后再重跑 `/perf-kp-sql-setup`。
+
+(备选 · `notebooklm login` 不可用时):用户可以打开 Chrome 登录 https://notebooklm.google.com/ · 然后用 rookiepy 提 cookie · 但这条路径不如 `notebooklm login` 直接。
 
 认证失败不阻塞后续步骤 — 诊断核心流程不受影响。
 

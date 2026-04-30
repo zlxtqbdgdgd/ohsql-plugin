@@ -421,36 +421,54 @@ LLM 解析 ###标记### 切段 · 抽以下字段(in-memory 记):
 
 NLM 是 Phase 4 推断的可信兜底(KB 没覆盖现象时拿真实文档 references)· 提前探一下 · 失败时给用户机会现在重新登录 · 比 Phase 4 才发现失败重新打断流程好。
 
+⚠️ **NLM 可用性判定的唯一硬证据**:
+
 ```
 Bash(command="node <PLUGIN_ROOT>/scripts/notebooklm.mjs --op check --json", timeout=30000)
 ```
 
-返回 JSON 解析:
+返回 stdout JSON 包含 `"installed": true` 且 `"authenticated": true` 且 `notebooks` 非空 = NLM 可用。**绝对不许** 凭其他间接信号判定 NLM 不可用:
+- ❌ 看到 `notebooklm login` 命令报 Playwright 没装 · 推断"NLM 整体不可用"(login 是新登录路径 · 已有 cookie 时不需要走)
+- ❌ 凭"我记得这个机器没装 notebooklm" 判断
+- ❌ Phase 4 想调 NLM 前没先做 --op check · 直接跳 NLM 走 KB-only
+- ❌ `notebooklm` 某个子命令偶发失败 · 推断整体不可用
+- ✅ 唯一判定:`notebooklm.mjs --op check --json` stdout 含 `installed:true + authenticated:true + notebooks 非空`
 
-| 状态 | 处理 |
+**返回判定表**:
+
+| `--op check` stdout JSON | 处理 |
 |---|---|
-| `{"ok": true, ...}` · CLI 已装 / 认证 OK / notebooks 存在 | ✅ 公告"NLM 知识增强已就绪" · 进 Phase 1 |
-| CLI 未装(`notebooklm` 命令不存在) | 🟡 软告警:"NLM 未安装 · 主诊断流程不影响 · 但 KB 未覆盖现象将无法用 NLM 兜底。可跑 `/perf-kp-sql-setup` 安装 · 或现在跳过(选 1/2)。" 进 Phase 1 (skip-NLM 模式 · 后续 Phase 4 兜底 query 时不再调) |
-| **认证失败 / cookie 过期**(`{"ok": false, "error": "auth_expired"}` 等) | 🔴 触发"NLM 重登录流程"(详见下方 #NLM-relogin) · 等用户登录后重 check · 再进 Phase 1 |
-| 其他错误(网络 / 超时) | 🟡 软告警 + skip-NLM 模式 + 进 Phase 1 |
+| `{"installed": true, "authenticated": true, "notebooks": {<非空>}}` | ✅ 公告"NLM 知识增强已就绪" · 进 Phase 1 |
+| `{"installed": false, ...}` (`notebooklm --version` 不通) | 🟡 软告警:"NLM 未安装 · 主诊断流程不影响 · 但 KB 未覆盖现象将无法用 NLM 兜底。可跑 `/perf-kp-sql-setup` 安装 · 或现在跳过。" 进 Phase 1 (skip-NLM 模式) |
+| `{"installed": true, "authenticated": false, ...}` (cookie 过期) | 🔴 触发"NLM 重登录流程"(详见下方 #NLM-relogin) · 等用户登录后重 check · 再进 Phase 1 |
+| `{"installed": true, "authenticated": true, "notebooks": {}}` (notebook 没注册) | 🟡 软告警:"NLM CLI 已装但未注册 notebook · 跑 `/perf-kp-sql-setup` 创建。" 进 Phase 1 (skip-NLM 模式) |
+| Bash spawn 失败 / 超时 / stdout 不是合法 JSON | 🟡 软告警 + skip-NLM 模式 + 进 Phase 1 |
 
 #### NLM-relogin · 鉴权失败重登录流程(可被 Phase 0.10 / Phase 4.* / Phase 6 调用)
 
-```
-🔴 NotebookLM 鉴权失败(cookie 可能过期)。
+⚠️ **关键**:正确路径是引导用户**在终端跑 `notebooklm login`** — 这条命令用 Playwright 启动 Chromium 实例 · 让用户在弹出的浏览器窗口完成 Google 登录 · 登录后 cookie 自动写入 `~/.notebooklm/storage_state.json`。前提是 `/perf-kp-sql-setup` 已经把 `notebooklm-py[browser]` + `playwright install chromium` 装齐(详见 setup skill check-health)。
 
-我帮你打开 Chrome 登录页面:
-```
+**两类鉴权失败信号 + 对应处理**:
+
+| 信号 | 含义 | 处理 |
+|---|---|---|
+| `--op check` 返回 `authenticated: false` | 本地 cookie 文件缺 / 格式坏 / cookie 全部过期 | 走重登录(下面流程) |
+| `--op query` / `--op query-batch` 返回错误含 `Authentication expired or invalid` / `Run 'notebooklm login' to re-authenticate` / `redirected to accounts.google.com` | Google 侧 session 过期(`--op check` 可能仍误报 ok · 因为它只验本地文件)| 同上 · 必须重登录 |
+
+**重登录流程**:
 
 ```
-Bash(command="open 'https://notebooklm.google.com/'", timeout=10000)
-```
+🔴 NotebookLM 鉴权失败 · 需要重新登录 Google 账号。
 
-(Linux 用 `xdg-open` 替代 `open`)
+请在你的终端跑:
 
-```
-请在 Chrome 里完成 Google 账号登录(如果已登录页面会直接打开 Notebook 列表)·
-登录完成后告诉我"已登录"或类似确认 · 我会重新探测 NLM 并继续。
+  notebooklm login
+
+会弹出一个 Chromium 窗口 · 完成 Google 账号登录后窗口会自动关掉 · cookie 写到 ~/.notebooklm/storage_state.json。
+
+完成后回这里告诉我"已登录" · 我会重新探测 NLM 并继续。
+
+(如果 `notebooklm login` 报 "Playwright not installed" 之类错误 · 说明依赖没装齐 · 跑 /perf-kp-sql-setup 重新装。)
 ```
 
 stop and wait for next turn。
@@ -461,8 +479,15 @@ stop and wait for next turn。
 Bash(command="node <PLUGIN_ROOT>/scripts/notebooklm.mjs --op check --json", timeout=30000)
 ```
 
-- 仍失败 → 再问用户:"NLM 还是连不上 · 是想再试一次 · 还是先跳过 NLM 走 KB-only 模式?"
-- 成功 → 公告"NLM 已重连" → 继续被中断的 phase
+如果是 Phase 4.* / Phase 6 触发的 relogin · check 通过后还要**再跑一次刚才被中断的 query / query-batch** 验证 Google 侧 session 也通了:
+
+```
+Bash(command="node <PLUGIN_ROOT>/scripts/notebooklm.mjs --op query \
+       --domain <被中断时的 domain> --query <被中断时的 query> --json", timeout=120000)
+```
+
+- query 仍 401 → 再问用户:"NLM 重登录后仍报鉴权失败 · 可能 Google 账号有问题。要不要跳过 NLM 走 KB-only 模式?"
+- query 成功 → 公告"NLM 已重连" → 继续被中断的 phase 流程
 
 mark phase 0 completed → mark phase 1 in_progress → 进 Phase 1 对话引导。
 

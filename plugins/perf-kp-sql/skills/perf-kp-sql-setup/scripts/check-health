@@ -116,13 +116,31 @@ nlm_installed=0
 if command -v notebooklm >/dev/null 2>&1; then
   nlm_installed=1
   ok "notebooklm CLI"
-  # check auth
+  # check auth (本地 cookie 文件 sanity · 不是 Google 侧 session 验证)
   nlm_auth="$(notebooklm auth check --test 2>&1)"
   if [ $? -eq 0 ]; then
-    ok "notebooklm auth"
+    ok "notebooklm auth (本地 cookie 文件 OK · 不验 Google 侧 session)"
   else
     warn "notebooklm auth expired or not configured"
-    hint "fix: 在 Chrome 中登录 https://notebooklm.google.com/ 后重跑 /perf-kp-sql-setup"
+    hint "fix: 跑 'notebooklm login' (需要 Playwright)· 完成 Google 账号登录"
+  fi
+  # check Playwright browser extras (notebooklm login 需要 · 处理 Google 401 必须有)
+  pw_check="$(python3 -c "from playwright.sync_api import sync_playwright" 2>&1)"
+  if [ -z "$pw_check" ]; then
+    ok "playwright Python module"
+    # check chromium installed
+    pw_chromium="$(python3 -c "from playwright.sync_api import sync_playwright; p=sync_playwright().start(); b=p.chromium.launch(); b.close(); p.stop(); print('ok')" 2>&1)"
+    if [ "$(echo "$pw_chromium" | tail -1)" = "ok" ]; then
+      ok "playwright chromium browser"
+    else
+      warn "playwright chromium not installed"
+      hint "fix: playwright install chromium"
+      hint "(notebooklm login 需要 chromium · Google 侧 cookie 过期时无法重新登录)"
+    fi
+  else
+    warn "playwright Python module not installed"
+    hint "fix: pip install 'notebooklm-py[browser]'"
+    hint "(notebooklm login 需要 Playwright · Google 侧 cookie 过期时无法重新登录)"
   fi
   # check config
   NLM_CFG="$HOME/.perf-kp-sql/notebooklm.json"
@@ -134,7 +152,7 @@ if command -v notebooklm >/dev/null 2>&1; then
   fi
 else
   warn "notebooklm CLI not installed (optional: NotebookLM 知识增强)"
-  hint "fix: pip install 'notebooklm-py[browser]' rookiepy"
+  hint "fix: pip install 'notebooklm-py[browser]' rookiepy && playwright install chromium"
 fi
 
 # ----- --list-missing 模式: 只 emit 待装 spec, 一行一个; exit 0 -----
