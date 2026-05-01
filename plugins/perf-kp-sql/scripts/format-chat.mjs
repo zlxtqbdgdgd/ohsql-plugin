@@ -380,14 +380,16 @@ if (isCli) {
     process.exit(2);
   }
 
-  // ─ Step 1: rewrap 表格
-  const { content: rewrapped, found } = rewrapTable(content, cols);
+  // ─ Step 1: strip 5 标签 + legend(在 rewrap 前 · 否则 rewrap 按带标签宽度算 cell · 剥后 <br> 位置全错)
+  const stripped = stripChatTags(content);
+
+  // ─ Step 2: rewrap 表格(基于干净宽度)
+  const { content: rewrapped, found } = rewrapTable(stripped, cols);
   if (!found) {
     console.error("⚠ 未找到 ## 诊断结果 pipe table");
-    process.stdout.write(content);
+    process.stdout.write(stripped);
     process.exit(3);  // ← 3 (lint-fail 占用 2)
   }
 
-  const stripped = stripChatTags(rewrapped);
-  process.stdout.write(stripped);
+  process.stdout.write(rewrapped);
 }
