@@ -13,9 +13,8 @@ Kunpeng + MongoDB joint performance diagnosis. SSH-based collection (8-cmd 环�
 # → echoes:  "请运行 /perf-kp-sql-setup 完成 native 依赖安装"
 
 /perf-kp-sql-setup
-# → installs marked (markdown renderer)
-# → verifies data/kb/ KB markdown files
-# → optionally registers NotebookLM (Google account · pip install notebooklm-py[browser])
+# → verifies runtime + data/kb/ KB markdown files (零 npm 运行时依赖)
+# → optionally registers NotebookLM (Google account · pip install notebooklm-py + rookiepy)
 ```
 
 ## Install · OpenAI Codex CLI
@@ -46,13 +45,11 @@ See `skills/perf-kp-sql/SKILL.md` for the full diagnosis flow + the `## Invocati
 
 ## Dependencies
 
-Native deps (installed by `/perf-kp-sql-setup`):
-
-| Package | Why |
-|---|---|
-| `marked@^18` | markdown → HTML 报告渲染(scripts/md-to-html.mjs) |
+零 npm 运行时依赖(v0.36.0 起 marked 下线 · HTML 报告生成移除 · 报告仅保留 markdown)。
 
 SSH 走本地 OpenSSH `ssh` CLI(v0.12.0 起 ssh2 native module 已下线)· 通过 `node scripts/ssh.mjs` wrapper 统一进入,带 ControlMaster 多路复用与 SSH_ASKPASS 密码注入。
+
+NotebookLM(可选)走 Python 包 `notebooklm-py` + `rookiepy` · 由 `/perf-kp-sql-setup` 安装。
 
 ## Knowledge base
 
