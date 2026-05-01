@@ -141,15 +141,21 @@ export function lintReport(mdText) {
 // 参见 docs/superpowers/specs/2026-05-01-md-report-source-tags-design.md §"验证机制 2 Step 1"
 
 export function stripChatTags(text) {
-  let out = text;
+  // 归一化 CRLF → LF · 防止 Windows 编辑过的报告破坏后续 lookahead 正则
+  let out = text.replace(/\r\n/g, "\n");
 
   // 1. 删除 ## 来源标记 (debug) 段(从该标题起 · 到下一个 ## 前 · 或文件末尾)
+  // g flag: 防御性应对意外多 legend 报告
   out = out.replace(
-    /(?:^|\n)## 来源标记 \(debug\)[\s\S]*?(?=\n## |$)/,
+    /(?:^|\n)## 来源标记 \(debug\)[\s\S]*?(?=\n## |$)/g,
     ""
   );
 
-  // 2. 移除所有 5 标签字面 + 相关空白
+  // 2 + 3. 移除所有 5 标签字面 · 保留 [参考N] 角标
+  // 已知局限(spec 设计上不出现 · 这里仅作记录):
+  //   - 多 5-标签连挂(如 `[OBS][KB][参考3]`)spec 禁止 · 此处会损失 [参考N] 前的空格
+  //   - backtick code 内的字面 `[OBS]` 也会被剥(spec 不会出现 · legend 段已整段删除)
+  // 如未来报告形态变更 · 可仿照 splitNarrativeAtoms 的占位符技巧加 backtick 保护。
   //    规则:
   //    · tag 后紧跟 [参考N](有无空格均可) → 只删 tag 本身(保留前导空格供 [参考N] 使用)
   //    · 其他情况 → 删 tag + 其前导空白([ \t]*)
@@ -159,8 +165,9 @@ export function stripChatTags(text) {
   //    b. 其余 tag: 移除前导空白 + tag
   out = out.replace(/[ \t]*\[(IDX|KB|NLM|OBS|LLM)\]/g, "");
 
-  // 3. 清理残留双空格
-  out = out.replace(/  +/g, " ");
+  // 4. 清理残留双空格(仅压缩行内中间位置 · 不动行首缩进)
+  // 用 (?<=\S) 确保只压缩非行首的连续空格 · 保留 ## 参考 段的 URL 缩进
+  out = out.replace(/(?<=\S)  +/g, " ");
 
   return out;
 }

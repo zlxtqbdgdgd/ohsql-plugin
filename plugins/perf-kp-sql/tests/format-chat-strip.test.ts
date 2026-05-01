@@ -80,4 +80,60 @@ table
     const input = "事实 [OBS] · 阈=95% [KB]";
     assert.equal(stripChatTags(input), "事实 · 阈=95%");
   });
+
+  it("(回归)空字符串 → 空字符串", () => {
+    assert.equal(stripChatTags(""), "");
+  });
+
+  it("(回归)只有 legend 段 · 返回空", () => {
+    const input = `## 来源标记 (debug)
+
+| 标记 | 含义 |
+|---|---|
+| \`[OBS]\` | 现场采集 |
+`;
+    assert.equal(stripChatTags(input).trim(), "");
+  });
+
+  it("(回归)旧报告(无 legend · 无 5 标签)原样返回", () => {
+    const input = `# 报告
+
+## 诊断结果
+
+| a | b |
+|---|---|
+| x | [参考1] |
+
+## 参考
+
+[参考1] foo bar
+        https://example.com
+`;
+    assert.equal(stripChatTags(input), input);
+  });
+
+  it("(回归)## 参考 段的 [KB] / [NLM] 也被剥", () => {
+    const input = `## 参考
+
+[参考1] WiredTiger Tuning — source.wiredtiger.com [KB]
+        https://example.com/a
+[参考2] vm.swappiness — kernel.org [NLM]
+        https://example.com/b
+`;
+    const out = stripChatTags(input);
+    assert.ok(!out.includes("[KB]"));
+    assert.ok(!out.includes("[NLM]"));
+    assert.ok(out.includes("[参考1]"));
+    assert.ok(out.includes("[参考2]"));
+    assert.ok(out.includes("WiredTiger Tuning"));
+  });
+
+  it("(回归)CRLF 行尾 + legend 段也能正确移除", () => {
+    const input = "# title\r\n\r\n## 来源标记 (debug)\r\n\r\n| a | b |\r\n|---|---|\r\n| `[KB]` | foo |\r\n\r\n## 诊断结果\r\n\r\n事实 [OBS]\r\n";
+    const out = stripChatTags(input);
+    assert.ok(!out.includes("## 来源标记"));
+    assert.ok(out.includes("## 诊断结果"));
+    assert.ok(!out.includes("[OBS]"));
+    assert.ok(!out.includes("[KB]"));
+  });
 });
