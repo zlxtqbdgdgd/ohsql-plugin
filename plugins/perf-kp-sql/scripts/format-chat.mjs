@@ -137,6 +137,34 @@ export function lintReport(mdText) {
   return { ...total_missing, missRate };
 }
 
+// ── Strip(chat 输出剥标签 · .md 文件不动) ──────────────
+// 参见 docs/superpowers/specs/2026-05-01-md-report-source-tags-design.md §"验证机制 2 Step 1"
+
+export function stripChatTags(text) {
+  let out = text;
+
+  // 1. 删除 ## 来源标记 (debug) 段(从该标题起 · 到下一个 ## 前 · 或文件末尾)
+  out = out.replace(
+    /(?:^|\n)## 来源标记 \(debug\)[\s\S]*?(?=\n## |$)/,
+    ""
+  );
+
+  // 2. 移除所有 5 标签字面 + 相关空白
+  //    规则:
+  //    · tag 后紧跟 [参考N](有无空格均可) → 只删 tag 本身(保留前导空格供 [参考N] 使用)
+  //    · 其他情况 → 删 tag + 其前导空白([ \t]*)
+  //    两步实现:
+  //    a. 先处理"tag 后跟 [参考...]"：只移除 tag + tag 后的空格(保留 tag 前的空格)
+  out = out.replace(/\[(IDX|KB|NLM|OBS|LLM)\]([ \t]*)(?=\[参考)/g, "");
+  //    b. 其余 tag: 移除前导空白 + tag
+  out = out.replace(/[ \t]*\[(IDX|KB|NLM|OBS|LLM)\]/g, "");
+
+  // 3. 清理残留双空格
+  out = out.replace(/  +/g, " ");
+
+  return out;
+}
+
 // ── CJK 显示宽度 ─────────────────────────────────────────
 export function charWidth(cp) {
   // CJK Unified Ideographs + Extensions
@@ -353,5 +381,6 @@ if (isCli) {
     process.exit(3);  // ← 3 (lint-fail 占用 2)
   }
 
-  process.stdout.write(rewrapped);
+  const stripped = stripChatTags(rewrapped);
+  process.stdout.write(stripped);
 }
