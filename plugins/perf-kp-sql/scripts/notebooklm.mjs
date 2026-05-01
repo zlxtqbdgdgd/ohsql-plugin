@@ -57,6 +57,44 @@ function loadUrlsJson(urlsFile) {
   return JSON.parse(readFileSync(p, "utf8"));
 }
 
+/**
+ * Build source_id → URL lookup from notebooklm.json config.
+ * Returns a Map<string, string> mapping UUID to original URL.
+ */
+function buildSourceUrlMap(cfg) {
+  const map = new Map();
+  if (!cfg?.notebooks) return map;
+  for (const nb of Object.values(cfg.notebooks)) {
+    if (!Array.isArray(nb.urls)) continue;
+    for (const entry of nb.urls) {
+      if (entry.source_id && entry.url) map.set(entry.source_id, entry.url);
+    }
+  }
+  return map;
+}
+
+/**
+ * Enrich references array: resolve source_id UUID to source_url using config.
+ * Adds `source_url` field to each reference that has a matching source_id.
+ * Deduplicates by source_url, keeping the first occurrence.
+ */
+function enrichReferences(references, cfg) {
+  if (!Array.isArray(references) || references.length === 0) return references;
+  const urlMap = buildSourceUrlMap(cfg);
+  const seen = new Set();
+  const enriched = [];
+  for (const ref of references) {
+    const url = urlMap.get(ref.source_id);
+    if (url) ref.source_url = url;
+    // deduplicate by source_url (or source_id if no url)
+    const key = url || ref.source_id;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    enriched.push(ref);
+  }
+  return enriched;
+}
+
 function isCliInstalled() {
   try {
     const r = spawnSync("notebooklm", ["--version"], {
@@ -562,11 +600,12 @@ function opQuery(domain, query) {
       nlmExec(["use", nb.id]);
       const r = nlmAskWithRetry(["ask", query], { timeoutMs: 60_000 });
       if (r.ok) {
+        const rawRefs = r.data?.references ?? r.data?.citations ?? [];
         allResults.push({
           domain: d,
           notebook_id: nb.id,
           answer: r.data?.answer ?? r.data?.response ?? "",
-          references: r.data?.references ?? r.data?.citations ?? [],
+          references: enrichReferences(rawRefs, cfg),
           attempts: r.attempts,
         });
       } else {
@@ -600,10 +639,11 @@ function opQuery(domain, query) {
     });
   }
 
+  const rawRefs = r.data?.references ?? r.data?.citations ?? [];
   out({
     ok: true,
     answer: r.data?.answer ?? r.data?.response ?? "",
-    references: r.data?.references ?? r.data?.citations ?? [],
+    references: enrichReferences(rawRefs, cfg),
     domain,
     notebook_id: notebookId,
     attempts: r.attempts,
@@ -748,7 +788,8 @@ function opQueryBatch({ fromDiagnose, fromBpList, hwArch }) {
 
       if (r.ok) {
         const answer = r.data?.answer ?? r.data?.response ?? "";
-        const references = r.data?.references ?? r.data?.citations ?? [];
+        const rawRefs = r.data?.references ?? r.data?.citations ?? [];
+        const references = enrichReferences(rawRefs, cfg);
         for (const item of chunk) {
           results.push({
             case_id: item.case_id,
