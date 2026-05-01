@@ -1,6 +1,6 @@
 {
   "name": "perf-kp-sql",
-  "version": "0.36.1",
+  "version": "0.37.0",
   "description": "Kunpeng + MongoDB joint perf diagnosis. SSH-based collection + 202-case distilled markdown knowledge base (LLM-orchestrated 6-phase pipeline · KB.md + INDEX.md routing) + NotebookLM authoritative refresh + flamegraph stack pattern matching. Harness-agnostic (Anthropic Agent Skills standard).",
   "author": {
     "name": "zlxtqbdgdgd",
@@ -15,7 +15,6 @@
     "cpu-flamegraph": "^0.4.0"
   },
   "x-setup-skill": "perf-kp-sql-setup",
-  "x-needs-npm-install": true,
   "interface": {
     "displayName": "Kunpeng SQL Perf",
     "shortDescription": "Kunpeng ARM64 + MongoDB perf diagnosis",
