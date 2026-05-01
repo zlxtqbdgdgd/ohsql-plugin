@@ -1,42 +1,23 @@
 #!/usr/bin/env node
 // format-chat.mjs
-// 按终端宽度对 -chat.md 中诊断结果 pipe table 的 cell 内容重新折行。
+// 按终端宽度对 .md 报告中诊断结果 pipe table 的 cell 内容重新折行。
 // 表结构（6 列）不变，只调整 <br> 位置使总宽 ≤ 终端列数。
 // 火焰图段、头尾文字原样透传。
 //
-// Usage:
+// 导出函数（供测试 / 外部调用）:
+//   rewrapTable(content, cols) → 重排后的全文
+//   parseCells(line)           → cell 数组
+//   buildRow(cells)            → 表行字符串
+//   displayWidth(str)          → 显示宽度
+//
+// CLI 用法:
 //   node scripts/format-chat.mjs --chat <chat.md> [--cols N]
 
 import { readFileSync, existsSync } from "node:fs";
-
-// ── CLI args ──────────────────────────────────────────────
-const args = process.argv.slice(2);
-let chatPath = null;
-let cols = null;
-
-for (let i = 0; i < args.length; i++) {
-  if (args[i] === "--chat" && args[i + 1]) { chatPath = args[++i]; continue; }
-  if (args[i] === "--cols" && args[i + 1]) { cols = parseInt(args[++i], 10); continue; }
-}
-
-if (!chatPath) {
-  console.error("usage: format-chat.mjs --chat <chat.md> [--cols N]");
-  process.exit(1);
-}
-if (!existsSync(chatPath)) {
-  console.error(`chat file not found: ${chatPath}`);
-  process.exit(1);
-}
-
-// 终端宽度：显式传入 > process.stdout.columns > 默认 100
-if (!cols || isNaN(cols)) {
-  cols = process.stdout.columns || 100;
-}
-// 钳位：最小 80
-if (cols < 80) cols = 80;
+import { fileURLToPath } from "node:url";
 
 // ── CJK 显示宽度 ─────────────────────────────────────────
-function charWidth(cp) {
+export function charWidth(cp) {
   // CJK Unified Ideographs + Extensions
   if (cp >= 0x4E00 && cp <= 0x9FFF) return 2;
   if (cp >= 0x3400 && cp <= 0x4DBF) return 2;
@@ -62,7 +43,7 @@ function charWidth(cp) {
   return 1;
 }
 
-function displayWidth(str) {
+export function displayWidth(str) {
   let w = 0;
   for (const ch of str) {
     w += charWidth(ch.codePointAt(0));
@@ -73,7 +54,7 @@ function displayWidth(str) {
 // ── 断词优先级 ────────────────────────────────────────────
 const BREAK_CHARS = new Set(["·", " ", "→", "+", "/", "(", "；", "，", "、", "：", ";", ",", ".", "_", "-", "="]);
 
-function rewrapCell(text, budget) {
+export function rewrapCell(text, budget) {
   // 去掉现有 <br>，合并为纯文本
   const plain = text.replace(/<br\s*\/?>/gi, " ").replace(/\s+/g, " ").trim();
   if (!plain) return "";
@@ -127,74 +108,113 @@ function rewrapCell(text, budget) {
 }
 
 // ── 解析 pipe table ──────────────────────────────────────
-function parseCells(line) {
+export function parseCells(line) {
   // | cell1 | cell2 | ... | → ["cell1", "cell2", ...]
   const stripped = line.replace(/^\|/, "").replace(/\|$/, "");
   return stripped.split("|").map(c => c.trim());
 }
 
-function buildRow(cells) {
+export function buildRow(cells) {
   return "| " + cells.join(" | ") + " |";
 }
 
-// ── 主逻辑 ───────────────────────────────────────────────
-const content = readFileSync(chatPath, "utf8");
-const lines = content.split("\n");
+// ── 表格重排 ─────────────────────────────────────────────
+export function rewrapTable(content, cols) {
+  const lines = content.split("\n");
 
-// 每列显示宽度预算: (cols - 7个pipe) / 6, 最少 8
-const budget = Math.max(Math.floor((cols - 7) / 6), 8);
+  // 每列显示宽度预算: (cols - 7个pipe) / 6, 最少 8
+  const budget = Math.max(Math.floor((cols - 7) / 6), 8);
 
-// 找诊断结果表的位置
-let tableStart = -1;  // 表头行 index
-let sepLine = -1;     // |---| 分隔行 index
-let tableEnd = -1;    // 表数据最后一行的下一行 index
+  // 找诊断结果表的位置
+  let tableStart = -1;  // 表头行 index
+  let sepLine = -1;     // |---| 分隔行 index
+  let tableEnd = -1;    // 表数据最后一行的下一行 index
 
-for (let i = 0; i < lines.length; i++) {
-  if (lines[i].trim() === "## 诊断结果") {
-    // 向下找表头和分隔行
-    for (let j = i + 1; j < lines.length; j++) {
-      const trimmed = lines[j].trim();
-      if (!trimmed) continue; // 跳过空行
-      if (trimmed.startsWith("|") && tableStart < 0) {
-        tableStart = j;
-        continue;
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].trim() === "## 诊断结果") {
+      // 向下找表头和分隔行
+      for (let j = i + 1; j < lines.length; j++) {
+        const trimmed = lines[j].trim();
+        if (!trimmed) continue; // 跳过空行
+        if (trimmed.startsWith("|") && tableStart < 0) {
+          tableStart = j;
+          continue;
+        }
+        if (tableStart >= 0 && /^\|[-| ]+\|$/.test(trimmed)) {
+          sepLine = j;
+          break;
+        }
       }
-      if (tableStart >= 0 && /^\|[-| ]+\|$/.test(trimmed)) {
-        sepLine = j;
-        break;
-      }
+      break;
     }
-    break;
   }
-}
 
-if (tableStart < 0 || sepLine < 0) {
-  // 没找到表，原样输出
-  console.error("⚠ 未找到 ## 诊断结果 pipe table");
-  process.stdout.write(content);
-  process.exit(2);
-}
-
-// 找数据行范围
-tableEnd = sepLine + 1;
-while (tableEnd < lines.length) {
-  const trimmed = lines[tableEnd].trim();
-  if (!trimmed.startsWith("|")) break;
-  tableEnd++;
-}
-
-// 处理数据行
-const output = [];
-for (let i = 0; i < lines.length; i++) {
-  if (i >= sepLine + 1 && i < tableEnd) {
-    // 数据行：重新折行
-    const cells = parseCells(lines[i]);
-    const rewrapped = cells.map(c => rewrapCell(c, budget));
-    output.push(buildRow(rewrapped));
-  } else {
-    // 其他行：原样保留
-    output.push(lines[i]);
+  if (tableStart < 0 || sepLine < 0) {
+    return { content, found: false };
   }
+
+  // 找数据行范围
+  tableEnd = sepLine + 1;
+  while (tableEnd < lines.length) {
+    const trimmed = lines[tableEnd].trim();
+    if (!trimmed.startsWith("|")) break;
+    tableEnd++;
+  }
+
+  // 处理数据行
+  const output = [];
+  for (let i = 0; i < lines.length; i++) {
+    if (i >= sepLine + 1 && i < tableEnd) {
+      // 数据行：重新折行
+      const cells = parseCells(lines[i]);
+      const rewrapped = cells.map(c => rewrapCell(c, budget));
+      output.push(buildRow(rewrapped));
+    } else {
+      // 其他行：原样保留
+      output.push(lines[i]);
+    }
+  }
+
+  return { content: output.join("\n"), found: true };
 }
 
-process.stdout.write(output.join("\n"));
+// ── CLI ──────────────────────────────────────────────────
+const isCli = process.argv[1] &&
+  fileURLToPath(import.meta.url) === process.argv[1];
+
+if (isCli) {
+  const args = process.argv.slice(2);
+  let chatPath = null;
+  let cols = null;
+
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === "--chat" && args[i + 1]) { chatPath = args[++i]; continue; }
+    if (args[i] === "--cols" && args[i + 1]) { cols = parseInt(args[++i], 10); continue; }
+  }
+
+  if (!chatPath) {
+    console.error("usage: format-chat.mjs --chat <chat.md> [--cols N]");
+    process.exit(1);
+  }
+  if (!existsSync(chatPath)) {
+    console.error(`chat file not found: ${chatPath}`);
+    process.exit(1);
+  }
+
+  // 终端宽度：显式传入 > process.stdout.columns > 默认 100
+  if (!cols || isNaN(cols)) {
+    cols = process.stdout.columns || 100;
+  }
+  // 钳位：最小 80
+  if (cols < 80) cols = 80;
+
+  const content = readFileSync(chatPath, "utf8");
+  const { content: rewrapped, found } = rewrapTable(content, cols);
+  if (!found) {
+    console.error("⚠ 未找到 ## 诊断结果 pipe table");
+    process.stdout.write(content);
+    process.exit(2);
+  }
+
+  process.stdout.write(rewrapped);
+}
