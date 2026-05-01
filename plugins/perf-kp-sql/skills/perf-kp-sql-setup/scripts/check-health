@@ -3,7 +3,6 @@
 #
 # Probes:
 #   - Node.js >= 18
-#   - marked (require — used by md-to-html.mjs)
 #   - data/kb/{cases,best-practice}/{KB.md,INDEX.md} 存在性
 #
 # v0.12.0: ssh2 已下线 — cli-ssh.ts 改走 spawn(本地 OpenSSH ssh CLI) +
@@ -30,14 +29,15 @@ for arg in "$@"; do
   esac
 done
 
-PLUGIN_ROOT="${OHSQL_PLUGIN_ROOT:-}"
+# Priority: env var (any harness) → derive from script location
+PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-${OHSQL_PLUGIN_ROOT:-}}"
 if [ -z "$PLUGIN_ROOT" ]; then
   # Fallback: derive from script location (skills/perf-kp-sql-setup/scripts/check-health)
   PLUGIN_ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
 fi
 
 if [ ! -d "$PLUGIN_ROOT" ]; then
-  msg="🔴  Cannot resolve plugin root (\$OHSQL_PLUGIN_ROOT='${OHSQL_PLUGIN_ROOT:-unset}')"
+  msg="🔴  Cannot resolve plugin root (env vars unset, dirname fallback failed)"
   if [ "$LIST_MISSING" = 1 ]; then echo "$msg" >&2; else echo "$msg"; fi
   exit 1
 fi
@@ -82,19 +82,6 @@ else
   fi
 fi
 
-header "Native dependencies"
-
-# ----- marked (used by scripts/md-to-html.mjs) -----
-err="$(node --input-type=module -e "import('marked').then(()=>{process.stdout.write('ok')}).catch(e=>{process.stderr.write(String(e));process.exit(1)})" 2>&1)"
-if [ "$err" = "ok" ]; then
-  ok "marked"
-else
-  fail "marked missing"
-  hint "fix: cd '$PLUGIN_ROOT' && npm install marked@^18"
-  needed_install+=("marked@^18")
-  issues=$((issues + 1))
-fi
-
 header "Data"
 
 # ----- KB markdown files (cases + best-practice) -----
@@ -137,15 +124,6 @@ if command -v notebooklm >/dev/null 2>&1; then
     nlm_pip="$(echo "$nlm_python" | sed -E 's|/python[0-9.]*$|/pip|')"
     [ -x "$nlm_pip" ] || nlm_pip="pip3"
     hint "fix: $nlm_pip install rookiepy"
-  fi
-  # Playwright 降为可选提示(不再是必需)
-  nlm_python="$(head -1 "$(which notebooklm)" 2>/dev/null | sed -nE 's|^#![ 	]*([^ 	]+).*|\1|p')"
-  if [ -z "$nlm_python" ] || [ ! -x "$nlm_python" ]; then nlm_python="python3"; fi
-  pw_check="$("$nlm_python" -c "from playwright.sync_api import sync_playwright" 2>&1)"
-  if [ -z "$pw_check" ]; then
-    ok "playwright (可选 · 备用登录路径)"
-  else
-    hint "playwright 未安装 (可选 · 不影响主流程 · rookiepy 已覆盖鉴权恢复)"
   fi
   # check config
   NLM_CFG="$HOME/.perf-kp-sql/notebooklm.json"
