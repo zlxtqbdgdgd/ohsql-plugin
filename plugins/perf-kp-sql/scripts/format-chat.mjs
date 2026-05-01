@@ -19,7 +19,28 @@ import { fileURLToPath } from "node:url";
 // ── Lint(5 标签来源标记验证) ──────────────────────────────
 // 参见 docs/superpowers/specs/2026-05-01-md-report-source-tags-design.md
 
-const TAG_AT_END_RE = /\[(IDX|KB|NLM|OBS|LLM)\]\s*(\[参考\d+\])?\s*$/;
+// 允许标签后跟 1 个可选标点(如 `[LLM]:` 风格)
+const TAG_AT_END_RE = /\[(IDX|KB|NLM|OBS|LLM)\]\s*(\[参考\d+\])?\s*[:,。;?!]?\s*$/;
+
+// 把 backtick code span(`...`)替换成占位符 · 切分后再换回 ·
+// 防止句末标点切分进入代码内部
+function splitNarrativeAtoms(line) {
+  const codeSpans = [];
+  // 占位符用 \x00 包裹索引 · 这俩控制符在正文里不会出现
+  const protectedLine = line.replace(/`[^`]+`/g, (m) => {
+    codeSpans.push(m);
+    return `\x00${codeSpans.length - 1}\x00`;
+  });
+  // 先按 ` · ` 切 atom · 再按 [。?!] 切句末
+  // 不切 `:` / `;`(常见于"建议措施:"标签 / 代码内)
+  const atoms = [];
+  for (const chunk of protectedLine.split(" · ")) {
+    for (const sub of chunk.split(/[。?!]/)) {
+      atoms.push(sub.replace(/\x00(\d+)\x00/g, (_, n) => codeSpans[+n]));
+    }
+  }
+  return atoms;
+}
 
 export function lintReport(mdText) {
   const lines = mdText.split("\n");
@@ -94,8 +115,10 @@ export function lintReport(mdText) {
       }
     } else {
       // narrative line / list item
-      // 句末标点切分
-      const sentences = trimmed.split(/[。;?!:]/);
+      // 切分顺序: ` · ` (atom separator) > [。?!] (sentence terminator)
+      // 不切 `:` / `;` (常见于"建议措施:"标签 / 代码内)
+      // 不切 backtick code 内的标点(`...`)
+      const sentences = splitNarrativeAtoms(trimmed);
       for (const sentence of sentences) {
         const s = sentence.trim();
         if (s.length < 4) continue; // 短碎片豁免
@@ -281,6 +304,11 @@ const isCli = process.argv[1] &&
   fileURLToPath(import.meta.url) === process.argv[1];
 
 if (isCli) {
+  // Exit codes:
+  //   0 = 成功
+  //   1 = CLI 参数错误 / 文件不存在
+  //   2 = lint 失败(漏挂率 > 5%)
+  //   3 = 未找到 ## 诊断结果 pipe table
   const args = process.argv.slice(2);
   let chatPath = null;
   let cols = null;
@@ -322,7 +350,7 @@ if (isCli) {
   if (!found) {
     console.error("⚠ 未找到 ## 诊断结果 pipe table");
     process.stdout.write(content);
-    process.exit(2);
+    process.exit(3);  // ← 3 (lint-fail 占用 2)
   }
 
   process.stdout.write(rewrapped);

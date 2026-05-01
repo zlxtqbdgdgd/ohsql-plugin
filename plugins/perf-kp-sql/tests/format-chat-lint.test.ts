@@ -185,6 +185,41 @@ more lines without tags
     const r = lintReport(md);
     assert.equal(r.missRate, 0);
   });
+
+  it("(回归)cell 内 `[LLM]:` 末尾 `:` 不算漏挂", () => {
+    const md = `# title
+
+## 诊断结果
+
+| a | b | c | d | e | f |
+|---|---|---|---|---|---|
+| 调低 target=3% [LLM]: | 事实 [OBS] | 事实 [OBS] | high [LLM] | 高 [LLM] | [参考1] |
+`;
+    const r = lintReport(md);
+    assert.equal(r.missRate, 0, JSON.stringify(r.missing));
+  });
+
+  it("(回归)narrative 段 `- 建议措施:` 不被 split 成假原子", () => {
+    const md = `# title
+
+## 现场观测
+
+- 建议措施:\`db.currentOp(...)\` 立即止损 [LLM] · 排查发起方 [LLM] · 改写为可索引查询(凭经验·非权威) [LLM]
+`;
+    const r = lintReport(md);
+    assert.equal(r.missRate, 0, JSON.stringify(r.missing));
+  });
+
+  it("(回归)backtick code 内的 `:` `,` 不当切分点", () => {
+    const md = `# title
+
+## 现场观测
+
+- \`db.adminCommand({killOp:1, op:op.opid, foo:bar})\` 立即止损 [LLM] · 排查发起方 [LLM]
+`;
+    const r = lintReport(md);
+    assert.equal(r.missRate, 0, JSON.stringify(r.missing));
+  });
 });
 
 describe("rewrapTable", () => {

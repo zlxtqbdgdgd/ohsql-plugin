@@ -148,11 +148,11 @@ cell 内容本身就一个词(high / 高),cell 末尾挂 `[LLM]`(这俩本质是
 扫描 `.md` 文件,对每个**潜在原子位置**检查是否挂了 5 标签之一:
 
 - **表格 cell**:每个 `<br>` 分隔的子串,以及每个 ` · ` 分隔的子原子(如果 cell 内用了 ` · `)
-- **非表格段落**:每个句末标点(`。` / `;` / `?` / `!` / `:`)前的子句
+- **非表格段落**:按 ` · ` (atom 分隔符) 和 `。` / `?` / `!` (句末终止符)切分的子句;不切 `:` / `;`;backtick code 内的标点豁免
 - **legend 段(`## 来源标记 (debug)`)与参考段(`## 参考`)豁免**——不参与 lint
 - **空 cell / 表头行 / 分隔行 / 引言文字 / 标题行豁免**
 
-**判定**:漏挂率 = 漏挂位置数 / 总潜在原子位置数。**> 5%** → exit code 2,stderr 列出**前 10 个**漏挂行的位置(行号 + 文本片段)。
+**判定**:漏挂率 = 漏挂位置数 / 总潜在原子位置数。**> 5%** → exit code 2(lint 失败),stderr 列出**前 10 个**漏挂行的位置(行号 + 文本片段)。exit code 3 = 未找到 `## 诊断结果` pipe table(与 lint 失败区分)。
 
 **豁免规则(不参与 lint)**:
 
@@ -197,10 +197,17 @@ for each line in md:
         check if it ends with one of [IDX|KB|NLM|OBS|LLM]
 
   else (narrative paragraph / list item · 不在 table · 不在 code block):
-    split by [。;?!:] → sentences
-    for each sentence with ≥ 4 non-whitespace chars:
-      count as 1 potential atom
-      check if it ends with one of [IDX|KB|NLM|OBS|LLM]
+    # 切分顺序:` · ` (atom 分隔符) > [。?!] (句末终止符)
+    # 不切 `:` / `;`(常作为"建议措施:"标签或代码内符号 · 不是句末)
+    # backtick code (`...`) 内的标点豁免切分(用占位符技巧)
+    protected = replace_backtick_spans(line, with_placeholder)
+    for chunk in protected.split(" · "):
+      for sentence in chunk.split([。?!]):
+        restored = restore_placeholders(sentence)
+        if len(restored.strip()) >= 4:
+          count as 1 potential atom
+          check if it ends with one of [IDX|KB|NLM|OBS|LLM]
+          (TAG_AT_END_RE 允许末尾跟 1 个可选标点 [:,。;?!])
 ```
 
 **接受偶发假阳**:lint 不识别"原子事实"的真实语义边界,会把"目标主机:10.0.0.1"这种纯元数据当成需要标签的位置。设计上**容忍 5% 漏挂**作为假阳缓冲。如果实际跑下来假阳常见(>10%),再降阈值或加豁免规则。
@@ -208,6 +215,7 @@ for each line in md:
 ### Lint 输出与 SKILL.md 协作
 
 - lint 失败 (exit 2) 时 stderr 必含**前 10 个**漏挂位置(行号 + 文本片段),让 LLM 知道改哪里
+- 未找到 `## 诊断结果` pipe table → exit 3(与 lint 失败 exit 2 区分,方便 SKILL.md Phase 5.4 路由)
 - SKILL.md Phase 5.4 的 Step 1(调 format-chat.mjs)新增"如果 exit code = 2 → 报告漏标 → 必须回 5.2 重写报告"
 - 与现有的 4 条 chat self-check 硬规则平级——共同构成"格式纠察"层
 
