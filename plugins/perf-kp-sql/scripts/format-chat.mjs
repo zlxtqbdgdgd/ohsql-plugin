@@ -16,6 +16,104 @@
 import { readFileSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
+// ── Lint(5 标签来源标记验证) ──────────────────────────────
+// 参见 docs/superpowers/specs/2026-05-01-md-report-source-tags-design.md
+
+const TAG_AT_END_RE = /\[(IDX|KB|NLM|OBS|LLM)\]\s*(\[参考\d+\])?\s*$/;
+
+export function lintReport(mdText) {
+  const lines = mdText.split("\n");
+  const total_missing = { total: 0, missing: [] };
+
+  let inMetadata = true;     // start: 在 # title 之后 · 第一个 ## 之前
+  let inLegend = false;
+  let inRef = false;
+  let inCodeFence = false;
+
+  for (let i = 0; i < lines.length; i++) {
+    const raw = lines[i];
+    const trimmed = raw.trim();
+
+    // code fence toggle
+    if (/^```/.test(trimmed)) {
+      inCodeFence = !inCodeFence;
+      continue;
+    }
+    if (inCodeFence) continue;
+
+    // section transitions(只在 ## 级别 · ### 不切)
+    if (/^##\s/.test(trimmed) && !/^###/.test(trimmed)) {
+      inMetadata = false;
+      inLegend = trimmed === "## 来源标记 (debug)";
+      inRef = trimmed === "## 参考";
+      continue; // heading 行本身豁免
+    }
+
+    if (inMetadata || inLegend || inRef) continue;
+    if (!trimmed) continue;
+    if (trimmed.startsWith("#")) continue;
+    if (trimmed.startsWith(">")) continue;
+
+    // table separator + table header row 豁免
+    if (/^\|[-| ]+\|$/.test(trimmed)) continue;
+    if (trimmed.startsWith("|") && i + 1 < lines.length) {
+      const next = lines[i + 1].trim();
+      if (/^\|[-| ]+\|$/.test(next)) continue; // header 行
+    }
+
+    // 处理 table data row vs narrative
+    if (trimmed.startsWith("|") && trimmed.endsWith("|")) {
+      // table data row
+      const cells = parseCells(raw);
+      for (const cell of cells) {
+        const sublines = cell.split("<br>");
+        for (const sub of sublines) {
+          const subTrim = sub.trim();
+          if (!subTrim) continue;
+          // 单纯的 [参考N] cell(不属 5 标签事实 cell)豁免
+          if (/^\[参考\d+\]$/.test(subTrim)) continue;
+
+          if (subTrim.includes(" · ")) {
+            // sub-atom 切分
+            const atoms = subTrim.split(" · ");
+            for (const atom of atoms) {
+              const a = atom.trim();
+              if (!a) continue;
+              total_missing.total++;
+              if (!TAG_AT_END_RE.test(a)) {
+                total_missing.missing.push({ line: i + 1, text: a });
+              }
+            }
+          } else {
+            total_missing.total++;
+            if (!TAG_AT_END_RE.test(subTrim)) {
+              total_missing.missing.push({ line: i + 1, text: subTrim });
+            }
+          }
+        }
+      }
+    } else {
+      // narrative line / list item
+      // 句末标点切分
+      const sentences = trimmed.split(/[。;?!:]/);
+      for (const sentence of sentences) {
+        const s = sentence.trim();
+        if (s.length < 4) continue; // 短碎片豁免
+        total_missing.total++;
+        if (!TAG_AT_END_RE.test(s)) {
+          total_missing.missing.push({ line: i + 1, text: s });
+        }
+      }
+    }
+  }
+
+  const missRate = total_missing.total === 0
+    ? 0
+    : total_missing.missing.length / total_missing.total;
+
+  return { ...total_missing, missRate };
+}
+
 // ── CJK 显示宽度 ─────────────────────────────────────────
 export function charWidth(cp) {
   // CJK Unified Ideographs + Extensions
@@ -188,8 +286,8 @@ if (isCli) {
   let cols = null;
 
   for (let i = 0; i < args.length; i++) {
-    if (args[i] === "--chat" && args[i + 1]) { chatPath = args[++i]; continue; }
-    if (args[i] === "--cols" && args[i + 1]) { cols = parseInt(args[++i], 10); continue; }
+    if (args[i] === "--chat") chatPath = args[++i];
+    else if (args[i] === "--cols") cols = parseInt(args[++i], 10);
   }
 
   if (!chatPath) {
@@ -197,18 +295,29 @@ if (isCli) {
     process.exit(1);
   }
   if (!existsSync(chatPath)) {
-    console.error(`chat file not found: ${chatPath}`);
+    console.error(`文件不存在: ${chatPath}`);
     process.exit(1);
   }
 
-  // 终端宽度：显式传入 > process.stdout.columns > 默认 100
-  if (!cols || isNaN(cols)) {
-    cols = process.stdout.columns || 100;
-  }
-  // 钳位：最小 80
-  if (cols < 80) cols = 80;
+  cols = cols || process.stdout.columns || 100;
+  cols = Math.max(cols, 80);
 
   const content = readFileSync(chatPath, "utf8");
+
+  // ─ Step 0: lint(漏挂率 > 5% → exit 2)
+  const lint = lintReport(content);
+  if (lint.missRate > 0.05) {
+    console.error(`✗ 来源标签 lint 失败 · 漏挂率 ${(lint.missRate * 100).toFixed(1)}% (${lint.missing.length}/${lint.total})`);
+    console.error(`  Spec: docs/superpowers/specs/2026-05-01-md-report-source-tags-design.md`);
+    console.error(`  前 10 个漏挂位置:`);
+    for (const m of lint.missing.slice(0, 10)) {
+      console.error(`    L${m.line}: ${m.text.slice(0, 80)}`);
+    }
+    console.error(`  → 必须回 SKILL.md Phase 5.2 重写报告 · 每个原子事实挂 1 个 [IDX]/[KB]/[NLM]/[OBS]/[LLM] 标签 · 然后重跑 format-chat.mjs。`);
+    process.exit(2);
+  }
+
+  // ─ Step 1: rewrap 表格
   const { content: rewrapped, found } = rewrapTable(content, cols);
   if (!found) {
     console.error("⚠ 未找到 ## 诊断结果 pipe table");
