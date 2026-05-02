@@ -1,6 +1,6 @@
-# 诊断报告模板(v0.3.2 · 兑现三亮点 · 业界对齐)
+# 诊断报告模板(v0.3.2 · 兑现三亮点 · 业界对齐 · 0.44.0 加开场白段 + 单目录归档)
 
-本文件是 SKILL.md Step 4.2 写入 `~/.perf-kp-sql/reports/perf-kp-sql-<engine>-<TS>.md` 时
+本文件是 SKILL.md Phase 5.3 写入 `~/.perf-kp-sql/runs/<TS>/report.md` 时
 **必须参照的结构**。LLM 以 `report_input` JSON 为输入,按下列顺序渲染 markdown。
 
 业界对照:
@@ -8,11 +8,33 @@
 - MongoDB Atlas Performance Advisor 给 Index + Schema + 样本查询,按 Impact 排序
 - Percona PMM Advisor 按 Configuration/Performance/Query/Security 分 4 类
 
-我们对这三家的取交集再扩展:**metadata → Top → Full → 验证命令 → 引用 → Artifacts**。
+我们对这三家的取交集再扩展:**开场白 → metadata → Top → Full → 验证命令 → 引用 → Artifacts**。
 
 ---
 
-## 报告结构(7 段)
+## 报告结构(8 段 · 0.44.0 起多了 0. 开场白)
+
+### 0. 开场白(0.44.0 加 · 必须字面打 · 不许省)
+
+报告**最顶部**(Metadata card 之前)字面打 SKILL.md `# 开场白` 段的 5 步流程预告 · 用 `~~~` 围栏包裹避免跟外层 markdown 内容冲突。这一段不进 lint 检查 · 但**不许省略**。
+
+```
+~~~
+[perf-kp-sql · 鲲鹏 + MongoDB 性能诊断]
+
+我是一个鲲鹏场景下泛数据库性能诊断 skill,基于 202 条诊断案例 + NotebookLM 联网知识库,会通过以下流程定位性能瓶颈与根因:
+
+  1. 环境信息采集
+  2. 诊断案例匹配
+  3. 诊断指标采集
+  4. 多源综合诊断
+  5. 报告生成
+
+中途会问你:SSH 凭据、问题现象。
+~~~
+```
+
+**为什么字面打两遍**(chat 通道 + md 报告头部):用户看 chat 时以为 skill 在干啥,看 md 报告时也能马上知道这是个什么报告。两个通道目标用户不同 · 都不能省。
 
 ### 1. Metadata card
 
@@ -179,17 +201,24 @@ spec § 3.7 MVL 最小闭环 · 当前仅展示命令占位 · runner 实装排 
 > restart_engine / schema_migration 类改动必须人工 change-window 执行,本 agent 不自动 verify。
 ```
 
-### 6. Artifacts
+### 6. Artifacts(0.44.0 单目录归档)
 
 ```markdown
 ## Artifacts
 
-- OS 采集: `~/.perf-kp-sql/tmp/perf-kp-sql-os-<TS>.txt`
-- DB 采集: `~/.perf-kp-sql/tmp/perf-kp-sql-mongo-db-<TS>.txt`
-- 诊断 JSON: diagnose.mjs stdout(已消费)
-- FixExperiment 模板(若存在): `~/.perf-kp-sql/experiments/<TS>/*.json`
-- 火焰图(若 Step 3.3 执行): `~/.perf-kp-sql/flame/<TS>.svg`
+- 环境信息: `~/.perf-kp-sql/runs/<TS>/env.txt`
+- 操作系统层采集: `~/.perf-kp-sql/runs/<TS>/collect-os.txt`
+- MongoDB 层采集: `~/.perf-kp-sql/runs/<TS>/collect-mongo.txt`
+- 诊断报告(本文件): `~/.perf-kp-sql/runs/<TS>/report.md`
+- 火焰图(若 Phase 3.A.3 执行): `~/.perf-kp-sql/runs/<TS>/flame.svg`
+- FixExperiment 模板(若存在 · 暂未启用): `~/.perf-kp-sql/experiments/<TS>/*.json`
 ```
+
+**0.44.0 路径变更**(单目录归档):
+- 旧 `~/.perf-kp-sql/reports/perf-kp-sql-<engine>-<TS>.md` → 新 `~/.perf-kp-sql/runs/<TS>/report.md`
+- 旧 `~/.perf-kp-sql/flame/<TS>.svg` → 新 `~/.perf-kp-sql/runs/<TS>/flame.svg`
+- 旧 `~/.perf-kp-sql/tmp/perf-kp-sql-os-<TS>.txt` / `perf-kp-sql-mongo-db-<TS>.txt` → 新 `~/.perf-kp-sql/runs/<TS>/collect-os.txt` / `collect-mongo.txt`
+- SSH command-file 临时文件仍走 `~/.perf-kp-sql/tmp/perf-kp-sql-cmd-<TS>.txt`(用完即弃 · 不属于 run 产物)
 
 ### 7. 参考(v0.3.8)
 
@@ -222,10 +251,12 @@ spec § 3.7 MVL 最小闭环 · 当前仅展示命令占位 · runner 实装排 
 - 全 OK 场景(无 warning/critical):Top Issues 段改为 "未发现异常 · 实例运行健康",
   验证命令段改为 "本次无需修复"
 
-## 报告持久化
+## 报告持久化(0.44.0 单目录归档)
 
 完整报告由 LLM 通过 `Write(file_path, content)` 写到:
 ```
-~/.perf-kp-sql/reports/perf-kp-sql-<engine>-<TS>.md
+~/.perf-kp-sql/runs/<TS>/report.md
 ```
-**不要**在控制台复制全文 · 只打 SKILL.md Step 4.3 的 `━━ 诊断完成 ━━` footer 4 行即可。
+同目录归档采集 / 火焰图等产物(详见上文 "6. Artifacts" 段)。
+
+**不要**在控制台复制全文 · 只打 SKILL.md Phase 5.4 的 `format-chat.mjs --chat <runs/<TS>/report.md>` stdout 字面输出即可。

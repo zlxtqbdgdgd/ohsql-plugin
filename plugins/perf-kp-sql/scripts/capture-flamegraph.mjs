@@ -6,12 +6,17 @@
 // 用意 2：duration 强制 clamp · 防 LLM 自由发挥拉到 30s/60s。
 //   诊断场景默认 3s 已足够命中 stack-pattern；超 10s 必须显式 --allow-long-duration
 //   opt-in（需要用户明确要求长窗口 / off-cpu 长尾分析）。
+// 用意 3（0.44.0）：单目录归档 — 支持 `--local-svg-out=<path>` 参数，
+//   capture.mjs 跑完后把远端 SVG scp 到本地指定位置（典型用法：
+//   `--local-svg-out=~/.perf-kp-sql/runs/<TS>/flame.svg`）。
+//   本参数本地处理 · 不透传给 capture.mjs。
 
-import { existsSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readdirSync, statSync, mkdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join, resolve } from "node:path";
-import { spawn } from "node:child_process";
-import { homedir } from "node:os";
+import { spawn, spawnSync } from "node:child_process";
+import { homedir, tmpdir } from "node:os";
+import { createHash } from "node:crypto";
 
 const DEP_NAME = "cpu-flamegraph";
 const REL_CAPTURE = join("skills", DEP_NAME, "scripts", "capture.mjs");
@@ -75,7 +80,23 @@ for (let i = 0; i < rawArgs.length; i++) {
   }
 }
 const allowLong = rawArgs.includes("--allow-long-duration");
-const cleanedArgs = rawArgs.filter((a) => a !== "--allow-long-duration");
+
+// --local-svg-out=<path> 本地参数 · 不透传给 capture.mjs · 抽出来后续 scp 用
+let localSvgOut = null;
+const filteredArgs = [];
+for (const a of rawArgs) {
+  if (a === "--allow-long-duration") continue;
+  if (a.startsWith("--local-svg-out=")) {
+    localSvgOut = a.slice("--local-svg-out=".length);
+    continue;
+  }
+  filteredArgs.push(a);
+}
+// expand leading ~ for local path
+if (localSvgOut && localSvgOut.startsWith("~/")) {
+  localSvgOut = join(homedir(), localSvgOut.slice(2));
+}
+const cleanedArgs = filteredArgs;
 
 if (durIdx < 0 || Number.isNaN(durationVal)) {
   cleanedArgs.push(`--duration=${DEFAULT_DURATION}`);
@@ -99,12 +120,100 @@ if (durIdx < 0 || Number.isNaN(durationVal)) {
 }
 
 const captureScript = join(flameRoot, REL_CAPTURE);
-const child = spawn(process.execPath, [captureScript, ...cleanedArgs], { stdio: "inherit" });
-child.on("error", (e) => {
-  process.stderr.write(JSON.stringify({ ok: false, err: `spawn failed: ${e.message}`, captureScript }) + "\n");
-  process.exit(2);
-});
-child.on("exit", (code, signal) => {
-  if (signal) process.kill(process.pid, signal);
-  else process.exit(code ?? 1);
-});
+
+if (!localSvgOut) {
+  // 不需要本地落 SVG · 走老路径 · stdio inherit · 退出码透传
+  const child = spawn(process.execPath, [captureScript, ...cleanedArgs], { stdio: "inherit" });
+  child.on("error", (e) => {
+    process.stderr.write(JSON.stringify({ ok: false, err: `spawn failed: ${e.message}`, captureScript }) + "\n");
+    process.exit(2);
+  });
+  child.on("exit", (code, signal) => {
+    if (signal) process.kill(process.pid, signal);
+    else process.exit(code ?? 1);
+  });
+} else {
+  // 需要本地落 SVG · 捕获 stdout 找 serverSvgPath · scp 拉本地
+  // 注:capture.mjs 输出 JSON 到 stdout 末尾 · 我们 buffer + 透传 + 解析 · 不打断用户视觉
+  let stdoutBuf = "";
+  const child = spawn(process.execPath, [captureScript, ...cleanedArgs], {
+    stdio: ["inherit", "pipe", "inherit"],
+  });
+  child.stdout.on("data", (chunk) => {
+    stdoutBuf += chunk.toString("utf8");
+    process.stdout.write(chunk);
+  });
+  child.on("error", (e) => {
+    process.stderr.write(JSON.stringify({ ok: false, err: `spawn failed: ${e.message}`, captureScript }) + "\n");
+    process.exit(2);
+  });
+  child.on("exit", (code, signal) => {
+    if (signal) {
+      process.kill(process.pid, signal);
+      return;
+    }
+    if (code !== 0) {
+      process.exit(code ?? 1);
+      return;
+    }
+    // 解析 stdout 找 JSON · capture.mjs 末尾 process.stdout.write(JSON.stringify(result, null, 2) + "\n")
+    let parsed = null;
+    try {
+      // JSON 是末尾整段 · 找最后一个 `^{` 行起 parse
+      const lastBrace = stdoutBuf.lastIndexOf("\n{");
+      const jsonStr = lastBrace >= 0 ? stdoutBuf.slice(lastBrace + 1) : stdoutBuf;
+      parsed = JSON.parse(jsonStr);
+    } catch (e) {
+      process.stderr.write(`[capture-flamegraph] 无法解析 capture.mjs stdout JSON · 跳过 SVG 落本地: ${e.message}\n`);
+      process.exit(0);
+    }
+    const serverSvgPath = parsed?.artifacts?.serverSvgPath;
+    if (!serverSvgPath) {
+      process.stderr.write(`[capture-flamegraph] capture.mjs 未返回 serverSvgPath · 跳过 SVG 落本地\n`);
+      process.exit(0);
+    }
+    // 拼 scp 命令 · 复用用户给的 host/user/port/key/password
+    // 解析 cleanedArgs 拿 host/user/port/key
+    const argMap = {};
+    for (const a of cleanedArgs) {
+      const m = a.match(/^--([^=]+)=(.*)$/);
+      if (m) argMap[m[1]] = m[2];
+    }
+    const host = argMap.host;
+    const user = argMap.user;
+    const port = argMap.port;
+    const key = argMap.key;
+    if (!host || !user) {
+      process.stderr.write(`[capture-flamegraph] cleanedArgs 缺 host/user · 跳过 SVG 落本地\n`);
+      process.exit(0);
+    }
+    // mkdir -p 本地目录
+    try {
+      mkdirSync(dirname(localSvgOut), { recursive: true });
+    } catch (e) {
+      process.stderr.write(`[capture-flamegraph] 无法创建本地目录 ${dirname(localSvgOut)}: ${e.message}\n`);
+      process.exit(0);
+    }
+    // 用 scp 拉 · 复用 ssh.mjs 已建的 ControlMaster socket(避免重新 auth)
+    // ControlPath = <tmpdir>/perf-kp-sql-cm-<sha1(host:port:user)[:12]>.sock
+    const portNum = port ? parseInt(port, 10) : 22;
+    const cpHash = createHash("sha1").update(`${host}:${portNum}:${user}`).digest("hex").slice(0, 12);
+    const controlPath = join(tmpdir(), `perf-kp-sql-cm-${cpHash}.sock`);
+    const scpArgs = [
+      "-o", `ControlPath=${controlPath}`,
+      "-o", "StrictHostKeyChecking=accept-new",
+    ];
+    if (port) scpArgs.push("-P", port);
+    if (key) scpArgs.push("-i", key);
+    scpArgs.push(`${user}@${host}:${serverSvgPath}`, localSvgOut);
+    const scpRes = spawnSync("scp", scpArgs, { stdio: ["ignore", "pipe", "pipe"], encoding: "utf8" });
+    if (scpRes.status === 0) {
+      process.stderr.write(`[capture-flamegraph] SVG 已落本地: ${localSvgOut}\n`);
+    } else {
+      // 复用 ControlMaster 失败时(过期 / cpu-flamegraph 用了不同 socket) · 给一行提示让 LLM 用 ssh.mjs 兜底
+      process.stderr.write(`[capture-flamegraph] scp 失败 (exit=${scpRes.status}) · stderr: ${scpRes.stderr?.slice(0, 200)}\n`);
+      process.stderr.write(`[capture-flamegraph] 可以让 LLM 在 SKILL.md 里手动跑 scp/mv 兜底 · 远端 SVG 路径: ${serverSvgPath}\n`);
+    }
+    process.exit(0);
+  });
+}
