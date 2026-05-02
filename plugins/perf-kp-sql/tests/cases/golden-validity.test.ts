@@ -18,7 +18,7 @@ import { fileURLToPath } from "node:url";
 const HERE = dirname(fileURLToPath(import.meta.url));
 const PLUGIN_ROOT = resolve(HERE, "../..");
 const GOLDEN_PATH = resolve(PLUGIN_ROOT, "tests/golden/symptom-routing.json");
-const CASES_INDEX = resolve(PLUGIN_ROOT, "data/kb/cases/INDEX.md");
+const CASES_INDEX = resolve(PLUGIN_ROOT, "data/cases/INDEX.md");
 
 interface GoldenCase {
   id: string;

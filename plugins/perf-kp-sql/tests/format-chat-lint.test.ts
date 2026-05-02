@@ -12,17 +12,17 @@ const FULL_REPORT_OK = `# perf-kp-sql · 性能诊断报告
 | 标记 | 含义 |
 |---|---|
 | \`[IDX]\` | cases/INDEX.md |
-| \`[KB]\`  | cases/KB.md |
+| \`[CASE]\`  | cases/CASES.md |
 
 ## 诊断结果
 
 | 确认的根因 | 判定依据 | 建议措施 | 风险等级 | 置信度 | 参考来源 |
 |---|---|---|---|---|---|
-| WT eviction [KB] | cache=94.7% [OBS] | 调 target=3% [LLM] | high [LLM] | 高 [LLM] | [参考1] |
+| WT eviction [CASE] | cache=94.7% [OBS] | 调 target=3% [LLM] | high [LLM] | 高 [LLM] | [参考1] |
 
 ## 参考
 
-[参考1] WiredTiger Tuning — source.wiredtiger.com [KB]
+[参考1] WiredTiger Tuning — source.wiredtiger.com [CASE]
         https://source.wiredtiger.com/mongodb-6.0/tune_cache.html
 `;
 
@@ -63,7 +63,7 @@ describe("lintReport", () => {
 | 标记 | 含义 |
 |---|---|
 | \`[IDX]\` | cases/INDEX.md |
-| \`[KB]\`  | cases/KB.md(无标签 不该报错) |
+| \`[CASE]\`  | cases/CASES.md(无标签 不该报错) |
 
 ## 诊断结果
 
@@ -133,7 +133,7 @@ more lines without tags
 
 | a | b | c | d | e | f |
 |---|---|---|---|---|---|
-| cache=94% [OBS] · 阈=95% [KB] | 事实 [OBS] | 事实 [OBS] | 事实 [OBS] | 事实 [OBS] | [参考1] |
+| cache=94% [OBS] · 阈=95% [CASE] | 事实 [OBS] | 事实 [OBS] | 事实 [OBS] | 事实 [OBS] | [参考1] |
 `;
     const r = lintReport(md);
     assert.equal(r.missRate, 0);
@@ -146,7 +146,7 @@ more lines without tags
 
 | a | b | c | d | e | f |
 |---|---|---|---|---|---|
-| cache=94% · 阈=95% [KB] | 事实 [OBS] | 事实 [OBS] | 事实 [OBS] | 事实 [OBS] | [参考1] |
+| cache=94% · 阈=95% [CASE] | 事实 [OBS] | 事实 [OBS] | 事实 [OBS] | 事实 [OBS] | [参考1] |
 `;
     const r = lintReport(md);
     assert.ok(r.missing.length >= 1);

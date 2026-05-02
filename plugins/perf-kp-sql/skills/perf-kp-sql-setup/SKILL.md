@@ -32,7 +32,7 @@ Harness 加载 skill 时一定会提供 base directory（Claude Code 显示 `Bas
 3. 验证:
 
 ```
-Bash(command="ls <候选路径>/scripts/ <候选路径>/data/kb/ >/dev/null 2>&1 && echo '<候选路径>'")
+Bash(command="ls <候选路径>/scripts/ssh.mjs <候选路径>/data/cases/INDEX.md >/dev/null 2>&1 && echo '<候选路径>'")
 ```
 
 stdout 非空 = 验证通过 · 记为 `PLUGIN_ROOT`。
@@ -62,7 +62,7 @@ Bash(command="bash <PLUGIN_ROOT>/skills/perf-kp-sql-setup/scripts/check-health")
 The script outputs a colored report covering:
 
 - Node.js version
-- `data/kb/cases/{KB.md,INDEX.md}` 与 `data/kb/best-practice/{KB.md,INDEX.md}` 存在性
+- `data/cases/{CASES.md,INDEX.md}` 与 `data/best-practice/{CASES.md,INDEX.md}` 存在性
 
 Display the script's output verbatim.
 
@@ -73,12 +73,12 @@ Parse the script output. If every item is 🟢, display the success banner and s
 ```
 ✅ perf-kp-sql setup complete
 
-   data/kb/         🟢
+   data/cases/      🟢
 
    Run /perf-kp-sql-setup anytime to re-check.
 ```
 
-If `data/kb/` 文件缺失，recommend `/plugin reinstall perf-kp-sql`（KB 文件随 plugin install 发布）。
+If `data/cases/` / `data/best-practice/` 文件缺失，recommend `/plugin reinstall perf-kp-sql`（案例文件随 plugin install 发布）。
 
 Otherwise proceed to Phase 2 (NotebookLM).
 

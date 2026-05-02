@@ -649,9 +649,9 @@ function buildQueryPrompt(cr) {
 function buildBpPrompt(bp) {
   const paramName = bp.param_name || bp.case_id;
   const current = bp.current_value != null ? String(bp.current_value) : "未获取";
-  const kbRec = bp.kb_recommendation != null ? String(bp.kb_recommendation) : "未给";
+  const caseRec = bp.case_recommendation != null ? String(bp.case_recommendation) : "未给";
   const scenario = bp.scenario_quote || "";
-  return `参数 ${paramName} · 当前值 ${current} · KB 推荐值 ${kbRec}\n场景: ${scenario}\n请回答:\n1. 该参数的最新官方推荐值(若与 KB 不一致请明确指出)\n2. 推荐理由 + 适用场景\n3. 当前值的风险评估`;
+  return `参数 ${paramName} · 当前值 ${current} · 案例推荐值 ${caseRec}\n场景: ${scenario}\n请回答:\n1. 该参数的最新官方推荐值(若与案例不一致请明确指出)\n2. 推荐理由 + 适用场景\n3. 当前值的风险评估`;
 }
 
 // M4 · best-practice scope → notebook 路由

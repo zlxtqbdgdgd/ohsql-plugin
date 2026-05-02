@@ -2,7 +2,7 @@
 
 > **harness-agnostic** (since v0.6.0) — runs on Claude Code, OpenAI Codex CLI, and OpenHarness-SQL ≥ 0.38.0. Follows the [Anthropic Agent Skills open standard](https://github.com/anthropics/skills).
 
-Kunpeng + MongoDB joint performance diagnosis. SSH-based collection (8-cmd 环境画像 + per-case 命令拉指标) + 6-phase LLM-orchestrated pipeline against 202-case markdown KB (cases/INDEX.md + best-practice/INDEX.md routing) + NotebookLM authoritative refresh + flamegraph integration. 0 native dep at runtime.
+Kunpeng + MongoDB joint performance diagnosis. SSH-based collection (8-cmd 环境画像 + per-case 命令拉指标) + 6-phase LLM-orchestrated pipeline against 202-case markdown case library (cases/INDEX.md + best-practice/INDEX.md routing) + NotebookLM authoritative refresh + flamegraph integration. 0 native dep at runtime.
 
 ## Install · Claude Code
 
@@ -13,7 +13,7 @@ Kunpeng + MongoDB joint performance diagnosis. SSH-based collection (8-cmd 环�
 # → echoes:  "请运行 /perf-kp-sql-setup 完成 native 依赖安装"
 
 /perf-kp-sql-setup
-# → verifies runtime + data/kb/ KB markdown files (零 npm 运行时依赖)
+# → verifies runtime + data/cases/ + data/best-practice/ markdown files (零 npm 运行时依赖)
 # → optionally registers NotebookLM (Google account · pip install notebooklm-py + rookiepy)
 ```
 
@@ -51,8 +51,8 @@ SSH 走本地 OpenSSH `ssh` CLI(v0.12.0 起 ssh2 native module 已下线)· 通�
 
 NotebookLM(可选)走 Python 包 `notebooklm-py` + `rookiepy` · 由 `/perf-kp-sql-setup` 安装。
 
-## Knowledge base
+## Case library
 
-`data/kb/` (~800KB, committed): 202 distilled cases — 93 best-practice + 96 diagnostic-flow + 13 flame-signature。两组 `KB.md` (完整字段) + `INDEX.md` (路由表) · LLM 加载 INDEX 路由匹配 + Read offset+limit 拿单 case 完整字段 · NotebookLM 兜底刷新最新推荐。
+`data/cases/` + `data/best-practice/` (~800KB, committed): 202 distilled cases — 93 best-practice + 96 diagnostic-flow + 13 flame-signature。两组 `CASES.md` (完整字段) + `INDEX.md` (路由表) · LLM 加载 INDEX 路由匹配 + Read offset+limit 拿单 case 完整字段 · NotebookLM 兜底刷新最新推荐。
 
-The plugin **does not run** without `data/kb/` files — `/perf-kp-sql-setup` checks for them.
+The plugin **does not run** without these files — `/perf-kp-sql-setup` checks for them.

@@ -3,7 +3,7 @@
 #
 # Probes:
 #   - Node.js >= 18
-#   - data/kb/{cases,best-practice}/{KB.md,INDEX.md} 存在性
+#   - data/{cases,best-practice}/{CASES.md,INDEX.md} 存在性
 #
 # v0.12.0: ssh2 已下线 — cli-ssh.ts 改走 spawn(本地 OpenSSH ssh CLI) +
 # SSH_ASKPASS,不再需要 ssh2 native module。
@@ -84,18 +84,18 @@ fi
 
 header "Data"
 
-# ----- KB markdown files (cases + best-practice) -----
-all_kb_ok=1
-for kb_file in "data/kb/cases/KB.md" "data/kb/cases/INDEX.md" "data/kb/best-practice/KB.md" "data/kb/best-practice/INDEX.md"; do
-  if [ ! -f "$PLUGIN_ROOT/$kb_file" ]; then
-    fail "$kb_file missing"
+# ----- case library markdown files (cases + best-practice) -----
+all_cases_ok=1
+for cases_file in "data/cases/CASES.md" "data/cases/INDEX.md" "data/best-practice/CASES.md" "data/best-practice/INDEX.md"; do
+  if [ ! -f "$PLUGIN_ROOT/$cases_file" ]; then
+    fail "$cases_file missing"
     hint "fix: /plugin reinstall perf-kp-sql"
     issues=$((issues + 1))
-    all_kb_ok=0
+    all_cases_ok=0
   fi
 done
-if [ "$all_kb_ok" = 1 ]; then
-  ok "data/kb/ (4 files present)"
+if [ "$all_cases_ok" = 1 ]; then
+  ok "data/cases/ + data/best-practice/ (4 files present)"
 fi
 
 # ----- NotebookLM CLI (optional enhancement) -----

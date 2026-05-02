@@ -20,7 +20,7 @@ import { fileURLToPath } from "node:url";
 // 参见 docs/superpowers/specs/2026-05-01-md-report-source-tags-design.md
 
 // 允许标签后跟 1 个可选标点(如 `[LLM]:` 风格)
-const TAG_AT_END_RE = /\[(IDX|KB|NLM|OBS|LLM)\]\s*(\[参考\d+\])?\s*[:,。;?!]?\s*$/;
+const TAG_AT_END_RE = /\[(IDX|CASE|NLM|OBS|LLM)\]\s*(\[参考\d+\])?\s*[:,。;?!]?\s*$/;
 
 // 把 backtick code span(`...`)替换成占位符 · 切分后再换回 ·
 // 防止句末标点切分进入代码内部
@@ -153,7 +153,7 @@ export function stripChatTags(text) {
 
   // 2 + 3. 移除所有 5 标签字面 · 保留 [参考N] 角标
   // 已知局限(spec 设计上不出现 · 这里仅作记录):
-  //   - 多 5-标签连挂(如 `[OBS][KB][参考3]`)spec 禁止 · 此处会损失 [参考N] 前的空格
+  //   - 多 5-标签连挂(如 `[OBS][CASE][参考3]`)spec 禁止 · 此处会损失 [参考N] 前的空格
   //   - backtick code 内的字面 `[OBS]` 也会被剥(spec 不会出现 · legend 段已整段删除)
   // 如未来报告形态变更 · 可仿照 splitNarrativeAtoms 的占位符技巧加 backtick 保护。
   //    规则:
@@ -161,9 +161,9 @@ export function stripChatTags(text) {
   //    · 其他情况 → 删 tag + 其前导空白([ \t]*)
   //    两步实现:
   //    a. 先处理"tag 后跟 [参考...]"：只移除 tag + tag 后的空格(保留 tag 前的空格)
-  out = out.replace(/\[(IDX|KB|NLM|OBS|LLM)\]([ \t]*)(?=\[参考)/g, "");
+  out = out.replace(/\[(IDX|CASE|NLM|OBS|LLM)\]([ \t]*)(?=\[参考)/g, "");
   //    b. 其余 tag: 移除前导空白 + tag
-  out = out.replace(/[ \t]*\[(IDX|KB|NLM|OBS|LLM)\]/g, "");
+  out = out.replace(/[ \t]*\[(IDX|CASE|NLM|OBS|LLM)\]/g, "");
 
   // 4. 清理残留双空格(仅压缩行内中间位置 · 不动行首缩进)
   // 用 (?<=\S) 确保只压缩非行首的连续空格 · 保留 ## 参考 段的 URL 缩进
@@ -376,7 +376,7 @@ if (isCli) {
     for (const m of lint.missing.slice(0, 10)) {
       console.error(`    L${m.line}: ${m.text.slice(0, 80)}`);
     }
-    console.error(`  → 必须回 SKILL.md Phase 5.2 重写报告 · 每个原子事实挂 1 个 [IDX]/[KB]/[NLM]/[OBS]/[LLM] 标签 · 然后重跑 format-chat.mjs。`);
+    console.error(`  → 必须回 SKILL.md Phase 5.2 重写报告 · 每个原子事实挂 1 个 [IDX]/[CASE]/[NLM]/[OBS]/[LLM] 标签 · 然后重跑 format-chat.mjs。`);
     process.exit(2);
   }
 

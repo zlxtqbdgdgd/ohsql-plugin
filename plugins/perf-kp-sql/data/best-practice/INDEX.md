@@ -3,9 +3,9 @@
 > 生成时间: 2026-04-29T15:49:30.907Z
 > 数据源: docs/refactor/kb-snapshot_v4.xlsx
 > 总计: 93 cases
-> 配套: best-practice/KB.md
+> 配套: best-practice/CASES.md
 
-| case_id | scope | title | KB line |
+| case_id | scope | title | 行号 |
 |---|---|---|---:|
 | arm64-lse-march-armv82a-compile-flag-graviton-01 | other | ARM64 Graviton2+ 编译时用 -march=armv8.2-a 启用 LSE 原子指令 | 3 |
 | arm64-lse-outline-atomics-runtime-detect-graviton-02 | other | ARM64 多代兼容部署时用 -moutline-atomics 运行期检测 LSE 支持 | 37 |

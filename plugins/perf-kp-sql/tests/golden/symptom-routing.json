@@ -574,7 +574,7 @@
       "user_input": "我们 MySQL 数据库备份的时候 CPU 特别高，mysqldump 全跑满了，想问下有没有什么参数可以限速？",
       "expected_case_ids": [],
       "expected_count": 0,
-      "notes": "负例：用户问的是 MySQL 备份限速，与 MongoDB / 鲲鹏 KB 完全无关。期望 0 命中，应明确提示 KB 范围仅覆盖 MongoDB 性能诊断。"
+      "notes": "负例：用户问的是 MySQL 备份限速，与 MongoDB / 鲲鹏案例库 完全无关。期望 0 命中，应明确提示 案例库范围仅覆盖 MongoDB 性能诊断。"
     },
 
     {
@@ -583,7 +583,7 @@
       "user_input": "ES（Elasticsearch）集群分片不均，hot node 磁盘快满了，怎么手动迁移分片？",
       "expected_case_ids": [],
       "expected_count": 0,
-      "notes": "负例：Elasticsearch 分片迁移问题，与 MongoDB/鲲鹏 KB 无任何交集。期望 0 命中。"
+      "notes": "负例：Elasticsearch 分片迁移问题，与 MongoDB/鲲鹏案例库 无任何交集。期望 0 命中。"
     },
 
     {
@@ -592,7 +592,7 @@
       "user_input": "Python Flask 应用的接口响应慢，用 cProfile 看了，慢在 JSON 序列化上，有什么加速方案？",
       "expected_case_ids": [],
       "expected_count": 0,
-      "notes": "负例：Python 应用层 JSON 序列化性能问题，与数据库 KB 无关。期望 0 命中。"
+      "notes": "负例：Python 应用层 JSON 序列化性能问题，与数据库案例库 无关。期望 0 命中。"
     },
 
     {
@@ -601,7 +601,7 @@
       "user_input": "Redis 集群出现了 hot key 问题，某个 key 每秒请求超过 100 万，怎么做 hot key 打散？",
       "expected_case_ids": [],
       "expected_count": 0,
-      "notes": "负例：Redis hot key 问题，与 MongoDB KB 无关。期望 0 命中。"
+      "notes": "负例：Redis hot key 问题，与 MongoDB 案例库 无关。期望 0 命中。"
     },
 
     {
@@ -610,7 +610,7 @@
       "user_input": "PostgreSQL 慢查询，explain analyze 看是 Seq Scan，pg_stat_statements 里 mean_time 很高，需要加什么索引？",
       "expected_case_ids": [],
       "expected_count": 0,
-      "notes": "负例：PostgreSQL 慢查询优化，与 MongoDB/鲲鹏 KB 无任何交集。期望 0 命中。"
+      "notes": "负例：PostgreSQL 慢查询优化，与 MongoDB/鲲鹏案例库 无任何交集。期望 0 命中。"
     },
 
     {
@@ -628,7 +628,7 @@
       "user_input": "Nginx 反向代理 upstream timeout，错误日志 504 Gateway Time-out，后端服务是 Node.js，不是数据库问题。",
       "expected_case_ids": [],
       "expected_count": 0,
-      "notes": "负例：Nginx + Node.js 504 超时，纯应用层网络问题，与 MongoDB KB 无关。期望 0 命中。"
+      "notes": "负例：Nginx + Node.js 504 超时，纯应用层网络问题，与 MongoDB 案例库 无关。期望 0 命中。"
     },
 
     {
@@ -637,7 +637,7 @@
       "user_input": "ARM 芯片上跑 Cassandra，写吞吐量比 x86 低 30%，perf top 看 lock_acquire 函数占比高，是 Cassandra 的并发问题吗？",
       "expected_case_ids": [],
       "expected_count": 0,
-      "notes": "负例：Cassandra 在 ARM 上的性能问题，不是 MongoDB，虽然有 ARM/鲲鹏相关描述，但 KB 不覆盖 Cassandra。期望 0 命中。"
+      "notes": "负例：Cassandra 在 ARM 上的性能问题，不是 MongoDB，虽然有 ARM/鲲鹏相关描述，但 案例库不覆盖 Cassandra。期望 0 命中。"
     },
 
     {
@@ -646,7 +646,7 @@
       "user_input": "Kafka 消费者 lag 一直在涨，消费速度跟不上生产速度，分区数 20，消费者线程 10，需要扩分区吗？",
       "expected_case_ids": [],
       "expected_count": 0,
-      "notes": "负例：Kafka 消费者 lag 问题，消息队列领域，与 MongoDB/鲲鹏 KB 完全无关。期望 0 命中。"
+      "notes": "负例：Kafka 消费者 lag 问题，消息队列领域，与 MongoDB/鲲鹏案例库 完全无关。期望 0 命中。"
     },
 
     {
