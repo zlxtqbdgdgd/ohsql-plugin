@@ -659,7 +659,7 @@ mark phase 2 completed → mark phase 3 in_progress。
 - ❌ LLM 自己写 `top -b -n 1 -H -p $(pgrep mongod)` / `vmstat 1 5` / `mongostat --eval ...` 等通用命令 · 即使看起来"更快更全"
 - ❌ "先采当下快照看看 CPU 是不是真的在烧" 这种自由发挥 · 跳过了 案例
 - ✅ Read 命中 case 的 案例 段 → 抽 `collection_method_quote` 字面 → 适配 [环境上下文] 占位符 → 直接用
-- ✅ 案例 命令是诊断知识资产的一部分 · 跟 case 的 `abnormal_pattern_threshold` / `likely_causes` 配套 · 自己拍命令 = Phase 4 推断时找不到对应阈值 = 报告里没 [参考N] 引用 = 案例库价值清零
+- ✅ 案例 命令是诊断案例资产的一部分 · 跟 case 的 `abnormal_pattern_threshold` / `likely_causes` 配套 · 自己拍命令 = Phase 4 推断时找不到对应阈值 = 报告里没 [参考N] 引用 = 案例库价值清零
 
 如果 Phase 2 命中的 case 在 案例 里没给具体 `collection_method_quote`(部分 case 是描述性的)· 才允许 LLM 基于 case `metric_name` 写最小命令 · 但**必须先读完 case 字段确认这一点 · 不是偷懒跳过**。
 
@@ -1154,7 +1154,7 @@ cache used=94.7%<br>接近阈值 95% [OBS+案例]
 - 混进无权威 row · 用户没法区分哪些可信哪些是 LLM 拍的
 - 独立"现场观测"段明确告知"这是观察 · 不是诊断结论 · 请验证" → 用户能区别对待
 
-**违反后果**:用户拿报告点 [参考N] 角标 → 404 / 错文档 → 用户失去信任 / 工具失去权威性。这跟跳过 案例 写命令是同一种 bug:LLM 偏见 vs 知识资产硬路径。
+**违反后果**:用户拿报告点 [参考N] 角标 → 404 / 错文档 → 用户失去信任 / 工具失去权威性。这跟跳过 案例 写命令是同一种 bug:LLM 偏见 vs 案例库硬路径。
 
 ### 5.3 · 落盘
 
