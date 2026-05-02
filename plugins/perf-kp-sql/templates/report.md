@@ -193,7 +193,7 @@ spec § 3.7 MVL 最小闭环 · 当前仅展示命令占位 · runner 实装排 
 
 ### 7. 参考(v0.3.8)
 
-**LLM 不写此段** · 由 `scripts/render-report.mjs` 直接渲染(主路径) · 或 `scripts/render-footnotes.mjs` post-process 自动注入(兜底) · 扫 Top Issues 里的 `[参考N]` 角标 + 参考资料汇总表第 N 行 · 生成 `[参考N] <url>`。
+**LLM 直接写此段** · 扫 Top Issues 里的 `[参考N]` 角标 + 参考资料汇总表第 N 行 · 在本段生成 `[参考N] <url>` 列表 · `scripts/format-chat.mjs --chat <report.md>` 在 chat 输出前会做格式 lint。
 
 **LLM 的责任**:只在 Top Issues 的 Why/机制/代价/例外 句末挂 `[参考N]` 即可 · N 对应"参考资料汇总"表里**行号**(1-based · tier 分组内顺序)。
 

@@ -1,10 +1,10 @@
 #!/usr/bin/env node
-// 从 docs/refactor/kb-snapshot_v4.xlsx 生成案例库数据(2 组 CASES.md + INDEX.md)
+// 从蒸馏者的 xlsx 快照生成案例库数据(2 组 CASES.md + INDEX.md)
 //
 // 用法(蒸馏者更新 xlsx 后跑):
 //   node plugins/perf-kp-sql/scripts/_build-cases-from-xlsx.mjs [<xlsx-path>] [<out-dir>]
 //
-// 默认输入: docs/refactor/kb-snapshot_v4.xlsx
+// 默认输入: ../docs/refactor/kb-snapshot_v4.xlsx(蒸馏者本机历史路径 · 文件名可自定义 · 通过 argv[1] 覆盖)
 // 默认输出: plugins/perf-kp-sql/data/{cases,best-practice}/{CASES.md,INDEX.md}
 //
 // 设计:
@@ -271,7 +271,7 @@ function renderCasesIndex(dfRows, flameRows, lineMap, builtAt) {
   out.push(`# Cases Index`);
   out.push("");
   out.push(`> 生成时间: ${builtAt}`);
-  out.push(`> 数据源: docs/refactor/kb-snapshot_v4.xlsx`);
+  out.push(`> 数据源: 蒸馏者 xlsx 快照(经 _build-cases-from-xlsx.mjs 蒸馏)`);
   out.push(`> 总计: ${dfRows.length + flameRows.length} cases (DF ${dfRows.length} + Flame ${flameRows.length})`);
   out.push(`> 配套: cases/CASES.md`);
   out.push("");
@@ -304,7 +304,7 @@ function renderBpIndex(bpRows, lineMap, builtAt) {
   out.push(`# Best-Practice Index`);
   out.push("");
   out.push(`> 生成时间: ${builtAt}`);
-  out.push(`> 数据源: docs/refactor/kb-snapshot_v4.xlsx`);
+  out.push(`> 数据源: 蒸馏者 xlsx 快照(经 _build-cases-from-xlsx.mjs 蒸馏)`);
   out.push(`> 总计: ${bpRows.length} cases`);
   out.push(`> 配套: best-practice/CASES.md`);
   out.push("");

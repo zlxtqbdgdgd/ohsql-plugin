@@ -17,7 +17,8 @@ compatibility: |
   巡检) 退化为 仅案例 判定 · 报告标记 NLM 缺失。
   Supported database engine: mongo (MongoDB 3.6-7.x).
   Case library: 202 cases (best-practice 93 + diagnostic-flow 96 +
-  flame-signature 13)· canonical 数据源 `docs/refactor/kb-snapshot_v4.xlsx`。
+  flame-signature 13)· canonical 形态即 `data/cases/CASES.md` +
+  `data/best-practice/CASES.md`(plugin 内随版本发布)。
 metadata:
   generator: "manual"
   generated_at: "2026-04-29"
