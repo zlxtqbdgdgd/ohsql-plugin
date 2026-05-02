@@ -3,11 +3,11 @@
 > 生成时间: 2026-04-29T15:49:30.907Z
 > 数据源: docs/refactor/kb-snapshot_v4.xlsx
 > 总计: 109 cases (DF 96 + Flame 13)
-> 配套: cases/KB.md
+> 配套: cases/CASES.md
 
 ## diagnostic-flow (96)
 
-| case_id | symptom_category | title | KB line |
+| case_id | symptom_category | title | 行号 |
 |---|---|---|---:|
 | kunpeng-nohz-clock-tick-overhead-03 | cpu-high | 周期时钟中断浪费 CPU 资源(nohz 未启用) | 3 |
 | kunpeng-tlb-miss-page-size-04 | cpu-high | 4K 页大小导致 TLB 命中率低 | 55 |
@@ -108,7 +108,7 @@
 
 ## flame-signature (13)
 
-| case_id | title | pattern_regex | KB line |
+| case_id | title | pattern_regex | 行号 |
 |---|---|---|---:|
 | linux-fs-mmap-metadata-archiver-01 | Linux FS metadata syscall hotspot in mmap-based archiver workload | `^(sys_newfstatat\ | 5264 |
 | glibc-malloc-allocator-hot-stack-01 | glibc malloc allocator tracing hot stack — application allocation code path | `^(__GI___libc_malloc\ | 5291 |

@@ -1,17 +1,17 @@
 #!/usr/bin/env node
-// 从 docs/refactor/kb-snapshot_v4.xlsx 生成 KB 数据(2 组 KB.md + INDEX.md)
+// 从 docs/refactor/kb-snapshot_v4.xlsx 生成案例库数据(2 组 CASES.md + INDEX.md)
 //
 // 用法(蒸馏者更新 xlsx 后跑):
-//   node plugins/perf-kp-sql/scripts/_build-kb-from-xlsx.mjs [<xlsx-path>] [<out-dir>]
+//   node plugins/perf-kp-sql/scripts/_build-cases-from-xlsx.mjs [<xlsx-path>] [<out-dir>]
 //
 // 默认输入: docs/refactor/kb-snapshot_v4.xlsx
-// 默认输出: plugins/perf-kp-sql/data/kb/{cases,best-practice}/{KB.md,INDEX.md}
+// 默认输出: plugins/perf-kp-sql/data/{cases,best-practice}/{CASES.md,INDEX.md}
 //
 // 设计:
-//   cases/KB.md       109 case 完整内容(DF 96 + Flame 13)· 每 case 一个 ## case_id section
-//   cases/INDEX.md    案例索引 · 三段(DF 表 + Flame 表)· 列字段对齐设计书 §7+§2.3
-//   best-practice/KB.md   93 case 完整内容
-//   best-practice/INDEX.md  BP 索引 · 单表
+//   cases/CASES.md       109 case 完整内容(DF 96 + Flame 13)· 每 case 一个 ## case_id section
+//   cases/INDEX.md       案例索引 · 三段(DF 表 + Flame 表)· 列字段对齐设计书 §7+§2.3
+//   best-practice/CASES.md   93 case 完整内容
+//   best-practice/INDEX.md   BP 索引 · 单表
 //
 // 数据源 xlsx 是 canonical · 不再依赖 distill-v2 cases md。
 
@@ -24,7 +24,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const PLUGIN_ROOT = resolve(HERE, "..");
 const REPO_ROOT = resolve(PLUGIN_ROOT, "../..");
 const DEFAULT_XLSX = resolve(REPO_ROOT, "../docs/refactor/kb-snapshot_v4.xlsx");
-const DEFAULT_OUT = resolve(PLUGIN_ROOT, "data/kb");
+const DEFAULT_OUT = resolve(PLUGIN_ROOT, "data");
 
 const xlsxPath = process.argv[2] ? resolve(process.argv[2]) : DEFAULT_XLSX;
 const outDir = process.argv[3] ? resolve(process.argv[3]) : DEFAULT_OUT;
@@ -231,7 +231,7 @@ function renderFlameCase(row) {
 }
 
 // ---------------------------------------------------------------------------
-// 拼 KB.md(单文件)+ 同时记录每个 case 的 line 位置
+// 拼 CASES.md(单文件)+ 同时记录每个 case 的 line 位置
 // ---------------------------------------------------------------------------
 
 function buildKb(sections) {
@@ -273,12 +273,12 @@ function renderCasesIndex(dfRows, flameRows, lineMap, builtAt) {
   out.push(`> 生成时间: ${builtAt}`);
   out.push(`> 数据源: docs/refactor/kb-snapshot_v4.xlsx`);
   out.push(`> 总计: ${dfRows.length + flameRows.length} cases (DF ${dfRows.length} + Flame ${flameRows.length})`);
-  out.push(`> 配套: cases/KB.md`);
+  out.push(`> 配套: cases/CASES.md`);
   out.push("");
 
   out.push(`## diagnostic-flow (${dfRows.length})`);
   out.push("");
-  out.push(`| case_id | symptom_category | title | KB line |`);
+  out.push(`| case_id | symptom_category | title | 行号 |`);
   out.push(`|---|---|---|---:|`);
   for (const row of dfRows) {
     const line = lineMap.get(row.case_id);
@@ -288,7 +288,7 @@ function renderCasesIndex(dfRows, flameRows, lineMap, builtAt) {
 
   out.push(`## flame-signature (${flameRows.length})`);
   out.push("");
-  out.push(`| case_id | title | pattern_regex | KB line |`);
+  out.push(`| case_id | title | pattern_regex | 行号 |`);
   out.push(`|---|---|---|---:|`);
   for (const row of flameRows) {
     const line = lineMap.get(row.case_id);
@@ -306,10 +306,10 @@ function renderBpIndex(bpRows, lineMap, builtAt) {
   out.push(`> 生成时间: ${builtAt}`);
   out.push(`> 数据源: docs/refactor/kb-snapshot_v4.xlsx`);
   out.push(`> 总计: ${bpRows.length} cases`);
-  out.push(`> 配套: best-practice/KB.md`);
+  out.push(`> 配套: best-practice/CASES.md`);
   out.push("");
 
-  out.push(`| case_id | scope | title | KB line |`);
+  out.push(`| case_id | scope | title | 行号 |`);
   out.push(`|---|---|---|---:|`);
   for (const row of bpRows) {
     const line = lineMap.get(row.case_id);
@@ -341,14 +341,14 @@ const casesData = buildKb([
   { heading: "Diagnostic-Flow", cases: dfRows.map((r) => ({ caseId: r.case_id, body: renderDfCase(r) })) },
   { heading: "Flame-Signature", cases: flameRows.map((r) => ({ caseId: r.case_id, body: renderFlameCase(r) })) },
 ]);
-writeFileSync(join(casesDir, "KB.md"), casesData.md);
+writeFileSync(join(casesDir, "CASES.md"), casesData.md);
 writeFileSync(join(casesDir, "INDEX.md"), renderCasesIndex(dfRows, flameRows, casesData.lineMap, builtAt));
 
 // --- best-practice ---
 const bpData = buildKb([
   { heading: "Best-Practice", cases: bpRows.map((r) => ({ caseId: r.case_id, body: renderBpCase(r) })) },
 ]);
-writeFileSync(join(bpDir, "KB.md"), bpData.md);
+writeFileSync(join(bpDir, "CASES.md"), bpData.md);
 writeFileSync(join(bpDir, "INDEX.md"), renderBpIndex(bpRows, bpData.lineMap, builtAt));
 
 // --- summary ---
@@ -362,9 +362,9 @@ function approxTokens(p) {
 
 const out = [
   ["", "size", "approx tokens"],
-  ["cases/KB.md", fileSize(join(casesDir, "KB.md")), "—"],
+  ["cases/CASES.md", fileSize(join(casesDir, "CASES.md")), "—"],
   ["cases/INDEX.md", fileSize(join(casesDir, "INDEX.md")), approxTokens(join(casesDir, "INDEX.md"))],
-  ["best-practice/KB.md", fileSize(join(bpDir, "KB.md")), "—"],
+  ["best-practice/CASES.md", fileSize(join(bpDir, "CASES.md")), "—"],
   ["best-practice/INDEX.md", fileSize(join(bpDir, "INDEX.md")), approxTokens(join(bpDir, "INDEX.md"))],
 ];
 console.log(`\n=== build summary (${builtAt}) ===`);

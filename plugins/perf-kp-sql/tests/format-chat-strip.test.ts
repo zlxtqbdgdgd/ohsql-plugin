@@ -8,7 +8,7 @@ describe("stripChatTags", () => {
   });
 
   it("移除多种 tag", () => {
-    const input = "WT eviction [KB]<br>cache=94% [OBS]";
+    const input = "WT eviction [CASE]<br>cache=94% [OBS]";
     assert.equal(stripChatTags(input), "WT eviction<br>cache=94%");
   });
 
@@ -20,8 +20,8 @@ describe("stripChatTags", () => {
     assert.equal(stripChatTags("事实 [OBS] [参考3]"), "事实 [参考3]");
   });
 
-  it("[KB] [参考1] 也剥 [KB]", () => {
-    assert.equal(stripChatTags("[参考1] 标题 — domain [KB]"), "[参考1] 标题 — domain");
+  it("[CASE] [参考1] 也剥 [CASE]", () => {
+    assert.equal(stripChatTags("[参考1] 标题 — domain [CASE]"), "[参考1] 标题 — domain");
   });
 
   it("移除整段 ## 来源标记 (debug) section", () => {
@@ -32,7 +32,7 @@ describe("stripChatTags", () => {
 | 标记 | 含义 |
 |---|---|
 | \`[IDX]\` | cases/INDEX.md |
-| \`[KB]\`  | cases/KB.md |
+| \`[CASE]\`  | cases/CASES.md |
 
 ## 诊断结果
 
@@ -59,7 +59,7 @@ table
 
 | 标记 | 含义 |
 |---|---|
-| \`[KB]\` | cases/KB.md |
+| \`[CASE]\` | cases/CASES.md |
 `;
     const out = stripChatTags(input);
     assert.ok(!out.includes("## 来源标记"));
@@ -77,7 +77,7 @@ table
   });
 
   it("剥后留下的双空格被压成单空格", () => {
-    const input = "事实 [OBS] · 阈=95% [KB]";
+    const input = "事实 [OBS] · 阈=95% [CASE]";
     assert.equal(stripChatTags(input), "事实 · 阈=95%");
   });
 
@@ -112,16 +112,16 @@ table
     assert.equal(stripChatTags(input), input);
   });
 
-  it("(回归)## 参考 段的 [KB] / [NLM] 也被剥", () => {
+  it("(回归)## 参考 段的 [CASE] / [NLM] 也被剥", () => {
     const input = `## 参考
 
-[参考1] WiredTiger Tuning — source.wiredtiger.com [KB]
+[参考1] WiredTiger Tuning — source.wiredtiger.com [CASE]
         https://example.com/a
 [参考2] vm.swappiness — kernel.org [NLM]
         https://example.com/b
 `;
     const out = stripChatTags(input);
-    assert.ok(!out.includes("[KB]"));
+    assert.ok(!out.includes("[CASE]"));
     assert.ok(!out.includes("[NLM]"));
     assert.ok(out.includes("[参考1]"));
     assert.ok(out.includes("[参考2]"));
@@ -129,11 +129,11 @@ table
   });
 
   it("(回归)CRLF 行尾 + legend 段也能正确移除", () => {
-    const input = "# title\r\n\r\n## 来源标记 (debug)\r\n\r\n| a | b |\r\n|---|---|\r\n| `[KB]` | foo |\r\n\r\n## 诊断结果\r\n\r\n事实 [OBS]\r\n";
+    const input = "# title\r\n\r\n## 来源标记 (debug)\r\n\r\n| a | b |\r\n|---|---|\r\n| `[CASE]` | foo |\r\n\r\n## 诊断结果\r\n\r\n事实 [OBS]\r\n";
     const out = stripChatTags(input);
     assert.ok(!out.includes("## 来源标记"));
     assert.ok(out.includes("## 诊断结果"));
     assert.ok(!out.includes("[OBS]"));
-    assert.ok(!out.includes("[KB]"));
+    assert.ok(!out.includes("[CASE]"));
   });
 });

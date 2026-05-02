@@ -30,14 +30,14 @@ jobs:
             test -f "${plugin}README.md" || echo "Warn: $plugin missing README.md"
             ls "${plugin}skills/" >/dev/null
           done
-          # perf-kp-sql specifics (KB scheme E · markdown-only · 无 SQLite/native dep)
+          # perf-kp-sql specifics (case library scheme E · markdown-only · 无 SQLite/native dep)
           test -f plugins/perf-kp-sql/skills/perf-kp-sql/SKILL.md
           test -x plugins/perf-kp-sql/skills/perf-kp-sql-setup/scripts/check-health
-          # KB markdown bundles (cases + best-practice 双索引 / 双 KB)
-          test -f plugins/perf-kp-sql/data/kb/cases/INDEX.md
-          test -f plugins/perf-kp-sql/data/kb/cases/KB.md
-          test -f plugins/perf-kp-sql/data/kb/best-practice/INDEX.md
-          test -f plugins/perf-kp-sql/data/kb/best-practice/KB.md
+          # case library markdown bundles (cases + best-practice 双索引 / 双 CASES)
+          test -f plugins/perf-kp-sql/data/cases/INDEX.md
+          test -f plugins/perf-kp-sql/data/cases/CASES.md
+          test -f plugins/perf-kp-sql/data/best-practice/INDEX.md
+          test -f plugins/perf-kp-sql/data/best-practice/CASES.md
           # 主流程脚本(SSH wrapper / NLM / 报告渲染 / 火焰图 wrapper)
           test -f plugins/perf-kp-sql/scripts/ssh.mjs
           test -f plugins/perf-kp-sql/scripts/notebooklm.mjs
