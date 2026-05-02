@@ -11,7 +11,7 @@ All skills follow the [Anthropic Agent Skills open standard](https://github.com/
 | Plugin | Version | Hosts | What it does |
 |---|---|---|---|
 | [`cpu-flamegraph`](./plugins/cpu-flamegraph/) | 0.2.1 | Claude Code · Codex CLI · ohsql · any agent with shell + read/write | Remote `perf` over SSH → on-CPU / off-CPU flamegraph SVG → top-N hotspot extraction. Pure local `ssh` + Perl `flamegraph.pl`, zero kernel-tool dependency. |
-| [`perf-kp-sql`](./plugins/perf-kp-sql/) | 0.6.1 | Claude Code · Codex CLI · ohsql · any standard-compliant agent | Kunpeng ARM64 + MongoDB joint perf diagnosis. SSH-based collection → 6-phase LLM-orchestrated pipeline against 202-case markdown case library → NotebookLM authoritative refresh → impact-ranked markdown report. |
+| [`perf-kp-sql`](./plugins/perf-kp-sql/) | 0.42.4 | Claude Code · Codex CLI · ohsql · any standard-compliant agent | Kunpeng ARM64 + MongoDB joint perf diagnosis. SSH-based collection → 6-phase LLM-orchestrated pipeline against 202-case markdown case library → NotebookLM authoritative refresh → impact-ranked markdown report. |
 
 ---
 
@@ -23,7 +23,7 @@ All skills follow the [Anthropic Agent Skills open standard](https://github.com/
 /plugin marketplace add zlxtqbdgdgd/ohsql-plugin
 /plugin install cpu-flamegraph                  # ready immediately
 /plugin install perf-kp-sql                     # auto-installs cpu-flamegraph dep
-/perf-kp-sql-setup                              # install marked + register NotebookLM
+/perf-kp-sql-setup                              # verify runtime + register NotebookLM
 ```
 
 After `perf-kp-sql-setup` completes:
@@ -40,7 +40,7 @@ Both plugins work in stock Claude Code (since v0.6.1, `perf-kp-sql` is harness-a
 /plugin marketplace add zlxtqbdgdgd/ohsql-plugin
 /plugin install cpu-flamegraph
 /plugin install perf-kp-sql
-/perf-kp-sql-setup                              # install native deps once
+/perf-kp-sql-setup                              # verify runtime + register NotebookLM
 ```
 
 ### OpenAI Codex CLI
@@ -48,7 +48,7 @@ Both plugins work in stock Claude Code (since v0.6.1, `perf-kp-sql` is harness-a
 ```text
 codex plugin marketplace add zlxtqbdgdgd/ohsql-plugin
 # Codex auto-discovers skills from the plugin's skills/ directory
-# For perf-kp-sql, also run: /perf-kp-sql-setup (installs native deps)
+# For perf-kp-sql, also run: /perf-kp-sql-setup (verifies runtime + registers NotebookLM)
 ```
 
 **SSH auth on Codex**: only key auth supported (Codex sandbox blocks `sshpass` for password mode). Run once on your local machine before invoking the skill:

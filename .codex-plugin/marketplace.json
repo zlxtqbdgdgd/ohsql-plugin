@@ -17,8 +17,8 @@
     },
     {
       "name": "perf-kp-sql",
-      "description": "Kunpeng + MongoDB/MySQL/Redis joint perf diagnosis. SSH-based collection + 411 baseline rules + sqlite RAG knowledge base + flamegraph integration. Works in Claude Code, OpenAI Codex CLI, ohsql.",
-      "tags": ["sql", "perf", "mongo", "mysql", "redis", "kunpeng", "ssh"],
+      "description": "Kunpeng ARM64 + MongoDB joint perf diagnosis. SSH-based collection + 202-case distilled markdown case library (LLM-orchestrated 6-phase pipeline · CASES.md + INDEX.md routing) + NotebookLM authoritative refresh + flamegraph integration. Works in Claude Code, OpenAI Codex CLI, ohsql.",
+      "tags": ["sql", "perf", "mongo", "kunpeng", "ssh"],
       "source": "./plugins/perf-kp-sql"
     }
   ]
