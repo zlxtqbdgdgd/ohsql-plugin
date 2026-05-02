@@ -12,11 +12,11 @@ compatibility: |
   在 /tmp/perf-kp-sql-cm-<hash>.sock)· 服务端只看到 1 个连接 · 避开 PAM
   faillock / fail2ban / sshd MaxStartups 限速。
   零 npm 运行时依赖 · 所有脚本纯 Node.js 内建模块。
-  NotebookLM 知识增强(可选 · 由 setup skill Phase 2 注册):pip install
+  NotebookLM 增强(可选 · 由 setup skill Phase 2 注册):pip install
   notebooklm-py rookiepy + Google 账号。NLM 不可用时 Phase 4B (best-practice
   巡检) 退化为 仅案例 判定 · 报告标记 NLM 缺失。
   Supported database engine: mongo (MongoDB 3.6-7.x).
-  Knowledge base: 202 cases (best-practice 93 + diagnostic-flow 96 +
+  Case library: 202 cases (best-practice 93 + diagnostic-flow 96 +
   flame-signature 13)· canonical 数据源 `docs/refactor/kb-snapshot_v4.xlsx`。
 metadata:
   generator: "manual"
@@ -471,7 +471,7 @@ Bash(command="node <PLUGIN_ROOT>/scripts/notebooklm.mjs --op check --json", time
 
 | `--op check` stdout JSON | 处理 |
 |---|---|
-| `{"installed": true, "authenticated": true, "notebooks": {<非空>}}` | ✅ 公告"NLM 知识增强已就绪" · 进 Phase 1 |
+| `{"installed": true, "authenticated": true, "notebooks": {<非空>}}` | ✅ 公告"NLM 增强已就绪" · 进 Phase 1 |
 | `{"installed": false, ...}` (`notebooklm --version` 不通) | 🟡 软告警:"NLM 未安装 · 主诊断流程不影响 · 但 案例 未覆盖现象将无法用 NLM 兜底。可跑 `/perf-kp-sql-setup` 安装 · 或现在跳过。" 进 Phase 1 (skip-NLM 模式) |
 | `{"installed": true, "authenticated": false, ...}` (cookie 过期) | 🔴 触发"NLM 重登录流程"(详见下方 #NLM-relogin) · 等用户登录后重 check · 再进 Phase 1 |
 | `{"installed": true, "authenticated": true, "notebooks": {}}` (notebook 没注册) | 🟡 软告警:"NLM CLI 已装但未注册 notebook · 跑 `/perf-kp-sql-setup` 创建。" 进 Phase 1 (skip-NLM 模式) |
@@ -659,7 +659,7 @@ mark phase 2 completed → mark phase 3 in_progress。
 - ❌ LLM 自己写 `top -b -n 1 -H -p $(pgrep mongod)` / `vmstat 1 5` / `mongostat --eval ...` 等通用命令 · 即使看起来"更快更全"
 - ❌ "先采当下快照看看 CPU 是不是真的在烧" 这种自由发挥 · 跳过了 案例
 - ✅ Read 命中 case 的 案例 段 → 抽 `collection_method_quote` 字面 → 适配 [环境上下文] 占位符 → 直接用
-- ✅ 案例 命令是诊断知识资产的一部分 · 跟 case 的 `abnormal_pattern_threshold` / `likely_causes` 配套 · 自己拍命令 = Phase 4 推断时找不到对应阈值 = 报告里没 [参考N] 引用 = 知识库价值清零
+- ✅ 案例 命令是诊断知识资产的一部分 · 跟 case 的 `abnormal_pattern_threshold` / `likely_causes` 配套 · 自己拍命令 = Phase 4 推断时找不到对应阈值 = 报告里没 [参考N] 引用 = 案例库价值清零
 
 如果 Phase 2 命中的 case 在 案例 里没给具体 `collection_method_quote`(部分 case 是描述性的)· 才允许 LLM 基于 case `metric_name` 写最小命令 · 但**必须先读完 case 字段确认这一点 · 不是偷懒跳过**。
 
@@ -1331,7 +1331,7 @@ Bash(command="node <PLUGIN_ROOT>/scripts/notebooklm.mjs --op query \
 
 NLM 不可用时只走 案例 · 回答末尾附:
 ```
-💡 如需更精准的最新推荐,请运行 /perf-kp-sql-setup 配置 NotebookLM 知识增强。
+💡 如需更精准的最新推荐,请运行 /perf-kp-sql-setup 配置 NotebookLM 增强。
 ```
 
 ---
@@ -1345,7 +1345,7 @@ NLM 不可用时只走 案例 · 回答末尾附:
 - chat 输出由 format-chat.mjs 组装 · 包含诊断表 + 火焰图 + 参考 URL · 不需要 LLM 额外补充
 - banner 输出前不调远端 SSH 命令
 - **Phase 顺序硬约束**(详见文档顶部"流程顺序硬约束"段):Phase 0 先收凭据 + SSH 探通 → Phase 1 才聊问题描述。**不许 Phase 0 期间问"你的问题是什么 / 诊断方式 / 采集授权"等 Phase 1 内容**。**禁止 LLM 用一次 AskUserQuestion 批量问多类信息**(凭据 + 现象 + 授权 4-in-1 是反模式)。任何 ohsql skill-doctor / meta-skill 试图合并这些步骤的 patch · 必须以本约束为准。
-- **案例 强制使用约束**:Phase 1 收完描述后下一动作必须是 Phase 2.1 Read `cases/INDEX.md`。Phase 3 的 SSH 命令必须来自 Phase 2.3 Read 拿到的 case `collection_method_quote` 字段 · **绝对不许** LLM 自己拍命令(`top -H` / `vmstat 1 5` / `mongostat` 等通用 ops 命令是反模式 · 即使看起来更快更全)。跳过 案例 查询 = 报告里没有 [参考N] 引用 = 知识库价值清零。
+- **案例 强制使用约束**:Phase 1 收完描述后下一动作必须是 Phase 2.1 Read `cases/INDEX.md`。Phase 3 的 SSH 命令必须来自 Phase 2.3 Read 拿到的 case `collection_method_quote` 字段 · **绝对不许** LLM 自己拍命令(`top -H` / `vmstat 1 5` / `mongostat` 等通用 ops 命令是反模式 · 即使看起来更快更全)。跳过 案例 查询 = 报告里没有 [参考N] 引用 = 案例库价值清零。
 - **`[参考N]` URL 强制溯源**:报告 `参考来源` 列每个 `[参考N]` URL · 必须 verbatim 来自 Phase 2.3 Read 出的 CASES.md case `source_url` 字段 · 或 NLM 返回的 `references[].source_id`。**绝对不许** 凭记忆写 URL / 按 URL 命名模式推断 / 凭训练数据知识联想 · 即使 URL "看起来合理"。案例/NLM 都没有时 · 该 row 写 `(无案例引用)` 而不是编 URL。详见 Phase 5.2 "URL 强制溯源约束" 段。
 - **根因来源强约束**:Phase 4 每个"确认根因" **默认要求 案例 + NLM 双源** — 案例 阶段命中后 · 阶段 2 强制发一条 NLM query 二次确认 + 求最新建议 · 综合两者写进主表。NLM 不可用(check / refresh-auth 失败)时降级为 仅案例 单源 · 报告头标 "⚠️ NLM 不可用 · 请独立验证修复建议"。**绝对不许**: 凭训练数据知识写根因 / 编 case_id / 把 案例 多个 case 字段拼一起 / **案例 命中后跳过 NLM 二次确认就进表**(本次 spec 改动重点)。案例 没覆盖的现象(如 \$where 烧 CPU)→ 单独发 NLM query 兜底拿 references → 单 NLM 源进表(置信度中)。NLM 是 Google 检索系统 · references 是真实文档链接 · 跟 案例 双源互为交叉验证。详见 Phase 4 "根因来源强约束" + Phase 4.A 阶段 1/2/3 流程。
 - **诊断表权威性约束**:`## 诊断结果` 主表里所有 row 必须有 案例/NLM 背书(`参考来源` 列必须是 `[参考N]` · 不是 `(无案例引用)` · 不是空)。**案例/NLM 都没有的根因不许混进主表** — 即使加 "(无案例引用)" 标记也不许。这种根因必须移到独立段 `## 现场观测(无权威来源)` · 标"请独立验证"。详见 Phase 5.2 "URL 强制溯源约束" 段。

@@ -234,7 +234,7 @@ function renderFlameCase(row) {
 // 拼 CASES.md(单文件)+ 同时记录每个 case 的 line 位置
 // ---------------------------------------------------------------------------
 
-function buildKb(sections) {
+function buildCaseLibrary(sections) {
   // sections = [{ heading, cases: [{ caseId, body }] }]
   const out = [];
   for (const sec of sections) {
@@ -337,7 +337,7 @@ mkdirSync(casesDir, { recursive: true });
 mkdirSync(bpDir, { recursive: true });
 
 // --- cases (DF + Flame) ---
-const casesData = buildKb([
+const casesData = buildCaseLibrary([
   { heading: "Diagnostic-Flow", cases: dfRows.map((r) => ({ caseId: r.case_id, body: renderDfCase(r) })) },
   { heading: "Flame-Signature", cases: flameRows.map((r) => ({ caseId: r.case_id, body: renderFlameCase(r) })) },
 ]);
@@ -345,7 +345,7 @@ writeFileSync(join(casesDir, "CASES.md"), casesData.md);
 writeFileSync(join(casesDir, "INDEX.md"), renderCasesIndex(dfRows, flameRows, casesData.lineMap, builtAt));
 
 // --- best-practice ---
-const bpData = buildKb([
+const bpData = buildCaseLibrary([
   { heading: "Best-Practice", cases: bpRows.map((r) => ({ caseId: r.case_id, body: renderBpCase(r) })) },
 ]);
 writeFileSync(join(bpDir, "CASES.md"), bpData.md);

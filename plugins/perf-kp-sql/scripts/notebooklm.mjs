@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * notebooklm.mjs — NotebookLM 知识增强层 CLI 入口
+ * notebooklm.mjs — NotebookLM 增强层 CLI 入口
  *
  * 单入口 · 5 个 op:
  *   --op check        检查状态 (CLI 是否安装 / 认证 / notebooks)
@@ -9,7 +9,7 @@
  *   --op query-batch  批量查询 (诊断结果 → 深入分析)
  *   --op add-domain   注册新领域
  *
- * JSON-in / JSON-out 契约 · 与 ssh.mjs / kb.mjs 同模式。
+ * JSON-in / JSON-out 契约 · 与 ssh.mjs 同模式。
  */
 
 import { spawnSync, execSync, spawn } from "node:child_process";
