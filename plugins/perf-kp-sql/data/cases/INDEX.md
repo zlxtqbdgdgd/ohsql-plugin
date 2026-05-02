@@ -1,6 +1,6 @@
 # Cases Index
 
-> 生成时间: 2026-04-29T15:49:30.907Z
+> 生成时间: 2026-05-02T17:27:43.494Z
 > 数据源: 蒸馏者 xlsx 快照(经 _build-cases-from-xlsx.mjs 蒸馏)
 > 总计: 109 cases (DF 96 + Flame 13)
 > 配套: cases/CASES.md
