@@ -41,7 +41,7 @@ jobs:
           # 主流程脚本(SSH wrapper / NLM / 报告渲染 / 火焰图 wrapper)
           test -f plugins/perf-kp-sql/scripts/ssh.mjs
           test -f plugins/perf-kp-sql/scripts/notebooklm.mjs
-          test -f plugins/perf-kp-sql/scripts/md-to-html.mjs
+          test -f plugins/perf-kp-sql/scripts/format-chat.mjs
           test -f plugins/perf-kp-sql/scripts/capture-flamegraph.mjs
           # cpu-flamegraph 姐妹 plugin(perf-kp-sql 的硬依赖)
           test -f plugins/cpu-flamegraph/skills/cpu-flamegraph/scripts/capture.mjs

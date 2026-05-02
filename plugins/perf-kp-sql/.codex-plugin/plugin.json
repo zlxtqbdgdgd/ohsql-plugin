@@ -1,6 +1,6 @@
 {
   "name": "perf-kp-sql",
-  "version": "0.36.0",
+  "version": "0.40.1",
   "description": "Kunpeng + MongoDB joint perf diagnosis. SSH-based collection + 202-case distilled markdown knowledge base (LLM-orchestrated 6-phase pipeline · KB.md + INDEX.md routing) + NotebookLM authoritative refresh + flamegraph stack pattern matching. Harness-agnostic (Anthropic Agent Skills standard).",
   "author": {
     "name": "zlxtqbdgdgd",
@@ -15,11 +15,10 @@
     "cpu-flamegraph": "^0.4.0"
   },
   "x-setup-skill": "perf-kp-sql-setup",
-  "x-needs-npm-install": true,
   "interface": {
     "displayName": "Kunpeng SQL Perf",
     "shortDescription": "Kunpeng ARM64 + MongoDB perf diagnosis",
-    "longDescription": "SSH-based remote collection (8-cmd 环境画像 + per-case 命令拉指标), 6-phase LLM-orchestrated pipeline routing user symptoms against 202-case markdown KB (cases/INDEX.md + best-practice/INDEX.md) with NotebookLM as authoritative refresh, and emits an impact-ranked markdown report (auto-converted to HTML for sharing). First-time use: run /perf-kp-sql-setup to register NotebookLM.",
+    "longDescription": "SSH-based remote collection (8-cmd 环境画像 + per-case 命令拉指标), 6-phase LLM-orchestrated pipeline routing user symptoms against 202-case markdown KB (cases/INDEX.md + best-practice/INDEX.md) with NotebookLM as authoritative refresh, and emits an impact-ranked markdown report. First-time use: run /perf-kp-sql-setup to register NotebookLM.",
     "developerName": "zlxtqbdgdgd",
     "category": "Developer Tools",
     "capabilities": ["Interactive", "Write"],
