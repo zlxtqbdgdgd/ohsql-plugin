@@ -134,7 +134,7 @@ if command -v notebooklm >/dev/null 2>&1; then
     hint "fix: node '$PLUGIN_ROOT/scripts/notebooklm.mjs' --op setup --json"
   fi
 else
-  warn "notebooklm CLI not installed (optional: NotebookLM 知识增强)"
+  warn "notebooklm CLI not installed (optional: NotebookLM 增强)"
   hint "fix: pip install notebooklm-py rookiepy"
 fi
 
