@@ -4,7 +4,7 @@
 // 用法(蒸馏者更新 xlsx 后跑):
 //   node plugins/perf-kp-sql/scripts/_build-cases-from-xlsx.mjs [<xlsx-path>] [<out-dir>]
 //
-// 默认输入: ../docs/refactor/kb-snapshot_v4.xlsx(蒸馏者本机历史路径 · 文件名可自定义 · 通过 argv[1] 覆盖)
+// 默认输入: ../docs/refactor/case-snapshot_v4.xlsx(蒸馏者本机路径 · 文件名可自定义 · 通过 argv[1] 覆盖)
 // 默认输出: plugins/perf-kp-sql/data/{cases,best-practice}/{CASES.md,INDEX.md}
 //
 // 设计:
@@ -23,7 +23,7 @@ import xlsx from "xlsx";
 const HERE = dirname(fileURLToPath(import.meta.url));
 const PLUGIN_ROOT = resolve(HERE, "..");
 const REPO_ROOT = resolve(PLUGIN_ROOT, "../..");
-const DEFAULT_XLSX = resolve(REPO_ROOT, "../docs/refactor/kb-snapshot_v4.xlsx");
+const DEFAULT_XLSX = resolve(REPO_ROOT, "../docs/refactor/case-snapshot_v4.xlsx");
 const DEFAULT_OUT = resolve(PLUGIN_ROOT, "data");
 
 const xlsxPath = process.argv[2] ? resolve(process.argv[2]) : DEFAULT_XLSX;
@@ -326,13 +326,14 @@ function renderBpIndex(bpRows, lineMap, builtAt) {
 
 const builtAt = new Date().toISOString();
 
-// 清旧产物(若存在)
-if (existsSync(outDir)) {
-  rmSync(outDir, { recursive: true, force: true });
-}
-
 const casesDir = join(outDir, "cases");
 const bpDir = join(outDir, "best-practice");
+
+// 只清 cases/ 与 best-practice/ 两个子目录(若存在)
+// 不清 outDir 顶层(避免误删兄弟文件 collect-cmds.json / notebooklm-urls.json)
+if (existsSync(casesDir)) rmSync(casesDir, { recursive: true, force: true });
+if (existsSync(bpDir)) rmSync(bpDir, { recursive: true, force: true });
+
 mkdirSync(casesDir, { recursive: true });
 mkdirSync(bpDir, { recursive: true });
 
