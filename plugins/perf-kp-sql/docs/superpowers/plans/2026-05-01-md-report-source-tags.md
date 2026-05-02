@@ -1,5 +1,10 @@
 # 报告 5 标签来源标记系统 实施 Plan
 
+> ⚠️ **归档说明 (archived · 2026-05-01)** — 本 plan 文档冻结在 0.31.0 实施时点的术语。
+> 0.42.0(2026-05-02)起术语改名:`KB` → `CASE` · `cases/KB.md` → `cases/CASES.md` · `知识库`→`案例库`。
+> 本文中的旧命名(`[KB]` / `cases/KB.md` 等)保留作历史快照 · **不要据此修改 live source**。
+> 当前生效 spec:[`docs/superpowers/specs/2026-05-01-md-report-source-tags-design.md`](../specs/2026-05-01-md-report-source-tags-design.md) · 已使用新术语。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** 让 perf-kp-sql 诊断报告 `.md` 的每个原子事实都带 `[IDX]` / `[KB]` / `[NLM]` / `[OBS]` / `[LLM]` 五选一来源标签;由 SKILL.md 硬规则 + `format-chat.mjs` lint 双保险防漏挂;chat 输出剥掉标签保留干净体验。
