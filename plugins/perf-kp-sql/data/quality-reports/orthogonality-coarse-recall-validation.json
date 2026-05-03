@@ -1,0 +1,928 @@
+{
+  "generated_at": "2026-05-03T09:05:29Z",
+  "judge_model": "Claude Opus 4.7 (1M context) via subagent",
+  "purpose": "正交性粗筛召回率验证 · 抽 100 对被粗筛排除的 case 对 · LLM 精判看是否漏检",
+  "input": {
+    "total_pairs": 20301,
+    "coarse_caught": 168,
+    "coarse_excluded": 20133,
+    "sampled": 100,
+    "random_seed": 42
+  },
+  "summary": {
+    "false_negative_count": 0,
+    "false_negative_rate_pct": 0.0,
+    "estimated_total_missed": 0,
+    "by_relation": {
+      "duplicate": 0,
+      "df_bp_mirror": 0,
+      "df_df_overlap": 0,
+      "bp_bp_overlap": 0,
+      "complementary": 2,
+      "different": 98
+    },
+    "tag_improvement_needed": 2
+  },
+  "samples": [
+    {
+      "pair_id": 0,
+      "case_a": "linux-fs-xfs-blocksize-audit-01",
+      "case_b": "mongo-schema-too-many-lookups-should-embed-01",
+      "similarity_score": 1,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "case_a 是 XFS 大文件 blocksize;case_b 是 MongoDB schema $lookup 改 embed · 一个文件系统调优 · 一个 schema 设计 · 主题完全不同"
+    },
+    {
+      "pair_id": 1,
+      "case_a": "mongo-os-tcp-stack-tuning-01",
+      "case_b": "mongo-tcmalloc-heap-fragmentation-pageheap-free-server-33296",
+      "similarity_score": 1,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "case_a 是 OS TCP 协议栈 sysctl 审计;case_b 是 mongod tcmalloc pageheap_free 累积 · 网络层 vs 内存分配层 · 主题不同"
+    },
+    {
+      "pair_id": 2,
+      "case_a": "mongo-replication-lag-multi-cause-02",
+      "case_b": "linux-sched-mq-deadline-for-spinning-disk-10",
+      "similarity_score": 2,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "case_a 谈复制延迟 4 类根因;case_b 是物理盘 IO scheduler 选 mq-deadline · 一个是复制层故障 · 一个是块层调度 · 主题不重叠"
+    },
+    {
+      "pair_id": 3,
+      "case_a": "mongo-schema-document-too-large-04",
+      "case_b": "mongo-shard-cursor-stale-config-05",
+      "similarity_score": 1,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "case_a 是文档过大慢查询;case_b 是 mongos 元数据陈旧 cursor 失败 · 一个 schema 一个 sharding 元数据 · 主题完全不同"
+    },
+    {
+      "pair_id": 4,
+      "case_a": "app-thread-concurrency-mismatch-01",
+      "case_b": "linux-block-readahead-8-to-32-wt-12",
+      "similarity_score": 1,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "case_a 应用线程并发数过高;case_b WiredTiger readahead 设 8~32 sectors · 一个 CPU 调度 · 一个块层预读 · 主题不同"
+    },
+    {
+      "pair_id": 5,
+      "case_a": "linux-readahead-default-128kb-wastes-fs-cache-04",
+      "case_b": "mongo-8x-thp-disabled-tcmalloc-suboptimal-01",
+      "similarity_score": 3,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "都属 memory-pressure scope · 但 case_a 是 read_ahead_kb 默认值偏大 · case_b 是 THP 未启用让 8.0 TCMalloc 失效 · 不同根因 · 互补不重复"
+    },
+    {
+      "pair_id": 6,
+      "case_a": "linux-block-scheduler-mismatch-01",
+      "case_b": "bp-linux-fs-mount-nobarrier-xfs-battery-backed-storage-02",
+      "similarity_score": 2,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "case_a IO scheduler 选错;case_b XFS mount 加 nobarrier · 都是块层但参数与场景不同 · 不重复"
+    },
+    {
+      "pair_id": 7,
+      "case_a": "kunpeng-bios-cpu-prefetch-disable-db-01",
+      "case_b": "wt-compression-snappy-default-block-collections-03",
+      "similarity_score": 1,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "case_a 鲲鹏 BIOS 关 CPU prefetch;case_b WT 集合默认 Snappy 压缩 · 一个 BIOS 一个引擎压缩 · 主题完全不同"
+    },
+    {
+      "pair_id": 8,
+      "case_a": "linux-nic-interrupt-coalescing-audit-01",
+      "case_b": "linux-mm-vm-swappiness-1-or-0-mongo-host-05",
+      "similarity_score": 1,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "case_a 网卡中断聚合 ethtool -C;case_b vm.swappiness 设小 · 网络层 vs 内存层 · 主题不同"
+    },
+    {
+      "pair_id": 9,
+      "case_a": "linux-sched-kyber-for-multi-workload-11",
+      "case_b": "wt-concurrent-tickets-low-increase-01",
+      "similarity_score": 1,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "case_a kyber IO 调度器;case_b WT 并发 tickets 限流 · 块层 vs 引擎层 · 主题不同"
+    },
+    {
+      "pair_id": 10,
+      "case_a": "mongo-sharding-jumbo-chunk-uneven-write-load-01",
+      "case_b": "bp-mongo-pool-sockettimeoutms-firewall-half-close-02",
+      "similarity_score": 1,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "case_a 分片 jumbo chunk 写热点;case_b 客户端连接池 socketTimeoutMS · sharding vs pool · 主题不同"
+    },
+    {
+      "pair_id": 11,
+      "case_a": "mongo-client-os-tcp-tuning-01",
+      "case_b": "mongo-fs-ext4-wiredtiger-perf-issue-should-use-xfs-02",
+      "similarity_score": 2,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "case_a 客户端 OS TCP 参数;case_b dbPath 文件系统 ext4 应改 xfs · 网络栈 vs 文件系统 · 主题不同"
+    },
+    {
+      "pair_id": 12,
+      "case_a": "mongo-os-tcp-stack-tuning-01",
+      "case_b": "wt-cache-size-default-half-ram-minus-1g-01",
+      "similarity_score": 1,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "case_a 服务端 TCP sysctl;case_b WiredTiger cacheSizeGB 默认值 · 网络 vs 引擎缓存 · 主题不同"
+    },
+    {
+      "pair_id": 13,
+      "case_a": "linux-rps-single-queue-nic-softirq-bottleneck-01",
+      "case_b": "wt-cache-size-multi-instance-decrease-01",
+      "similarity_score": 1,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "case_a 单队列网卡 RPS 启用;case_b 单机多 mongod 时 WT cache 每实例缩减 · 网络 vs 内存预算 · 主题不同"
+    },
+    {
+      "pair_id": 14,
+      "case_a": "mongo-snappy-hotspot-cpu-high-arm64-01",
+      "case_b": "mongo-wt-eviction-dirty-target-3pct-high-write-01",
+      "similarity_score": 2,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "case_a ARM64 上 Snappy 热点函数升级;case_b WT eviction_dirty_target 调小 · 压缩 vs 驱逐 · 主题不同"
+    },
+    {
+      "pair_id": 15,
+      "case_a": "mongo-aggregation-unbounded-pipeline-no-early-match-01",
+      "case_b": "linux-block-raid-10-not-5-or-6-02",
+      "similarity_score": 1,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "case_a 聚合管道 $match 提前;case_b 存储用 RAID-10 不用 5/6 · 应用层 vs 存储层 · 主题不同"
+    },
+    {
+      "pair_id": 16,
+      "case_a": "os-net-netdev-max-backlog-mongo-client-8096-04",
+      "case_b": "linux-mm-kvm-reserve-full-vm-memory-15",
+      "similarity_score": 1,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "case_a 客户端 netdev_max_backlog;case_b KVM 给虚机预留全部内存 · 网络 vs 虚拟化内存 · 主题不同"
+    },
+    {
+      "pair_id": 17,
+      "case_a": "mongo-service-executor-adaptive-high-concurrency-01",
+      "case_b": "wt-cache-size-multi-instance-decrease-01",
+      "similarity_score": 1,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "case_a serviceExecutor=adaptive 网络 IO 复用;case_b 多实例 WT cache 缩减 · 网络服务模型 vs 内存预算 · 主题不同"
+    },
+    {
+      "pair_id": 18,
+      "case_a": "mongo-os-tcp-stack-tuning-01",
+      "case_b": "mongo-shard-replica-member-down-02",
+      "similarity_score": 1,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "case_a TCP sysctl 审计;case_b shard 副本成员宕 · 网络栈 vs 副本故障管理 · 主题不同"
+    },
+    {
+      "pair_id": 19,
+      "case_a": "os-ulimit-stack-high-conn-03",
+      "case_b": "os-net-tcp-keepalive-time-cloud-lb-120s-01",
+      "similarity_score": 2,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "case_a ulimit -s 栈大小;case_b tcp_keepalive_time 设 120 · 进程资源限制 vs 网络 keepalive · 主题不同"
+    },
+    {
+      "pair_id": 20,
+      "case_a": "mongo-wt-checkpoint-period-tuning-disk-io-spike-02",
+      "case_b": "mongo-ttl-expiry-offpeak-window-high-write-01",
+      "similarity_score": 3,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "都是高写入下 IO 抖动相关 · 但 case_a 是 WT checkpoint 周期调短;case_b 是 TTL 删除窗口移夜间 · 不同 mitigation · 互补"
+    },
+    {
+      "pair_id": 21,
+      "case_a": "kunpeng-bios-cpu-prefetch-disable-db-01",
+      "case_b": "mongo-ttl-expiry-offpeak-window-high-write-01",
+      "similarity_score": 1,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "case_a 鲲鹏 BIOS 关 prefetch;case_b TTL 过期窗口移夜间 · BIOS vs 应用调度 · 主题完全不同"
+    },
+    {
+      "pair_id": 22,
+      "case_a": "mongo-plancache-bloat-sbe-7-0-oom-kills-01",
+      "case_b": "mongo-config-mongos-maxconn-connection-leak-01",
+      "similarity_score": 1,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "case_a 7.0 SBE plan cache 膨胀 OOM;case_b mongos maxIncomingConnections 显式设置 · 查询引擎 bug vs 连接配置 · 主题不同"
+    },
+    {
+      "pair_id": 23,
+      "case_a": "app-thread-concurrency-mismatch-01",
+      "case_b": "mongo-pool-minpoolsize-too-low-startup-creating-conns-03",
+      "similarity_score": 3,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "case_a 应用线程并发数过高;case_b mongo driver minPoolSize 太小启动现建 · 都谈并发但一个是应用线程数 · 一个是 driver 池预热 · 不同层"
+    },
+    {
+      "pair_id": 24,
+      "case_a": "glibc-malloc-allocator-hot-stack-01",
+      "case_b": "linux-mm-mmap-vm-growth-01",
+      "similarity_score": 3,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "都是 flamegraph 火焰图热栈识别 · 但 case_a 识别 glibc malloc allocator 路径;case_b 识别 mmap syscall VM 路径 · 不同热栈类型 · 互补"
+    },
+    {
+      "pair_id": 25,
+      "case_a": "linux-sched-mq-deadline-for-spinning-disk-10",
+      "case_b": "wt-concurrent-tickets-low-increase-01",
+      "similarity_score": 1,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "case_a IO scheduler 选 mq-deadline;case_b WT tickets 增加 · 块层 vs 引擎层 · 主题不同"
+    },
+    {
+      "pair_id": 26,
+      "case_a": "mongo-open-cursor-rising-no-traffic-03",
+      "case_b": "os-net-tcp-tw-reuse-enable-mongo-client-02",
+      "similarity_score": 1,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "case_a open cursor 持续上升;case_b 客户端 tcp_tw_reuse 启用 · 应用 cursor 泄漏 vs TCP TIME-WAIT 复用 · 主题不同"
+    },
+    {
+      "pair_id": 27,
+      "case_a": "kunpeng-tlb-miss-page-size-04",
+      "case_b": "kunpeng-network-irq-cross-numa-01",
+      "similarity_score": 2,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "都是鲲鹏调优 · 但 case_a 内核 PAGESIZE 4K → TLB 命中率;case_b 网卡中断跨 NUMA · 不同子系统"
+    },
+    {
+      "pair_id": 28,
+      "case_a": "mongo-wt-large-page-eviction-fetch-pause-server-16479",
+      "case_b": "mongo-query-targeting-high-scan-ratio-01",
+      "similarity_score": 2,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "都属 query-slow scope · 但 case_a 是 WT memory_page_max 单页大;case_b 是缺索引扫描比异常 · 不同根因"
+    },
+    {
+      "pair_id": 29,
+      "case_a": "mongo-sharding-jumbo-chunk-uneven-write-load-01",
+      "case_b": "wt-compression-snappy-default-block-collections-03",
+      "similarity_score": 1,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "case_a sharding jumbo chunk 迁移失败;case_b WT 集合默认 snappy 压缩 · 分片 vs 引擎压缩 · 主题不同"
+    },
+    {
+      "pair_id": 30,
+      "case_a": "mongo-psa-majority-writeconcern-perf-degradation-01",
+      "case_b": "mongo-snapshot-history-window-no-atclustertime-08",
+      "similarity_score": 2,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "都谈 mongo 配置 · case_a PSA + majority write concern 性能下降;case_b minSnapshotHistoryWindow 调 0 释放 WT 缓存 · 不同参数和场景"
+    },
+    {
+      "pair_id": 31,
+      "case_a": "mongo-open-cursor-rising-no-traffic-03",
+      "case_b": "wt-evict-reconcile-blocked-ebusy-01",
+      "similarity_score": 2,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "case_a open cursor 上升(应用缺索引);case_b WT eviction reconcile 被 EBUSY 阻碍(引擎内部) · 不同层"
+    },
+    {
+      "pair_id": 32,
+      "case_a": "mongo-shard-chunk-migration-x-lock-timeout-balancer-stuck-01",
+      "case_b": "mongo-replica-set-member-connectivity-03",
+      "similarity_score": 3,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "都属 sharding/replica 故障 · 但 case_a chunk 迁移 X 锁卡死(进程内部状态);case_b 副本集成员双向连通失败 · 不同故障类型"
+    },
+    {
+      "pair_id": 33,
+      "case_a": "mongo-snappy-hotspot-cpu-high-arm64-01",
+      "case_b": "mongo-tcmalloc-percpu-caches-not-enabled-01",
+      "similarity_score": 3,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "都属 cpu/memory · case_a Snappy 在 ARM64 升级;case_b TCMalloc per-CPU caches 启用 · 一个压缩库 · 一个分配器 · 互补不重复"
+    },
+    {
+      "pair_id": 34,
+      "case_a": "mongo-inmemory-cache-full-overflow-01",
+      "case_b": "mongo-profiler-prefer-atlas-alternatives-before-enabling-02",
+      "similarity_score": 1,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "case_a in-memory storage engine 数据超 inMemorySizeGB;case_b profiler 启用前先用 Atlas 替代品 · 引擎容量 vs 工具选择 · 主题不同"
+    },
+    {
+      "pair_id": 35,
+      "case_a": "linux-block-scheduler-mismatch-01",
+      "case_b": "wt-evict-reconcile-blocked-ebusy-01",
+      "similarity_score": 1,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "case_a OS IO scheduler 选错;case_b WT eviction 内部 reconcile 阻塞 · 块层 vs 引擎内部 · 主题不同"
+    },
+    {
+      "pair_id": 36,
+      "case_a": "linux-rps-single-queue-nic-softirq-bottleneck-01",
+      "case_b": "linux-sched-kyber-for-multi-workload-11",
+      "similarity_score": 1,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "case_a 网卡 RPS 启用;case_b 块设备 kyber 调度器 · 网络中断 vs 磁盘 IO · 主题不同"
+    },
+    {
+      "pair_id": 37,
+      "case_a": "mongo-replica-set-replication-lag-01",
+      "case_b": "mongo-shard-cursor-stale-config-05",
+      "similarity_score": 2,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "case_a 副本集复制延迟;case_b mongos 元数据陈旧 cursor · 都属副本/分片但不同问题 · 不重复"
+    },
+    {
+      "pair_id": 38,
+      "case_a": "linux-vm-dirty-flush-burst-io-wait-01",
+      "case_b": "wt-reconcile-write-wrapup-block-free-01",
+      "similarity_score": 3,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "case_a OS 脏页刷盘策略;case_b WT reconcile wrapup 释放磁盘块 · OS 层 vs WT 内部 · 主题不同(虽然都和 IO 写有关)"
+    },
+    {
+      "pair_id": 39,
+      "case_a": "mongo-pool-minpoolsize-too-low-startup-creating-conns-03",
+      "case_b": "linux-fs-avoid-nfs-for-dbpath-checklist-01",
+      "similarity_score": 1,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "case_a minPoolSize 启动预热;case_b dbPath 不用 NFS · 连接池 vs 文件系统 · 主题不同"
+    },
+    {
+      "pair_id": 40,
+      "case_a": "mongo-wt-cache-size-misconfigured-01",
+      "case_b": "mongo-ttl-expiry-offpeak-window-high-write-01",
+      "similarity_score": 2,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "case_a WT cacheSize 人工调高;case_b TTL 过期窗口移夜间 · 缓存预算 vs 删除调度 · 主题不同"
+    },
+    {
+      "pair_id": 41,
+      "case_a": "mongo-wt-checkpoint-wait-25s-io-smoothing-01",
+      "case_b": "mongo-config-syncperiodsecs-production-default-01",
+      "similarity_score": 5,
+      "relation": "complementary",
+      "would_have_been_caught_by_better_tags": true,
+      "rationale": "case_a checkpoint wait 缩短到 25s;case_b 禁止 syncPeriodSecs=0 保持默认 60 · 同主题 wt-checkpoint 周期 · 互补但参数不同;粗筛缺 'checkpoint-period' 共同 tag"
+    },
+    {
+      "pair_id": 42,
+      "case_a": "mongo-connection-storm-driver-error-02",
+      "case_b": "bp-linux-fs-mount-nobarrier-xfs-battery-backed-storage-02",
+      "similarity_score": 1,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "case_a 连接数飙升 maxIncomingConnections;case_b XFS mount nobarrier · 连接 vs 文件系统 · 主题不同"
+    },
+    {
+      "pair_id": 43,
+      "case_a": "kunpeng-bios-cpu-prefetch-enabled-01",
+      "case_b": "mongo-replication-lag-multi-cause-02",
+      "similarity_score": 1,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "case_a 鲲鹏 BIOS prefetch 未关;case_b 副本复制延迟多因 · BIOS vs 副本 · 主题不同"
+    },
+    {
+      "pair_id": 44,
+      "case_a": "linux-mm-page-fault-physical-population-01",
+      "case_b": "mongo-read-concern-linearizable-maxtimems",
+      "similarity_score": 1,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "case_a flamegraph page fault 热栈;case_b read concern linearizable 配 maxTimeMS · 内核内存 vs 读关注 · 主题不同"
+    },
+    {
+      "pair_id": 45,
+      "case_a": "linux-block-journal-separate-volume-mongodb-01",
+      "case_b": "bp-mongo-pool-sockettimeoutms-firewall-half-close-02",
+      "similarity_score": 1,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "case_a journal 独立物理卷;case_b 客户端 socketTimeoutMS · 存储 vs 连接超时 · 主题不同"
+    },
+    {
+      "pair_id": 46,
+      "case_a": "kunpeng-cacheline-false-sharing-arm64-128b-01",
+      "case_b": "app-malloc-jemalloc-multithread-01",
+      "similarity_score": 3,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "都属并发性能 · case_a 鲲鹏 128B cacheline 伪共享;case_b 多线程 jemalloc 链接 · 不同根因(cacheline vs allocator 锁)"
+    },
+    {
+      "pair_id": 47,
+      "case_a": "mongo-8x-thp-disabled-tcmalloc-suboptimal-01",
+      "case_b": "linux-sched-kyber-for-multi-workload-11",
+      "similarity_score": 1,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "case_a THP 关闭让 8.0 TCMalloc 失效;case_b kyber IO 调度器多负载 · 内存 vs 块层 · 主题不同"
+    },
+    {
+      "pair_id": 48,
+      "case_a": "kunpeng-network-irq-cross-numa-01",
+      "case_b": "mongo-profiler-threshold-sampling-audit-01",
+      "similarity_score": 1,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "case_a 网卡中断跨 NUMA 绑定;case_b profiler slowOpThresholdMs 默认 100ms · 网络 vs 慢日志 · 主题不同"
+    },
+    {
+      "pair_id": 49,
+      "case_a": "os-blockdev-nr-requests-too-low-disk-throughput-01",
+      "case_b": "linux-fs-xfs-strongly-recommended-for-wt-checklist-02",
+      "similarity_score": 2,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "都是块层/文件系统 · case_a nr_requests 调到 2048;case_b WT 强烈用 XFS · 不同参数(队列深度 vs 文件系统类型)"
+    },
+    {
+      "pair_id": 50,
+      "case_a": "mongo-driver-pool-size-too-small-vs-concurrent-requests-02",
+      "case_b": "bp-mongo-pool-minpoolsize-startup-warmup-03",
+      "similarity_score": 5,
+      "relation": "complementary",
+      "would_have_been_caught_by_better_tags": true,
+      "rationale": "case_a maxPoolSize 应为 110-115% 并发;case_b minPoolSize 启动预热 · 同 cluster pool-size · 互补的 BP 对(min vs max);粗筛理应抓到 · 因 tags 不重叠"
+    },
+    {
+      "pair_id": 51,
+      "case_a": "mongo-pool-maxpoolsize-too-low-underutilized-04",
+      "case_b": "wt-reconcile-row-leaf-tombstone-not-globally-visible-01",
+      "similarity_score": 1,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "case_a maxPoolSize 太小限流;case_b WT reconcile 行叶页 tombstone · 池 vs 引擎内部 · 主题不同"
+    },
+    {
+      "pair_id": 52,
+      "case_a": "linux-block-avoid-replica-set-members-same-san-checklist-05",
+      "case_b": "mongo-config-audit-kmip-not-local-key-01",
+      "similarity_score": 1,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "case_a 副本不要全在同一 SAN;case_b 审计日志加密用 KMIP · 部署 vs 安全 · 主题不同"
+    },
+    {
+      "pair_id": 53,
+      "case_a": "mongo-pagination-skip-deep-page-rewrite-02",
+      "case_b": "linux-fs-xfs-blocksize-large-file-01",
+      "similarity_score": 1,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "case_a 大翻页 skip → $gt 改写;case_b XFS blocksize 8KB 大文件 · 应用查询 vs 文件系统 · 主题不同"
+    },
+    {
+      "pair_id": 54,
+      "case_a": "kvm-host-hugepages-not-allocated-tlb-miss-01",
+      "case_b": "mongo-driver-connection-pool-size-110-115pct-concurrent-03",
+      "similarity_score": 1,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "case_a KVM Host hugepages;case_b driver maxPoolSize 110-115% · 虚拟化 vs 连接池 · 主题不同"
+    },
+    {
+      "pair_id": 55,
+      "case_a": "kunpeng-bios-cpu-prefetch-enabled-01",
+      "case_b": "linux-block-journal-separate-volume-mongodb-01",
+      "similarity_score": 1,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "case_a 鲲鹏 BIOS prefetch 未关;case_b journal 独立物理卷 · BIOS vs 存储部署 · 主题不同"
+    },
+    {
+      "pair_id": 56,
+      "case_a": "app-malloc-jemalloc-multithread-audit-01",
+      "case_b": "linux-mm-vm-swappiness-1-or-0-mongo-host-05",
+      "similarity_score": 1,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "case_a jemalloc 链接;case_b vm.swappiness 设小 · allocator vs swap · 主题不同"
+    },
+    {
+      "pair_id": 57,
+      "case_a": "mongo-unbound-array-rewrite-pressure-05",
+      "case_b": "mongo-snapshot-history-window-no-atclustertime-08",
+      "similarity_score": 1,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "case_a 文档 array 无上限;case_b minSnapshotHistoryWindow 调 0 · schema vs WT 快照保留 · 主题不同"
+    },
+    {
+      "pair_id": 58,
+      "case_a": "kunpeng-network-irq-cross-numa-01",
+      "case_b": "wt-reconcile-write-wrapup-block-free-01",
+      "similarity_score": 1,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "case_a 网卡中断 NUMA 绑定;case_b WT reconcile wrapup · 网络 vs 引擎内部 · 主题不同"
+    },
+    {
+      "pair_id": 59,
+      "case_a": "mongo-aggregation-unbounded-pipeline-no-early-match-01",
+      "case_b": "linux-mm-vm-zone-reclaim-mode-disable-08",
+      "similarity_score": 1,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "case_a 聚合管道 $match 提前;case_b NUMA vm.zone_reclaim_mode=0 · 应用 vs OS · 主题不同"
+    },
+    {
+      "pair_id": 60,
+      "case_a": "linux-block-scheduler-mismatch-01",
+      "case_b": "mongo-tcmalloc-percpu-caches-not-enabled-01",
+      "similarity_score": 1,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "case_a IO scheduler 选错;case_b tcmalloc per-CPU caches 启用 · 块层 vs 分配器 · 主题不同"
+    },
+    {
+      "pair_id": 61,
+      "case_a": "mongo-replica-set-replication-lag-01",
+      "case_b": "mongo-k8s-operator-cachesize-bug-cpu-limit-required-02",
+      "similarity_score": 2,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "case_a 副本复制延迟;case_b PSMDB operator cacheSizeRatio bug · 副本 vs k8s operator bug · 主题不同"
+    },
+    {
+      "pair_id": 62,
+      "case_a": "mongo-open-cursor-rising-no-traffic-03",
+      "case_b": "wt-reconcile-write-wrapup-block-free-01",
+      "similarity_score": 1,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "case_a 开放游标上升(应用层);case_b WT reconcile wrapup 释放磁盘块 · 应用 vs 引擎内部 · 主题不同"
+    },
+    {
+      "pair_id": 63,
+      "case_a": "linux-mm-brk-heap-expansion-01",
+      "case_b": "kunpeng-net-irq-affinity-bind-all-queues-to-local-numa-01",
+      "similarity_score": 1,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "case_a flamegraph brk 热栈(堆扩展);case_b 鲲鹏网卡中断绑 NUMA · 内存 vs 网络 · 主题不同"
+    },
+    {
+      "pair_id": 64,
+      "case_a": "mongo-pool-maxpoolsize-too-high-cpu-pressure-05",
+      "case_b": "mongo-replica-lag-secondary-behind-primary-01",
+      "similarity_score": 2,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "case_a maxPoolSize 过大压垮服务端 CPU;case_b 副本集 secondary 落后 · 池 vs 副本 · 主题不同"
+    },
+    {
+      "pair_id": 65,
+      "case_a": "mongo-wt-large-page-eviction-fetch-pause-server-16479",
+      "case_b": "mongo-driver-connection-pool-size-110-115pct-concurrent-03",
+      "similarity_score": 1,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "case_a WT memory_page_max 单页大;case_b driver maxPoolSize 110-115% · 引擎 vs 连接池 · 主题不同"
+    },
+    {
+      "pair_id": 66,
+      "case_a": "mongo-slow-query-explain-multi-stage-01",
+      "case_b": "linux-thp-disabled-db-mem-fragmentation-bp-01",
+      "similarity_score": 2,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "case_a 慢查询 explain 链路;case_b THP 关闭减少碎片 · 应用排查 vs OS 调优 · 主题不同"
+    },
+    {
+      "pair_id": 67,
+      "case_a": "mongo-pool-socket-timeout-firewall-half-close-02",
+      "case_b": "linux-fs-nfs-mount-options-bg-hard-nolock-noatime-nointr-03",
+      "similarity_score": 1,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "case_a socketTimeoutMS 兜底防火墙半关;case_b NFS mount options · 连接 vs 文件系统 · 主题不同"
+    },
+    {
+      "pair_id": 68,
+      "case_a": "mongo-slow-log-currentop-long-query-kill-02",
+      "case_b": "mongo-config-logrotate-reopen-logrotated-01",
+      "similarity_score": 1,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "case_a 慢日志 + currentOp kill 长查询;case_b logrotate reopen · 慢操作排查 vs 日志轮转 · 主题不同"
+    },
+    {
+      "pair_id": 69,
+      "case_a": "mongo-connection-storm-driver-error-02",
+      "case_b": "mongo-config-quiet-mode-disable-production-01",
+      "similarity_score": 1,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "case_a 连接数飙升;case_b 禁用 quiet 模式 · 连接 vs 日志输出 · 主题不同"
+    },
+    {
+      "pair_id": 70,
+      "case_a": "kunpeng-numa-cross-node-memory-access-01",
+      "case_b": "linux-fs-xfs-blocksize-audit-01",
+      "similarity_score": 2,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "case_a 跨 NUMA 内存访问绑核;case_b XFS 大文件 blocksize · 内存拓扑 vs 文件系统 · 主题不同"
+    },
+    {
+      "pair_id": 71,
+      "case_a": "mongo-cursor-timeout-idle-resource-overhead-04",
+      "case_b": "mongo-config-quiet-mode-disable-production-01",
+      "similarity_score": 1,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "case_a cursorTimeoutMillis 调小;case_b 禁用 quiet 模式 · 游标 vs 日志输出 · 主题不同"
+    },
+    {
+      "pair_id": 72,
+      "case_a": "mongo-tcmalloc-decommit-madvise-lock-stall-server-31417",
+      "case_b": "mongo-k8s-operator-cachesize-bug-cpu-limit-required-02",
+      "similarity_score": 3,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "都属 memory-pressure · 但 case_a tcmalloc decommit 持锁延迟;case_b PSMDB operator bug · 不同根因"
+    },
+    {
+      "pair_id": 73,
+      "case_a": "mongo-read-concern-linearizable-maxtimems",
+      "case_b": "mongo-net-compressor-enable-bandwidth-reduction-03",
+      "similarity_score": 1,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "case_a linearizable + maxTimeMS;case_b 网络压缩 · 读关注 vs 网络层 · 主题不同"
+    },
+    {
+      "pair_id": 74,
+      "case_a": "mongo-schema-document-too-large-04",
+      "case_b": "mongo-shard-replica-member-down-02",
+      "similarity_score": 1,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "case_a 文档过大;case_b shard 副本成员宕 · schema vs 副本故障 · 主题不同"
+    },
+    {
+      "pair_id": 75,
+      "case_a": "mongo-wt-large-page-eviction-fetch-pause-server-16479",
+      "case_b": "mongo-service-executor-adaptive-high-concurrency-01",
+      "similarity_score": 1,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "case_a WT memory_page_max 大;case_b serviceExecutor=adaptive · 引擎 vs 网络服务模型 · 主题不同"
+    },
+    {
+      "pair_id": 76,
+      "case_a": "linux-block-offwake-disk-io-block-completion-01",
+      "case_b": "kvm-vcpu-placement-static-cpuset-numa-affinity-01",
+      "similarity_score": 1,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "case_a flamegraph off-wake disk IO 完成;case_b KVM vcpu placement static · 块 IO vs CPU 绑定 · 主题不同"
+    },
+    {
+      "pair_id": 77,
+      "case_a": "mongo-8x-thp-disabled-tcmalloc-suboptimal-01",
+      "case_b": "wt-cache-size-multi-instance-decrease-01",
+      "similarity_score": 3,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "都属 wt-cache/memory · 但 case_a THP 启用让新 TCMalloc 优化生效;case_b 多实例 cache 缩减 · 不同 mitigation"
+    },
+    {
+      "pair_id": 78,
+      "case_a": "mongo-wt-tickets-exhausted-01",
+      "case_b": "os-ulimit-nofile-high-conn-01",
+      "similarity_score": 2,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "case_a WT tickets < 128 限流;case_b ulimit -n 高连接需调高 · 引擎并发 vs OS 句柄 · 主题不同"
+    },
+    {
+      "pair_id": 79,
+      "case_a": "os-mongod-maxincomingconnections-high-conn-01",
+      "case_b": "mongo-tcmalloc-aggressive-decommit-oom-fragment-07",
+      "similarity_score": 1,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "case_a maxIncomingConnections 调高;case_b tcmallocAggressiveMemoryDecommit OOM 启用 · 连接 vs 内存回收 · 主题不同"
+    },
+    {
+      "pair_id": 80,
+      "case_a": "app-thread-concurrency-mismatch-01",
+      "case_b": "mongo-schema-unused-indexes-bloat-03",
+      "similarity_score": 1,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "case_a 应用线程并发数过高;case_b 集合冗余索引 · 应用线程 vs schema 索引 · 主题不同"
+    },
+    {
+      "pair_id": 81,
+      "case_a": "mongo-aws-ec2-storage-network-tuning-06",
+      "case_b": "mongo-explain-sort-stage-disk-spill-01",
+      "similarity_score": 2,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "case_a EC2 存储/网络综合调优;case_b $sort 内存超出 spill 磁盘 · 云调优 vs 排序内存 · 主题不同"
+    },
+    {
+      "pair_id": 82,
+      "case_a": "linux-blockdev-nr-requests-too-low-01",
+      "case_b": "mongo-replica-set-member-connectivity-03",
+      "similarity_score": 1,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "case_a 块设备 nr_requests;case_b 副本集成员双向连通 · 块层 vs 副本网络 · 主题不同"
+    },
+    {
+      "pair_id": 83,
+      "case_a": "app-malloc-jemalloc-multithread-audit-01",
+      "case_b": "mongo-config-quiet-mode-disable-production-01",
+      "similarity_score": 1,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "case_a jemalloc 链接;case_b 禁用 quiet 模式 · allocator vs 日志 · 主题不同"
+    },
+    {
+      "pair_id": 84,
+      "case_a": "mongo-client-os-tcp-tuning-01",
+      "case_b": "mongo-wt-cache-size-misconfigured-01",
+      "similarity_score": 1,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "case_a 客户端 TCP sysctl;case_b WT cacheSizeGB 人工调高 · 网络 vs 引擎缓存 · 主题不同"
+    },
+    {
+      "pair_id": 85,
+      "case_a": "mongo-network-tcp-keepalive-too-long-cloud-lb-drops-02",
+      "case_b": "mongo-config-quiet-mode-disable-production-01",
+      "similarity_score": 1,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "case_a tcp_keepalive_time vs 云 LB 空闲;case_b 禁用 quiet 模式 · 网络 keepalive vs 日志 · 主题不同"
+    },
+    {
+      "pair_id": 86,
+      "case_a": "mongo-shard-all-members-down-data-unavailable-03",
+      "case_b": "wt-journal-disable-non-critical-max-write-01",
+      "similarity_score": 1,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "case_a shard 全成员宕;case_b WT journal 关闭(非关键数据)· 副本故障 vs journal 配置 · 主题不同"
+    },
+    {
+      "pair_id": 87,
+      "case_a": "mongo-wt-tickets-exhausted-01",
+      "case_b": "mongo-explain-sort-stage-disk-spill-01",
+      "similarity_score": 2,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "case_a WT tickets 限流;case_b $sort 排序内存超 spill · 引擎并发 vs 排序内存 · 主题不同"
+    },
+    {
+      "pair_id": 88,
+      "case_a": "kvm-host-hugepages-not-allocated-tlb-miss-01",
+      "case_b": "mongo-wt-checkpoint-period-tuning-disk-io-spike-02",
+      "similarity_score": 1,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "case_a KVM Host hugepages 给虚机;case_b WT checkpoint 周期 IO spike · 虚拟化 vs 引擎 IO · 主题不同"
+    },
+    {
+      "pair_id": 89,
+      "case_a": "wt-eviction-trigger-app-thread-throttle-01",
+      "case_b": "mongo-shard-replica-member-down-02",
+      "similarity_score": 1,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "case_a WT eviction_trigger 95%;case_b shard 副本成员宕 · 引擎驱逐 vs 副本故障 · 主题不同"
+    },
+    {
+      "pair_id": 90,
+      "case_a": "mongo-replica-set-data-durability-three-voting-majority-01",
+      "case_b": "wt-journal-commit-interval-high-throughput-01",
+      "similarity_score": 1,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "case_a 副本集 3 voting + w:majority;case_b WT commitIntervalMs 200-300ms · 副本 vs journal · 主题不同"
+    },
+    {
+      "pair_id": 91,
+      "case_a": "mongo-network-tcp-keepalive-too-long-cloud-lb-drops-02",
+      "case_b": "mongo-net-compressor-enable-bandwidth-reduction-03",
+      "similarity_score": 2,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "case_a tcp_keepalive_time;case_b 网络压缩 · 都属 mongo-net 域但参数不同(keepalive vs compressor)"
+    },
+    {
+      "pair_id": 92,
+      "case_a": "wt-eviction-trigger-app-thread-throttle-01",
+      "case_b": "bp-linux-net-nic-interrupt-coalescing-static-kunpeng-01",
+      "similarity_score": 1,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "case_a WT eviction_trigger;case_b 鲲鹏 NIC 静态中断聚合 · 引擎 vs 网络 · 主题不同"
+    },
+    {
+      "pair_id": 93,
+      "case_a": "os-net-tcp-tw-reuse-enable-mongo-client-02",
+      "case_b": "kunpeng-net-irq-affinity-bind-all-queues-to-local-numa-01",
+      "similarity_score": 3,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "都属网络调优 · 但 case_a 客户端 tcp_tw_reuse;case_b 鲲鹏服务端网卡中断绑 NUMA · 不同侧/参数 · 互补不重复"
+    },
+    {
+      "pair_id": 94,
+      "case_a": "mongo-shard-replica-member-down-02",
+      "case_b": "os-net-netdev-max-backlog-mongo-client-8096-04",
+      "similarity_score": 1,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "case_a shard 副本成员宕;case_b 客户端 netdev_max_backlog · 副本故障 vs 网络栈 · 主题不同"
+    },
+    {
+      "pair_id": 95,
+      "case_a": "linux-mm-page-fault-physical-population-01",
+      "case_b": "arm64-lse-march-armv82a-compile-flag-graviton-01",
+      "similarity_score": 1,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "case_a flamegraph page fault 热栈;case_b ARM64 LSE -march=armv8.2-a · 内存 vs 编译标志 · 主题不同"
+    },
+    {
+      "pair_id": 96,
+      "case_a": "linux-readahead-default-128kb-wastes-fs-cache-04",
+      "case_b": "wt-concurrent-tickets-low-increase-01",
+      "similarity_score": 1,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "case_a read_ahead_kb 默认 128k 浪费 fs cache;case_b WT 并发 tickets < 10 调高 · 块层 vs 引擎并发 · 主题不同"
+    },
+    {
+      "pair_id": 97,
+      "case_a": "mongo-connection-storm-driver-error-02",
+      "case_b": "app-malloc-jemalloc-multithread-01",
+      "similarity_score": 1,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "case_a 连接数飙升;case_b jemalloc 多线程链接 · 连接 vs allocator · 主题不同"
+    },
+    {
+      "pair_id": 98,
+      "case_a": "linux-readahead-default-128kb-wastes-fs-cache-04",
+      "case_b": "mongo-replica-set-reboot-multi-secondary-04",
+      "similarity_score": 1,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "case_a read_ahead_kb 默认 128k;case_b 同时重启多 secondary 失多数 · 块层 vs 副本运维 · 主题不同"
+    },
+    {
+      "pair_id": 99,
+      "case_a": "mongo-schema-document-too-large-04",
+      "case_b": "os-ulimit-nproc-high-conn-02",
+      "similarity_score": 1,
+      "relation": "different",
+      "would_have_been_caught_by_better_tags": false,
+      "rationale": "case_a 文档过大;case_b ulimit nproc 高连接 · schema vs OS 句柄 · 主题不同"
+    }
+  ]
+}
