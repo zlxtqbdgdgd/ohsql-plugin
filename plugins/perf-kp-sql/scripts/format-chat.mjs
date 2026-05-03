@@ -56,7 +56,7 @@ export function lintReport(mdText) {
     const trimmed = raw.trim();
 
     // code fence toggle
-    if (/^```/.test(trimmed)) {
+    if (/^```|^~~~/.test(trimmed)) {
       inCodeFence = !inCodeFence;
       continue;
     }
@@ -92,7 +92,7 @@ export function lintReport(mdText) {
           const subTrim = sub.trim();
           if (!subTrim) continue;
           // 单纯的 [参考N] cell(不属 5 标签事实 cell)豁免
-          if (/^\[参考\d+\]$/.test(subTrim)) continue;
+          if (/^(\[参考\d+\]\s*(\[(CASE|NLM)\])?\s*)+$/.test(subTrim)) continue;
 
           if (subTrim.includes(" · ")) {
             // sub-atom 切分
