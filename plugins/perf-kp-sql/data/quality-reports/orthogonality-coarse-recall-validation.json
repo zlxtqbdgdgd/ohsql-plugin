@@ -1,7 +1,14 @@
 {
   "generated_at": "2026-05-03T09:05:29Z",
+  "revised_at": "2026-05-03T10:00:00Z",
+  "revised_reason": "Sonnet reviewer round 1 反馈:2 对原标 complementary 实际是粗筛漏检(would_have_been_caught_by_better_tags=true)· 应归 false_negative · 不应绕过 FN 统计",
   "judge_model": "Claude Opus 4.7 (1M context) via subagent",
   "purpose": "正交性粗筛召回率验证 · 抽 100 对被粗筛排除的 case 对 · LLM 精判看是否漏检",
+  "known_limitations": [
+    "evaluator(精判) 跟粗筛 tagger 是同模型(Opus 4.7) · 违反 llm-boundaries.md P3 原则(LLM 评 LLM = 同源偏盲点) · 此结论需跨模型 reviewer(Sonnet/Haiku)复核才算可靠",
+    "100 抽样数量从 20133 对里抽 · 抽样误差约 ±10% · 不是全量验证",
+    "缺少对'高相似度边界对'(similarity 接近粗筛阈值)的专门抽样 · 当前是均匀随机抽"
+  ],
   "input": {
     "total_pairs": 20301,
     "coarse_caught": 168,
@@ -10,18 +17,34 @@
     "random_seed": 42
   },
   "summary": {
-    "false_negative_count": 0,
-    "false_negative_rate_pct": 0.0,
-    "estimated_total_missed": 0,
+    "false_negative_count": 2,
+    "false_negative_rate_pct": 2.0,
+    "estimated_total_missed": 402,
+    "false_negative_rate_note": "原始 v1 报告 FN=0 · v2 修订:2 对原归 complementary 实际是 would_have_been_caught_by_better_tags=true 的真漏检 · 应归 FN(见 PAIR 041 + PAIR 050)· 仍低于业界 5% 验收线",
     "by_relation": {
       "duplicate": 0,
       "df_bp_mirror": 0,
       "df_df_overlap": 0,
       "bp_bp_overlap": 0,
-      "complementary": 2,
-      "different": 98
+      "complementary": 0,
+      "different": 98,
+      "false_negative": 2
     },
-    "tag_improvement_needed": 2
+    "tag_improvement_needed": 2,
+    "false_negative_pairs": [
+      {
+        "case_a": "mongo-wt-checkpoint-wait-25s-io-smoothing-01",
+        "case_b": "mongo-config-syncperiodsecs-production-default-01",
+        "shared_topic": "wt-checkpoint-period",
+        "rationale": "都属 wt-checkpoint 周期话题 · 一个调短到 25s · 一个守住默认 60(禁止 0)· 粗筛缺统一的 checkpoint-period tag · 导致漏检"
+      },
+      {
+        "case_a": "mongo-driver-pool-size-too-small-vs-concurrent-requests-02",
+        "case_b": "bp-mongo-pool-minpoolsize-startup-warmup-03",
+        "shared_topic": "connection-pool-size",
+        "rationale": "都属 connection-pool 调优 · 一个 maxPoolSize=110-115% · 一个 minPoolSize 启动预热 · 粗筛拆到 pool-size cluster 但没共享同组 tag · 导致漏检"
+      }
+    ]
   },
   "samples": [
     {
