@@ -1,0 +1,784 @@
+{
+  "generated_at": "2026-05-03T06:46:27.483Z",
+  "started_at": "2026-05-03T06:45:19.758Z",
+  "duration_ms": 67725,
+  "config_path": "config/crawler-research-sources.json",
+  "fetch_timeout_ms": 5000,
+  "user_agent": "Mozilla/5.0 (compatible; perf-kp-sql-research/0.44.0)",
+  "sources_total": 10,
+  "results": [
+    {
+      "id": "hikunpeng",
+      "domain": "www.hikunpeng.com",
+      "lang": "zh",
+      "trust_tier": "vendor-primary",
+      "topics": [
+        "kunpeng",
+        "boostkit",
+        "mongodb-tuning",
+        "arm64-tuning"
+      ],
+      "note": "鲲鹏官方 · robots.txt 禁 /doc_center/ · 但官方提供 sitemapdoc1-10.xml · 用 sitemap 抓合规",
+      "probes": [
+        {
+          "url": "https://www.hikunpeng.com/robots.txt",
+          "status": 200,
+          "ok": true,
+          "latency_ms": 3674,
+          "headers_summary": {
+            "server": null,
+            "content-type": "text/plain; charset=utf-8",
+            "cf-ray": null,
+            "x-cache": null,
+            "location": null,
+            "set-cookie-names": null
+          },
+          "cloudflare": false,
+          "is_cf_challenge": false,
+          "body_head": "User-agent: *\nAllow: /\nDisallow: /profile/\nDisallow: /doc_center/\n\nSitemap: https://www.hikunpeng.com/sitemap.xml\nSitemap: https://www.hikunpeng.com/sitemap/sitemapdata1.xml\nSitemap: https://www.hikunpeng.com/sitemap/sitemapdata2.xml\nSitemap: https://www.hikunpeng.com/sitemap/sitemapdata3.xml\nSitemap: https://www.hikunpeng.com/sitemap/sitemapdata4.xml\nSitemap: https://www.hikunpeng.com/sitemap/sitemapdata5.xml\nSitemap: https://www.hikunpeng.com/sitemap/sitemapdata6.xml\nSitemap: https://www.hikunpeng.com/sitemap/sitemapdata7.xml\nSitemap: https://www.hikunpeng.com/sitemap/sitemapdoc1.xml\nSitemap: https://www.hikunpeng.com/sitemap/sitemapdoc2.xml\nSitemap: https://www.hikunpeng.com/sitemap/sitemapdoc3.xml\nSitemap: https://www.hikunpeng.com/sitemap/sitemapdoc4.xml\nSitemap: https://www.hikunpeng",
+          "body_head_truncated": true
+        },
+        {
+          "url": "https://www.hikunpeng.com/sitemap/sitemapdoc1.xml",
+          "status": 200,
+          "ok": true,
+          "latency_ms": 4512,
+          "headers_summary": {
+            "server": null,
+            "content-type": "text/xml",
+            "cf-ray": null,
+            "x-cache": null,
+            "location": null,
+            "set-cookie-names": null
+          },
+          "cloudflare": false,
+          "is_cf_challenge": false,
+          "body_head": "<?xml version=\"1.0\" encoding=\"UTF-8\"?><urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\" xmlns:news=\"http://www.google.com/schemas/sitemap-news/0.9\" xmlns:xhtml=\"http://www.w3.org/1999/xhtml\" xmlns:image=\"http://www.google.com/schemas/sitemap-image/1.1\" xmlns:video=\"http://www.google.com/schemas/sitemap-video/1.1\"><url><loc>https://www.hikunpeng.com/document/detail/zh/boostsra/krecall/kbest/docs/zh/kbest/release_notes.md</loc><lastmod>2026-04-30</lastmod><changefreq>always</changefreq><priority>0.9</priority></url><url><loc>https://www.hikunpeng.com/document/detail/zh/boostsra/krecall/kscann/docs/zh/kscann/README.md</loc><lastmod>2026-04-30</lastmod><changefreq>always</changefreq><priority>0.9</priority></url><url><loc>https://www.hikunpeng.com/document/detail/zh/boostsra/kail/kai",
+          "body_head_truncated": true
+        },
+        {
+          "url": "https://www.hikunpeng.com/",
+          "status": 200,
+          "ok": true,
+          "latency_ms": 4296,
+          "headers_summary": {
+            "server": "openresty",
+            "content-type": "text/html;charset=utf-8",
+            "cf-ray": null,
+            "x-cache": null,
+            "location": null,
+            "set-cookie-names": null
+          },
+          "cloudflare": false,
+          "is_cf_challenge": false,
+          "body_head": "<!DOCTYPE html><html  lang=\"zh\" data-o-theme=\"k.light\" data-system=\"windows\" data-capo=\"\"><head><meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no\">\n<title>鲲鹏社区官网-凝心聚力 共创行业新价值</title>\n<script src=\"https://res.hc-cdn.com/CDP-Jssdk/2.6.4/web/uga-cdp-jssdk.window.js\"></script>\n<script src=\"https://res.wx.qq.com/open/js/jweixin-1.6.0.js\"></script>\n<style>.protocol-dlg{z-index:9999;--dlg-max-height:auto!important}</style>\n<style>.screen-ad[data-v-59a27045]{background-repeat:no-repeat;background-size:cover;border-radius:var(--o-radius-s);height:340px;-o-object-fit:contain;object-fit:contain;position:relative;text-align:center;width:560px}@media (max-width:840px){.screen-ad[data-v-59a27045]{height:340px;width:284px}}.close-btn",
+          "body_head_truncated": true
+        }
+      ],
+      "summary": {
+        "reachable_count": 3,
+        "total_probes": 3,
+        "cloudflare_detected": false,
+        "all_timeout": false
+      }
+    },
+    {
+      "id": "openeuler",
+      "domain": "docs.openeuler.org",
+      "lang": "zh",
+      "trust_tier": "official",
+      "topics": [
+        "linux-tuning",
+        "mongodb-tuning",
+        "performance-tuning"
+      ],
+      "note": null,
+      "probes": [
+        {
+          "url": "https://docs.openeuler.org/robots.txt",
+          "status": 200,
+          "ok": true,
+          "latency_ms": 3788,
+          "headers_summary": {
+            "server": "elb",
+            "content-type": "text/plain; charset=utf-8",
+            "cf-ray": null,
+            "x-cache": null,
+            "location": null,
+            "set-cookie-names": [
+              "HWWAFSESTIME"
+            ]
+          },
+          "cloudflare": false,
+          "is_cf_challenge": false,
+          "body_head": "User-agent:*\nAllow: /\n",
+          "body_head_truncated": true
+        },
+        {
+          "url": "https://docs.openeuler.org/sitemap.xml",
+          "status": 200,
+          "ok": true,
+          "latency_ms": 2642,
+          "headers_summary": {
+            "server": "elb",
+            "content-type": "text/xml; charset=utf-8",
+            "cf-ray": null,
+            "x-cache": null,
+            "location": null,
+            "set-cookie-names": [
+              "HWWAFSESID"
+            ]
+          },
+          "cloudflare": false,
+          "is_cf_challenge": false,
+          "body_head": "<?xml version=\"1.0\" encoding=\"UTF-8\"?><urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\" xmlns:news=\"http://www.google.com/schemas/sitemap-news/0.9\" xmlns:xhtml=\"http://www.w3.org/1999/xhtml\" xmlns:image=\"http://www.google.com/schemas/sitemap-image/1.1\" xmlns:video=\"http://www.google.com/schemas/sitemap-video/1.1\"><url><loc>https://www.openeuler.org/en/docs/common/contribute/contribution_process.html</loc><lastmod>2026-05-02T21:04:27.143Z</lastmod><xhtml:link rel=\"alternate\" hreflang=\"en\" href=\"https://www.openeuler.org/en/docs/common/contribute/contribution_process.html\"/><xhtml:link rel=\"alternate\" hreflang=\"zh\" href=\"https://www.openeuler.org/zh/docs/common/contribute/contribution_process.html\"/></url><url><loc>https://www.openeuler.org/zh/docs/common/contribute/contribution_pr",
+          "body_head_truncated": true
+        },
+        {
+          "url": "https://docs.openeuler.org/",
+          "status": 302,
+          "ok": false,
+          "latency_ms": 455,
+          "headers_summary": {
+            "server": "elb",
+            "content-type": "text/html",
+            "cf-ray": null,
+            "x-cache": null,
+            "location": "https://docs.openeuler.org/en/",
+            "set-cookie-names": [
+              "HWWAFSESTIME"
+            ]
+          },
+          "cloudflare": false,
+          "is_cf_challenge": false,
+          "body_head": "<html>\r\n<head><title>302 Found</title></head>\r\n<body>\r\n<center><h1>302 Found</h1></center>\r\n<hr><center>nginx</center>\r\n</body>\r\n</html>\r\n",
+          "body_head_truncated": true
+        }
+      ],
+      "summary": {
+        "reachable_count": 3,
+        "total_probes": 3,
+        "cloudflare_detected": false,
+        "all_timeout": false
+      }
+    },
+    {
+      "id": "huawei-cloud-dev",
+      "domain": "developer.huaweicloud.com",
+      "lang": "zh",
+      "trust_tier": "vendor-blog",
+      "topics": [
+        "kunpeng",
+        "mongodb-tuning",
+        "mysql-tuning"
+      ],
+      "note": null,
+      "probes": [
+        {
+          "url": "https://developer.huaweicloud.com/robots.txt",
+          "status": 200,
+          "ok": true,
+          "latency_ms": 3488,
+          "headers_summary": {
+            "server": "openresty",
+            "content-type": "text/plain; charset=UTF-8",
+            "cf-ray": null,
+            "x-cache": null,
+            "location": null,
+            "set-cookie-names": [
+              "HWWAFSESTIME"
+            ]
+          },
+          "cloudflare": false,
+          "is_cf_challenge": false,
+          "body_head": "User-agent:*\r\nAllow:/",
+          "body_head_truncated": true
+        },
+        {
+          "url": "https://developer.huaweicloud.com/sitemap.xml",
+          "status": 404,
+          "ok": false,
+          "latency_ms": 3276,
+          "headers_summary": {
+            "server": "openresty",
+            "content-type": "application/json; charset=utf-8",
+            "cf-ray": null,
+            "x-cache": null,
+            "location": null,
+            "set-cookie-names": [
+              "HWWAFSESTIME"
+            ]
+          },
+          "cloudflare": false,
+          "is_cf_challenge": false,
+          "body_head": "{\"error\":\"Not Found\"}",
+          "body_head_truncated": true
+        },
+        {
+          "url": "https://developer.huaweicloud.com/",
+          "status": 200,
+          "ok": true,
+          "latency_ms": 481,
+          "headers_summary": {
+            "server": "openresty",
+            "content-type": "text/html; charset=utf-8",
+            "cf-ray": null,
+            "x-cache": null,
+            "location": null,
+            "set-cookie-names": null
+          },
+          "cloudflare": false,
+          "is_cf_challenge": false,
+          "body_head": "\n            <!doctype html>\n\n<html lang=\"zh-CN\" site=\"china\">\n    <head>\n        <meta charset=\"UTF-8\">\n        <meta name=\"applicable-device\" content=\"pc,mobile\">\n        <meta name=\"color-scheme\" content=\"light only\" />\n        <meta http-equiv=\"X-UA-Compatible\" content=\"IE=edge,chrome=1\">\n        <meta name=\"viewport\" content=\"width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0\">\n        <meta name=\"baidu-site-verification\" content=\"nsMgQr28vc\" />\n        <meta http-equiv=\"x-dns-prefetch-control\" content=\"on\">\n        \n        \n        <meta name=\"templateName\" content=\"developer-common-pep2.0\">\n        <script>(function(){\n          if (!window.initActivityCss) {\n              window.initActivityCss = true;\n              window.gConfig =  wind",
+          "body_head_truncated": true
+        }
+      ],
+      "summary": {
+        "reachable_count": 3,
+        "total_probes": 3,
+        "cloudflare_detected": false,
+        "all_timeout": false
+      }
+    },
+    {
+      "id": "mongoing",
+      "domain": "mongoing.com",
+      "lang": "zh",
+      "trust_tier": "community-canonical",
+      "topics": [
+        "mongodb-tuning",
+        "mongodb-ops"
+      ],
+      "note": "MongoDB 中文社区 · 当前案例库已有部分引用",
+      "probes": [
+        {
+          "url": "https://mongoing.com/robots.txt",
+          "status": 200,
+          "ok": true,
+          "latency_ms": 3397,
+          "headers_summary": {
+            "server": "nginx",
+            "content-type": "text/plain; charset=utf-8",
+            "cf-ray": null,
+            "x-cache": null,
+            "location": null,
+            "set-cookie-names": [
+              "anspress_session"
+            ]
+          },
+          "cloudflare": false,
+          "is_cf_challenge": false,
+          "body_head": "User-agent: *\r\nAllow: /wp-admin/admin-ajax.php\r\nDisallow: /wp-admin/\r\n\r\nSitemap: https://mongoing.com/sitemap.xml\r\nSitemap: https://mongoing.com/sitemap.rss",
+          "body_head_truncated": true
+        },
+        {
+          "url": "https://mongoing.com/sitemap.xml",
+          "status": 200,
+          "ok": true,
+          "latency_ms": 1190,
+          "headers_summary": {
+            "server": "nginx",
+            "content-type": "text/xml; charset=UTF-8",
+            "cf-ray": null,
+            "x-cache": null,
+            "location": null,
+            "set-cookie-names": [
+              "anspress_session"
+            ]
+          },
+          "cloudflare": false,
+          "is_cf_challenge": false,
+          "body_head": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\r\n<!-- 這個網站地圖是由All in One SEO（WordPress的原始SEO外掛）生成的动态地。 -->\r\n\r\n<?xml-stylesheet type=\"text/xsl\" href=\"https://mongoing.com/default.xsl\"?>\r\n<sitemapindex xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">\n\t<sitemap>\n\t\t<loc><![CDATA[https://mongoing.com/addl-sitemap.xml]]></loc>\n\t\t<lastmod><![CDATA[2024-12-04T11:45:11+00:00]]></lastmod>\n\t</sitemap>\n\t<sitemap>\n\t\t<loc><![CDATA[https://mongoing.com/post-sitemap.xml]]></loc>\n\t\t<lastmod><![CDATA[2024-12-04T11:45:11+00:00]]></lastmod>\n\t</sitemap>\n\t<sitemap>\n\t\t<loc><![CDATA[https://mongoing.com/page-sitemap.xml]]></loc>\n\t\t<lastmod><![CDATA[2022-12-26T08:55:43+00:00]]></lastmod>\n\t</sitemap>\n\t<sitemap>\n\t\t<loc><![CDATA[https://mongoing.com/question-sitemap.xml]]></loc>\n\t\t<lastmod><![CDATA[2023-08-10T00:59:34+00:",
+          "body_head_truncated": true
+        },
+        {
+          "url": "https://mongoing.com/",
+          "status": 200,
+          "ok": true,
+          "latency_ms": 2530,
+          "headers_summary": {
+            "server": "nginx",
+            "content-type": "text/html; charset=UTF-8",
+            "cf-ray": null,
+            "x-cache": null,
+            "location": null,
+            "set-cookie-names": null
+          },
+          "cloudflare": false,
+          "is_cf_challenge": false,
+          "body_head": "<!DOCTYPE HTML>\r\n<html lang=\"zh-CN\">\r\n<head>\r\n<meta charset=\"UTF-8\">\r\n<link rel=\"dns-prefetch\" href=\"//apps.bdimg.com\">\r\n<meta http-equiv=\"X-UA-Compatible\" content=\"IE=edge\">\r\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0, user-scalable=0, minimum-scale=1.0, maximum-scale=1.0\">\r\n<meta name=\"apple-mobile-web-app-title\" content=\"MongoDB中文社区\">\r\n<meta http-equiv=\"Cache-Control\" content=\"no-siteapp\">\r\n\r\n<script type=\"text/javascript\">var ajaxurl = \"https://mongoing.com/wp-admin/admin-ajax.php\",ap_nonce \t= \"cd0b8b7548\",apTemplateUrl = \"https://mongoing.com/wp-content/plugins/anspress-question-answer/templates/js-template\";apQuestionID = \"\";aplang = {\"loading\":\"\\u6b63\\u5728\\u8f7d\\u5165..\",\"sending\":\"\\u53d1\\u9001\\u8bf7\\u6c42\",\"file_size_error\":\"\\u6587\\u4ef6\\u5927\\u5c0f\\u5927",
+          "body_head_truncated": true
+        }
+      ],
+      "summary": {
+        "reachable_count": 3,
+        "total_probes": 3,
+        "cloudflare_detected": false,
+        "all_timeout": false
+      }
+    },
+    {
+      "id": "mongodb-docs",
+      "domain": "www.mongodb.com",
+      "lang": "en",
+      "trust_tier": "official",
+      "topics": [
+        "mongodb-official-docs",
+        "wiredtiger",
+        "tuning"
+      ],
+      "note": null,
+      "probes": [
+        {
+          "url": "https://www.mongodb.com/robots.txt",
+          "status": 200,
+          "ok": true,
+          "latency_ms": 2479,
+          "headers_summary": {
+            "server": "istio-envoy",
+            "content-type": "text/plain; charset=UTF-8",
+            "cf-ray": null,
+            "x-cache": "Miss from cloudfront",
+            "location": null,
+            "set-cookie-names": null
+          },
+          "cloudflare": false,
+          "is_cf_challenge": false,
+          "body_head": "# See http://www.robotstxt.org/robotstxt.html for documentation on how to use the robots.txt file\n\nUser-agent: mauibot\nDisallow: /community/forums/\n\nUser-agent: semrushbot\nDisallow: /community/forums/\n\nUser-agent: ahrefsbot\nDisallow: /community/forums/\n\nUser-agent: blexbot\nDisallow: /community/forums/\n\nUser-agent: seo spider\nDisallow: /community/forums/\n\nUser-agent: bingbot\nDisallow: /community/forums/auth/\nDisallow: /community/forums/assets/browser-update*.js\nDisallow: /community/forums/email/\nDisallow: /community/forums/session\nDisallow: /community/forums/session/\nDisallow: /community/forums/admin\nDisallow: /community/forums/admin/\nDisallow: /community/forums/user-api-key\nDisallow: /community/forums/user-api-key/\nDisallow: /community/forums/*?api_key*\nDisallow: /community/forums/*?*api_k",
+          "body_head_truncated": true
+        },
+        {
+          "url": "https://www.mongodb.com/sitemap.xml",
+          "status": 200,
+          "ok": true,
+          "latency_ms": 599,
+          "headers_summary": {
+            "server": "istio-envoy",
+            "content-type": "text/xml; charset=utf-8",
+            "cf-ray": null,
+            "x-cache": "Miss from cloudfront",
+            "location": null,
+            "set-cookie-names": null
+          },
+          "cloudflare": false,
+          "is_cf_challenge": false,
+          "body_head": "<sitemapindex xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">\n  <sitemap>\n    <loc>https://www.mongodb.com/sitemap-pages.xml</loc>\n  </sitemap>\n  <sitemap>\n    <loc>https://www.mongodb.com/community/forums/sitemap.xml</loc>\n  </sitemap>\n  <sitemap>\n    <loc>https://www.mongodb.com/developer/sitemap/sitemap-index.xml</loc>\n  </sitemap>\n  <sitemap>\n    <loc>https://www.mongodb.com/docs/sitemap.xml</loc>\n  </sitemap>\n  <sitemap>\n    <loc>https://www.mongodb.com/docs/sitemap-index-full.xml</loc>\n  </sitemap>\n  <sitemap>\n    <loc>https://learn.mongodb.com/sitemap-index-full.xml</loc>\n  </sitemap>\n  <sitemap>\n    <loc>https://www.mongodb.com/zh-cn/sitemap-pages.xml</loc>\n  </sitemap>\n  <sitemap>\n    <loc>https://www.mongodb.com/zh-tw/sitemap-pages.xml</loc>\n  </sitemap>\n  <sitemap>\n    <loc",
+          "body_head_truncated": true
+        },
+        {
+          "url": "https://www.mongodb.com/docs/manual/",
+          "status": 200,
+          "ok": true,
+          "latency_ms": 641,
+          "headers_summary": {
+            "server": "istio-envoy",
+            "content-type": "text/html; charset=UTF-8",
+            "cf-ray": null,
+            "x-cache": "Miss from cloudfront",
+            "location": null,
+            "set-cookie-names": null
+          },
+          "cloudflare": false,
+          "is_cf_challenge": false,
+          "body_head": "<!DOCTYPE html><html lang=\"en\"><head><meta charSet=\"utf-8\"/><meta http-equiv=\"x-ua-compatible\" content=\"ie=edge\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, shrink-to-fit=no\"/><meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\"/><meta name=\"release\" content=\"1.0\"/><meta name=\"version\" content=\"master\"/><link rel=\"shortcut icon\" href=\"https://www.mongodb.com/docs/assets/favicon.ico\"/><meta name=\"generator\" content=\"Gatsby 5.7.0\"/><meta name=\"twitter:card\" content=\"summary_large_image\" data-gatsby-head=\"true\"/><meta name=\"twitter:site\" content=\"@mongodb\" data-gatsby-head=\"true\"/><meta property=\"twitter:title\" content=\"What is MongoDB? - Database Manual - MongoDB Docs\" data-gatsby-head=\"true\"/><meta name=\"twitter:image\" content=\"https://www.mongodb.com/",
+          "body_head_truncated": true
+        }
+      ],
+      "summary": {
+        "reachable_count": 3,
+        "total_probes": 3,
+        "cloudflare_detected": false,
+        "all_timeout": false
+      }
+    },
+    {
+      "id": "mongodb-jira",
+      "domain": "jira.mongodb.org",
+      "lang": "en",
+      "trust_tier": "official",
+      "topics": [
+        "server-tickets",
+        "bugs",
+        "performance-issues"
+      ],
+      "note": null,
+      "probes": [
+        {
+          "url": "https://jira.mongodb.org/robots.txt",
+          "status": 200,
+          "ok": true,
+          "latency_ms": 2424,
+          "headers_summary": {
+            "server": null,
+            "content-type": "text/plain",
+            "cf-ray": null,
+            "x-cache": null,
+            "location": null,
+            "set-cookie-names": [
+              "atlassian.xsrf.token"
+            ]
+          },
+          "cloudflare": false,
+          "is_cf_challenge": false,
+          "body_head": "# robots.txt for Jira\n# You may specify URLs in this file that will not be crawled by search engines (Google, MSN, etc)\n#\n# By default, all SearchRequestViews in the IssueNavigator (e.g.: Word, XML, RSS, etc) and all IssueViews\n# (XML, Printable and Word) are excluded by the /sr/ and /si/ directives below.\n\nUser-agent: *\nDisallow: /sr/\nDisallow: /si/\nDisallow: /charts\nDisallow: /secure/ConfigureReport.jspa\nDisallow: /secure/ConfigureReport!default.jspa\nDisallow: /secure/attachmentzip/\nDisallow: /secure/AboutPage.jspa\nDisallow: /secure/JiraCreditsPage!default.jspa\nDisallow: /secure/credits/AroundTheWorld!default.jspa\nDisallow: /secure/ViewKeyboardShortcuts!default.jspa\nDisallow: /secure/ViewProfile.jspa\nDisallow: /login.jsp\n# BEGIN ANSIBLE MANAGED BLOCK\nDisallow: /secure/attachment/\n# END A",
+          "body_head_truncated": true
+        },
+        {
+          "url": "https://jira.mongodb.org/sitemap.xml",
+          "status": 302,
+          "ok": false,
+          "latency_ms": 3250,
+          "headers_summary": {
+            "server": null,
+            "content-type": "text/html;charset=UTF-8",
+            "cf-ray": null,
+            "x-cache": null,
+            "location": "/login.jsp?permissionViolation=true&os_destination=https%3A%2F%2Fjira.mongodb.org%2Fsitemap.xml",
+            "set-cookie-names": [
+              "JSESSIONID"
+            ]
+          },
+          "cloudflare": false,
+          "is_cf_challenge": false,
+          "body_head": "",
+          "body_head_truncated": true
+        },
+        {
+          "url": "https://jira.mongodb.org/",
+          "status": 302,
+          "ok": false,
+          "latency_ms": 2250,
+          "headers_summary": {
+            "server": null,
+            "content-type": "text/html;charset=UTF-8",
+            "cf-ray": null,
+            "x-cache": null,
+            "location": "/plugins/servlet/samlsso?redirectTo=%2F",
+            "set-cookie-names": [
+              "atlassian.xsrf.token"
+            ]
+          },
+          "cloudflare": false,
+          "is_cf_challenge": false,
+          "body_head": "",
+          "body_head_truncated": true
+        }
+      ],
+      "summary": {
+        "reachable_count": 3,
+        "total_probes": 3,
+        "cloudflare_detected": false,
+        "all_timeout": false
+      }
+    },
+    {
+      "id": "percona-blog",
+      "domain": "www.percona.com",
+      "lang": "en",
+      "trust_tier": "vendor-blog",
+      "topics": [
+        "mongodb-tuning",
+        "mysql-tuning",
+        "arm64",
+        "benchmarks"
+      ],
+      "note": null,
+      "probes": [
+        {
+          "url": "https://www.percona.com/robots.txt",
+          "status": 200,
+          "ok": true,
+          "latency_ms": 2730,
+          "headers_summary": {
+            "server": "cloudflare",
+            "content-type": "text/plain; charset=utf-8",
+            "cf-ray": "9f5d4e891a8ef7d9-LAX",
+            "x-cache": null,
+            "location": null,
+            "set-cookie-names": [
+              "wpdiscuz_nonce_7e4f18bb59fbf6b250a17fca40765b58"
+            ]
+          },
+          "cloudflare": true,
+          "is_cf_challenge": false,
+          "body_head": "User-agent: *\nDisallow: /wp-content/uploads/wpo/wpo-plugins-tables-list.json\n\n# START YOAST BLOCK\n# ---------------------------\nUser-agent: *\nDisallow:\n\nSitemap: https://www.percona.com/sitemap_index.xml\n# ---------------------------\n# END YOAST BLOCK",
+          "body_head_truncated": true
+        },
+        {
+          "url": "https://www.percona.com/sitemap.xml",
+          "status": 301,
+          "ok": false,
+          "latency_ms": 855,
+          "headers_summary": {
+            "server": "cloudflare",
+            "content-type": "text/html; charset=UTF-8",
+            "cf-ray": "9f5d4e8cdf9cf7d9-LAX",
+            "x-cache": null,
+            "location": "https://www.percona.com/sitemap_index.xml",
+            "set-cookie-names": [
+              "wpdiscuz_nonce_7e4f18bb59fbf6b250a17fca40765b58"
+            ]
+          },
+          "cloudflare": true,
+          "is_cf_challenge": false,
+          "body_head": "",
+          "body_head_truncated": true
+        },
+        {
+          "url": "https://www.percona.com/blog/",
+          "status": 200,
+          "ok": true,
+          "latency_ms": 2218,
+          "headers_summary": {
+            "server": "cloudflare",
+            "content-type": "text/html; charset=UTF-8",
+            "cf-ray": "9f5d4e9e1ee6862c-LAX",
+            "x-cache": null,
+            "location": null,
+            "set-cookie-names": null
+          },
+          "cloudflare": true,
+          "is_cf_challenge": false,
+          "body_head": "    <!doctype html>\n    <html lang=\"en-US\">\n\n    <head>\n        <meta charset=\"UTF-8\"><script type=\"text/javascript\">(window.NREUM||(NREUM={})).init={privacy:{cookies_enabled:true},ajax:{deny_list:[\"bam.nr-data.net\"]},feature_flags:[\"soft_nav\"],distributed_tracing:{enabled:true}};(window.NREUM||(NREUM={})).loader_config={agentID:\"611110456\",accountID:\"6701548\",trustKey:\"6701548\",xpid:\"UgEHUFNXABAGVVBTBwYDVlw=\",licenseKey:\"NRJS-6463abb06d63efdcc39\",applicationID:\"611107408\",browserID:\"611110456\"};;/*! For license information please see nr-loader-spa-1.313.1.min.js.LICENSE.txt */\n(()=>{var e,t,r={384:(e,t,r)=>{\"use strict\";r.d(t,{NT:()=>a,Zm:()=>c,bQ:()=>u,dV:()=>d,pV:()=>l});var n=r(6154),i=r(1863),s=r(944),o=r(1910);const a={beacon:\"bam.nr-data.net\",errorBeacon:\"bam.nr-data.net\"};function ",
+          "body_head_truncated": true
+        }
+      ],
+      "summary": {
+        "reachable_count": 3,
+        "total_probes": 3,
+        "cloudflare_detected": true,
+        "all_timeout": false
+      }
+    },
+    {
+      "id": "aws-graviton",
+      "domain": "github.com",
+      "lang": "en",
+      "trust_tier": "vendor-primary",
+      "topics": [
+        "arm64-tuning",
+        "graviton",
+        "compiler-flags"
+      ],
+      "note": "GitHub 公开 repo · 不需 robots.txt 探测;直接 fetch raw markdown",
+      "probes": [
+        {
+          "url": "https://github.com/aws/aws-graviton-getting-started",
+          "status": 200,
+          "ok": true,
+          "latency_ms": 2801,
+          "headers_summary": {
+            "server": "github.com",
+            "content-type": "text/html; charset=utf-8",
+            "cf-ray": null,
+            "x-cache": null,
+            "location": null,
+            "set-cookie-names": [
+              "logged_in"
+            ]
+          },
+          "cloudflare": false,
+          "is_cf_challenge": false,
+          "body_head": "\n\n\n\n\n\n<!DOCTYPE html>\n<html\n  lang=\"en\"\n  \n  data-color-mode=\"auto\" data-light-theme=\"light\" data-dark-theme=\"dark\"\n  data-a11y-animated-images=\"system\" data-a11y-link-underlines=\"true\"\n  \n  >\n\n\n\n\n  <head>\n    <meta charset=\"utf-8\">\n  <link rel=\"dns-prefetch\" href=\"https://github.githubassets.com\">\n  <link rel=\"dns-prefetch\" href=\"https://avatars.githubusercontent.com\">\n  <link rel=\"dns-prefetch\" href=\"https://github-cloud.s3.amazonaws.com\">\n  <link rel=\"dns-prefetch\" href=\"https://user-images.githubusercontent.com/\">\n  <link rel=\"preconnect\" href=\"https://github.githubassets.com\" crossorigin>\n  <link rel=\"preconnect\" href=\"https://avatars.githubusercontent.com\">\n\n  \n\n\n  <link crossorigin=\"anonymous\" media=\"all\" rel=\"stylesheet\" href=\"https://github.githubassets.com/assets/light-2ff56e1b36",
+          "body_head_truncated": true
+        },
+        {
+          "url": "https://raw.githubusercontent.com/aws/aws-graviton-getting-started/main/README.md",
+          "status": 200,
+          "ok": true,
+          "latency_ms": 2411,
+          "headers_summary": {
+            "server": null,
+            "content-type": "text/plain; charset=utf-8",
+            "cf-ray": null,
+            "x-cache": "MISS",
+            "location": null,
+            "set-cookie-names": null
+          },
+          "cloudflare": false,
+          "is_cf_challenge": false,
+          "body_head": "# AWS Graviton Technical Guide\n\nThis repository provides technical guidance for users and developers using [Amazon EC2 instances powered by AWS Graviton processors](https://aws.amazon.com/ec2/graviton/) (including the latest generation Graviton4 processors). While it calls out specific features of the Graviton processors themselves, this repository is also generally useful for anyone running code on Arm-based systems.\n\n# Contents\n* [Transitioning to Graviton](#transitioning-to-graviton)\n* [Building for Graviton](#building-for-graviton2-graviton3-and-graviton3e)\n* [Optimizing for Graviton](optimizing.md)\n* [Taking advantage of Arm Advanced SIMD instructions](SIMD_and_vectorization.md)\n* [Recent software updates relevant to Graviton](#recent-software-updates-relevant-to-graviton)\n* Language-",
+          "body_head_truncated": true
+        },
+        {
+          "url": "https://raw.githubusercontent.com/aws/aws-graviton-getting-started/main/c-c%2B%2B.md",
+          "status": 200,
+          "ok": true,
+          "latency_ms": 3017,
+          "headers_summary": {
+            "server": null,
+            "content-type": "text/plain; charset=utf-8",
+            "cf-ray": null,
+            "x-cache": "MISS",
+            "location": null,
+            "set-cookie-names": null
+          },
+          "cloudflare": false,
+          "is_cf_challenge": false,
+          "body_head": "# C/C++ on Graviton\n\n### Enabling Arm Architecture Specific Features\n\nTLDR: To target all current generation Graviton instances (Graviton2,\nGraviton3, and Graviton4), use `-march=armv8.2-a`.\n\nC and C++ code can be built for Graviton with a variety of flags, depending on\nthe goal. If the goal is to get the best performance for a specific generation,\nselect a flag from the table column \"performance\". If the goal is to get a good\ncompromise of feature availability and performance balanced across generations,\nselect the flag from the \"balanced\" column. If you want to target multiple\ngenerations of Graviton, select the \"balanced\" flag for the oldest generation\nplanned for deployment, since code built for a newer generation may not run on\nan older generation. On arm64 `-mcpu=` acts as both speci",
+          "body_head_truncated": true
+        }
+      ],
+      "summary": {
+        "reachable_count": 3,
+        "total_probes": 3,
+        "cloudflare_detected": false,
+        "all_timeout": false
+      }
+    },
+    {
+      "id": "dev-to",
+      "domain": "dev.to",
+      "lang": "en",
+      "trust_tier": "community-blog",
+      "topics": [
+        "mongodb-tuning",
+        "performance"
+      ],
+      "note": "社区博客噪声大 · 但案例库有引用(devaaai 那篇配置 guide)",
+      "probes": [
+        {
+          "url": "https://dev.to/robots.txt",
+          "status": 200,
+          "ok": true,
+          "latency_ms": 2596,
+          "headers_summary": {
+            "server": "Heroku",
+            "content-type": "text/plain; charset=utf-8",
+            "cf-ray": null,
+            "x-cache": "HIT, HIT",
+            "location": null,
+            "set-cookie-names": null
+          },
+          "cloudflare": false,
+          "is_cf_challenge": false,
+          "body_head": "User-agent: *\nDisallow: /*/actions_panel*\nDisallow: /users/auth/twitter*\nDisallow: /users/auth/github*\nDisallow: /report-abuse?url=*\nDisallow: /connect/@*\nDisallow: /search?q=*\nDisallow: /search/?q=*\nDisallow: /search/feed_content?*\nDisallow: /listings*?q=*\nDisallow: /mod/*\nDisallow: /mod?*\nDisallow: /admin/*\nDisallow: /reactions?*\nDisallow: /async_info/base_data\nDisallow: /ahoy/*\nDisallow: /auth_pass/*\n\nSitemap: https://dev.to/sitemap-index.xml\n",
+          "body_head_truncated": true
+        },
+        {
+          "url": "https://dev.to/sitemap-tags.xml",
+          "status": 200,
+          "ok": true,
+          "latency_ms": 427,
+          "headers_summary": {
+            "server": "Heroku",
+            "content-type": "application/xml; charset=utf-8",
+            "cf-ray": null,
+            "x-cache": "HIT, MISS",
+            "location": null,
+            "set-cookie-names": null
+          },
+          "cloudflare": false,
+          "is_cf_challenge": false,
+          "body_head": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">\n    <url>\n        <loc>https://dev.to/t/ai</loc>\n        <lastmod>2026-05-03</lastmod>\n    </url>\n    <url>\n        <loc>https://dev.to/t/webdev</loc>\n        <lastmod>2026-05-03</lastmod>\n    </url>\n    <url>\n        <loc>https://dev.to/t/programming</loc>\n        <lastmod>2026-05-03</lastmod>\n    </url>\n    <url>\n        <loc>https://dev.to/t/productivity</loc>\n        <lastmod>2026-05-03</lastmod>\n    </url>\n    <url>\n        <loc>https://dev.to/t/javascript</loc>\n        <lastmod>2026-05-03</lastmod>\n    </url>\n    <url>\n        <loc>https://dev.to/t/beginners</loc>\n        <lastmod>2026-05-03</lastmod>\n    </url>\n    <url>\n        <loc>https://dev.to/t/tutorial</loc>\n        <lastmod>20",
+          "body_head_truncated": true
+        },
+        {
+          "url": "https://dev.to/",
+          "status": 200,
+          "ok": true,
+          "latency_ms": 317,
+          "headers_summary": {
+            "server": "Heroku",
+            "content-type": "text/html; charset=utf-8",
+            "cf-ray": null,
+            "x-cache": "HIT, HIT",
+            "location": null,
+            "set-cookie-names": null
+          },
+          "cloudflare": false,
+          "is_cf_challenge": false,
+          "body_head": "<!DOCTYPE html>\n<html lang=\"en\">\n  <head>\n    <meta charset=\"utf-8\">\n    <title>DEV Community</title>\n    \n\n  <link rel=\"canonical\" href=\"https://dev.to/\" />\n  <meta name=\"description\" content=\"A space to discuss and keep up software development and manage your software career\">\n  <meta name=\"keywords\" content=\"software development, engineering, rails, javascript, ruby\">\n\n  <meta property=\"og:type\" content=\"website\" />\n  <meta property=\"og:url\" content=\"https://dev.to/\" />\n  <meta property=\"og:title\" content=\"DEV Community\" />\n  <meta property=\"og:image\" content=\"https://dev-to-uploads.s3.amazonaws.com/uploads/articles/3otvb2z646ytpt1hl2rv.jpg\">\n  <meta property=\"og:description\" content=\"A space to discuss and keep up software development and manage your software career\" />\n  <meta propert",
+          "body_head_truncated": true
+        }
+      ],
+      "summary": {
+        "reachable_count": 3,
+        "total_probes": 3,
+        "cloudflare_detected": false,
+        "all_timeout": false
+      }
+    },
+    {
+      "id": "redhat-perf-tuning",
+      "domain": "access.redhat.com",
+      "lang": "en",
+      "trust_tier": "official",
+      "topics": [
+        "linux-tuning",
+        "performance-tuning-guide"
+      ],
+      "note": "RHEL Performance Tuning Guide · openEuler 同源 · 用作交叉验证",
+      "probes": [
+        {
+          "url": "https://access.redhat.com/robots.txt",
+          "status": 200,
+          "ok": true,
+          "latency_ms": 2394,
+          "headers_summary": {
+            "server": "Apache",
+            "content-type": "text/plain; charset=UTF-8",
+            "cf-ray": null,
+            "x-cache": null,
+            "location": null,
+            "set-cookie-names": null
+          },
+          "cloudflare": false,
+          "is_cf_challenge": false,
+          "body_head": "#\r\n# robots.txt\r\n#\r\n# This file is to prevent the crawling and indexing of certain parts\r\n# of your site by web crawlers and spiders run by sites like Yahoo!\r\n# and Google. By telling these \"robots\" where not to go on your site,\r\n# you save bandwidth and server resources.\r\n#\r\n# This file will be ignored unless it is at the root of your host:\r\n# Used:    http://example.com/robots.txt\r\n# Ignored: http://example.com/site/robots.txt\r\n#\r\n# For more information about the robots.txt standard, see:\r\n# http://www.robotstxt.org/robotstxt.html\r\n\r\nUser-agent: *\r\n# CSS, JS, Images\r\nAllow: /core/*.css$\r\nAllow: /core/*.css?\r\nAllow: /core/*.js$\r\nAllow: /core/*.js?\r\nAllow: /core/*.gif\r\nAllow: /core/*.jpg\r\nAllow: /core/*.jpeg\r\nAllow: /core/*.png\r\nAllow: /core/*.svg\r\nAllow: /profiles/*.css$\r\nAllow: /profiles",
+          "body_head_truncated": true
+        },
+        {
+          "url": "https://access.redhat.com/sitemap.xml",
+          "status": 200,
+          "ok": true,
+          "latency_ms": 385,
+          "headers_summary": {
+            "server": "AkamaiNetStorage",
+            "content-type": "application/xml",
+            "cf-ray": null,
+            "x-cache": null,
+            "location": null,
+            "set-cookie-names": null
+          },
+          "cloudflare": false,
+          "is_cf_challenge": false,
+          "body_head": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<sitemapindex xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">\n  <sitemap>\n    <loc>https://access.redhat.com/webassets/sitemaps/sitemap_base.xml</loc>\n    <lastmod>2025-03-18T12:23:00+00:00</lastmod>\n  </sitemap>\n  <sitemap>\n    <loc>https://access.redhat.com/webassets/sitemaps/sitemap_vulnerability.xml</loc>\n    <lastmod>2025-01-29T18:59:00+00:00</lastmod>\n  </sitemap>\n  <sitemap>\n    <loc>https://access.redhat.com/webassets/sitemaps/sitemap_product.xml</loc>\n    <lastmod>2025-01-29T18:59:00+00:00</lastmod>\n  </sitemap>\n  <sitemap>\n    <loc>https://access.redhat.com/webassets/sitemaps/sitemap_compliance.xml</loc>\n    <lastmod>2025-01-29T19:26:00+00:00</lastmod>\n  </sitemap>\n  <sitemap>\n    <loc>https://access.redhat.com/webassets/sitemaps/page/p",
+          "body_head_truncated": true
+        },
+        {
+          "url": "https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/9/html/monitoring_and_managing_system_status_and_performance/index",
+          "status": 301,
+          "ok": false,
+          "latency_ms": 2198,
+          "headers_summary": {
+            "server": "AkamaiGHost",
+            "content-type": null,
+            "cf-ray": null,
+            "x-cache": null,
+            "location": "https://docs.redhat.com/documentation/en-us/red_hat_enterprise_linux/9/html/monitoring_and_managing_system_status_and_performance/index",
+            "set-cookie-names": null
+          },
+          "cloudflare": false,
+          "is_cf_challenge": false,
+          "body_head": "",
+          "body_head_truncated": true
+        }
+      ],
+      "summary": {
+        "reachable_count": 3,
+        "total_probes": 3,
+        "cloudflare_detected": false,
+        "all_timeout": false
+      }
+    }
+  ],
+  "global_summary": {
+    "sources_total": 10,
+    "sources_fully_reachable": 10,
+    "sources_partial": 0,
+    "sources_dead": 0,
+    "sources_cloudflare": 1,
+    "sources_all_timeout": 0
+  }
+}

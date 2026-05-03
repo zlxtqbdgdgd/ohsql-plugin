@@ -1,0 +1,168 @@
+{
+  "generated_at": "2026-05-03T05:20:16.949Z",
+  "summary": {
+    "total": 202,
+    "passed": 202,
+    "hard_failed": 0,
+    "warn_only": 7,
+    "hard_missing_fields_count": 0,
+    "warn_missing_fields_count": 11,
+    "by_entry_kind": {
+      "diagnostic-flow": {
+        "total": 96,
+        "hard_failed": 0,
+        "warn_only": 0
+      },
+      "flame-signature": {
+        "total": 13,
+        "hard_failed": 0,
+        "warn_only": 0
+      },
+      "best-practice": {
+        "total": 93,
+        "hard_failed": 0,
+        "warn_only": 7
+      }
+    }
+  },
+  "required_schema": {
+    "diagnostic-flow": {
+      "hard_fields": [
+        "entry_kind",
+        "db",
+        "platform",
+        "engine",
+        "symptom_category",
+        "case_pattern",
+        "title",
+        "source_heading",
+        "diagnostic_steps_count",
+        "likely_causes_count",
+        "source_url",
+        "source_url_lang"
+      ],
+      "hard_sections": [
+        "symptom_description",
+        "diagnostic_steps",
+        "likely_causes"
+      ],
+      "warn_fields": [],
+      "warn_sections": []
+    },
+    "flame-signature": {
+      "hard_fields": [
+        "entry_kind",
+        "db",
+        "platform",
+        "scope",
+        "signature_type",
+        "match_layer",
+        "title",
+        "pattern_regex",
+        "source_url",
+        "source_authority",
+        "source_url_lang"
+      ],
+      "hard_sections": [
+        "pattern_quote",
+        "mechanism_quote",
+        "workload_implication_quote"
+      ],
+      "warn_fields": [],
+      "warn_sections": []
+    },
+    "best-practice": {
+      "hard_fields": [
+        "entry_kind",
+        "db",
+        "platform",
+        "scope",
+        "case_pattern",
+        "title",
+        "recommendation_layer",
+        "risk_severity",
+        "source_url",
+        "source_authority",
+        "source_url_lang"
+      ],
+      "hard_sections": [],
+      "warn_fields": [
+        "recommendation_value"
+      ],
+      "warn_sections": [
+        "scenario_description_quote",
+        "recommendation_quote"
+      ]
+    }
+  },
+  "hard_failed_cases": [],
+  "warn_only_cases": [
+    {
+      "case_id": "mongo-txn-long-running-wt-cache-pressure",
+      "entry_kind": "best-practice",
+      "source_file": "data/best-practice/CASES.md",
+      "hard_missing": [],
+      "warn_missing": [
+        "field:recommendation_value"
+      ]
+    },
+    {
+      "case_id": "mongo-read-concern-linearizable-maxtimems",
+      "entry_kind": "best-practice",
+      "source_file": "data/best-practice/CASES.md",
+      "hard_missing": [],
+      "warn_missing": [
+        "field:recommendation_value"
+      ]
+    },
+    {
+      "case_id": "linux-block-journal-separate-volume-mongodb-01",
+      "entry_kind": "best-practice",
+      "source_file": "data/best-practice/CASES.md",
+      "hard_missing": [],
+      "warn_missing": [
+        "field:recommendation_value"
+      ]
+    },
+    {
+      "case_id": "wt-journal-commit-interval-high-throughput-01",
+      "entry_kind": "best-practice",
+      "source_file": "data/best-practice/CASES.md",
+      "hard_missing": [],
+      "warn_missing": [
+        "section:scenario_description_quote",
+        "section:recommendation_quote"
+      ]
+    },
+    {
+      "case_id": "wt-journal-disable-non-critical-max-write-01",
+      "entry_kind": "best-practice",
+      "source_file": "data/best-practice/CASES.md",
+      "hard_missing": [],
+      "warn_missing": [
+        "section:scenario_description_quote",
+        "section:recommendation_quote"
+      ]
+    },
+    {
+      "case_id": "wt-block-compressor-none-max-write-speed-01",
+      "entry_kind": "best-practice",
+      "source_file": "data/best-practice/CASES.md",
+      "hard_missing": [],
+      "warn_missing": [
+        "section:scenario_description_quote",
+        "section:recommendation_quote"
+      ]
+    },
+    {
+      "case_id": "wt-directory-per-db-separate-volumes-01",
+      "entry_kind": "best-practice",
+      "source_file": "data/best-practice/CASES.md",
+      "hard_missing": [],
+      "warn_missing": [
+        "section:scenario_description_quote",
+        "section:recommendation_quote"
+      ]
+    }
+  ]
+}

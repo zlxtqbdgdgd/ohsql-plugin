@@ -1,0 +1,134 @@
+{
+  "_meta": {
+    "purpose": "perf-kp-sql 爬虫源调研配置 · scripts/probe-crawler-source.mjs 消费此文件",
+    "generated_at": "2026-05-02",
+    "design": "10 候选源 · 覆盖鲲鹏/MongoDB/社区/Linux 调优 · 探测 robots.txt + sitemap + 主页 + 样本页"
+  },
+  "sources": [
+    {
+      "id": "hikunpeng",
+      "domain": "www.hikunpeng.com",
+      "lang": "zh",
+      "trust_tier": "vendor-primary",
+      "topics": ["kunpeng", "boostkit", "mongodb-tuning", "arm64-tuning"],
+      "note": "鲲鹏官方 · robots.txt 禁 /doc_center/ · 但官方提供 sitemapdoc1-10.xml · 用 sitemap 抓合规",
+      "probe_urls": [
+        "https://www.hikunpeng.com/robots.txt",
+        "https://www.hikunpeng.com/sitemap/sitemapdoc1.xml",
+        "https://www.hikunpeng.com/"
+      ]
+    },
+    {
+      "id": "openeuler",
+      "domain": "docs.openeuler.org",
+      "lang": "zh",
+      "trust_tier": "official",
+      "topics": ["linux-tuning", "mongodb-tuning", "performance-tuning"],
+      "probe_urls": [
+        "https://docs.openeuler.org/robots.txt",
+        "https://docs.openeuler.org/sitemap.xml",
+        "https://docs.openeuler.org/"
+      ]
+    },
+    {
+      "id": "huawei-cloud-dev",
+      "domain": "developer.huaweicloud.com",
+      "lang": "zh",
+      "trust_tier": "vendor-blog",
+      "topics": ["kunpeng", "mongodb-tuning", "mysql-tuning"],
+      "probe_urls": [
+        "https://developer.huaweicloud.com/robots.txt",
+        "https://developer.huaweicloud.com/sitemap.xml",
+        "https://developer.huaweicloud.com/"
+      ]
+    },
+    {
+      "id": "mongoing",
+      "domain": "mongoing.com",
+      "lang": "zh",
+      "trust_tier": "community-canonical",
+      "topics": ["mongodb-tuning", "mongodb-ops"],
+      "note": "MongoDB 中文社区 · 当前案例库已有部分引用",
+      "probe_urls": [
+        "https://mongoing.com/robots.txt",
+        "https://mongoing.com/sitemap.xml",
+        "https://mongoing.com/"
+      ]
+    },
+    {
+      "id": "mongodb-docs",
+      "domain": "www.mongodb.com",
+      "lang": "en",
+      "trust_tier": "official",
+      "topics": ["mongodb-official-docs", "wiredtiger", "tuning"],
+      "probe_urls": [
+        "https://www.mongodb.com/robots.txt",
+        "https://www.mongodb.com/sitemap.xml",
+        "https://www.mongodb.com/docs/manual/"
+      ]
+    },
+    {
+      "id": "mongodb-jira",
+      "domain": "jira.mongodb.org",
+      "lang": "en",
+      "trust_tier": "official",
+      "topics": ["server-tickets", "bugs", "performance-issues"],
+      "probe_urls": [
+        "https://jira.mongodb.org/robots.txt",
+        "https://jira.mongodb.org/sitemap.xml",
+        "https://jira.mongodb.org/"
+      ]
+    },
+    {
+      "id": "percona-blog",
+      "domain": "www.percona.com",
+      "lang": "en",
+      "trust_tier": "vendor-blog",
+      "topics": ["mongodb-tuning", "mysql-tuning", "arm64", "benchmarks"],
+      "probe_urls": [
+        "https://www.percona.com/robots.txt",
+        "https://www.percona.com/sitemap.xml",
+        "https://www.percona.com/blog/"
+      ]
+    },
+    {
+      "id": "aws-graviton",
+      "domain": "github.com",
+      "lang": "en",
+      "trust_tier": "vendor-primary",
+      "topics": ["arm64-tuning", "graviton", "compiler-flags"],
+      "note": "GitHub 公开 repo · 不需 robots.txt 探测;直接 fetch raw markdown",
+      "probe_urls": [
+        "https://github.com/aws/aws-graviton-getting-started",
+        "https://raw.githubusercontent.com/aws/aws-graviton-getting-started/main/README.md",
+        "https://raw.githubusercontent.com/aws/aws-graviton-getting-started/main/c-c%2B%2B.md"
+      ]
+    },
+    {
+      "id": "dev-to",
+      "domain": "dev.to",
+      "lang": "en",
+      "trust_tier": "community-blog",
+      "topics": ["mongodb-tuning", "performance"],
+      "note": "社区博客噪声大 · 但案例库有引用(devaaai 那篇配置 guide)",
+      "probe_urls": [
+        "https://dev.to/robots.txt",
+        "https://dev.to/sitemap-tags.xml",
+        "https://dev.to/"
+      ]
+    },
+    {
+      "id": "redhat-perf-tuning",
+      "domain": "access.redhat.com",
+      "lang": "en",
+      "trust_tier": "official",
+      "topics": ["linux-tuning", "performance-tuning-guide"],
+      "note": "RHEL Performance Tuning Guide · openEuler 同源 · 用作交叉验证",
+      "probe_urls": [
+        "https://access.redhat.com/robots.txt",
+        "https://access.redhat.com/sitemap.xml",
+        "https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/9/html/monitoring_and_managing_system_status_and_performance/index"
+      ]
+    }
+  ]
+}

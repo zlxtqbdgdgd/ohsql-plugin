@@ -524,13 +524,14 @@
 - **scope**: app-other
 - **case_pattern**: parameter-best-practice
 - **title**: 单次事务修改文档上限 1000 条：超出须拆批处理
+- **recommendation_value**: `max_documents_per_transaction = 1000`
 - **recommendation_layer**: app-other
 - **risk_severity**: warning
 - **source_url**: https://www.mongodb.com/resources/products/capabilities/performance-best-practices-transactions-and-read-write-concerns
 - **source_authority**: official
 - **source_url_lang**: en
 - **database_version_min**: 4.0.0
-- **inferred_fields**: scenario_description_zh, rationale_zh, risk_zh
+- **inferred_fields**: scenario_description_zh, rationale_zh, risk_zh, recommendation_value
 
 ### scenario_description_quote
 
