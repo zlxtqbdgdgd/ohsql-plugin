@@ -98,10 +98,12 @@
         "target": "< 0.5",
         "achieved": true
       },
+      "all_pairs_note": "completeness~technical_accuracy 从 v1 0.235 上升到 v2 0.532 · 略超 0.5 · 是 v2 rubric 调整的预期副作用:v1 technical_accuracy 因含'域名权威度'因子被人为拉高 · 跟内容深度(completeness)弱相关;v2 移除域名因子后 technical_accuracy 真正反映技术内容质量 · 与内容充实度(completeness)自然正向关联(写得充实的 case 通常技术内容也更准确)· 这是合理的设计取舍 · 不再是 rubric 共享因子导致的纠缠。Sonnet reviewer round 1 已确认这是预期行为(非 blocker)· 节后视情况再评估是否进一步解耦。",
       "all_pairs": {
         "completeness~technical_accuracy": {
           "v1": 0.235,
-          "v2": 0.532
+          "v2": 0.532,
+          "explanation": "rubric 调整后预期副作用 · 见 all_pairs_note"
         },
         "completeness~citation_alignment": {
           "v1": 0.182,
