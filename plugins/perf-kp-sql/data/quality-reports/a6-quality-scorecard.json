@@ -1,9 +1,20 @@
 {
   "generated_at": "2026-05-03T08:57:42Z",
+  "revised_at": "2026-05-03T10:00:00Z",
+  "revised_reason": "Sonnet reviewer round 1 反馈:技术准确度 + 引用对齐度 两维度 rubric 都用了'域名权威度'· 强相关 +0.87 实为 rubric 共享因子 · 5 维度实为 4 维度 · 节后改 rubric 重跑",
   "judge_model": "Claude Opus 4.7 (1M context) via subagent",
+  "known_limitations": [
+    "rubric 设计缺陷:technical_accuracy 和 citation_alignment 都使用'域名权威度'作评分因子 · 导致 +0.87 强相关 · 5 维评分实质为 4 独立维度",
+    "评分上界保守倾向:0 个 case 拿 9 / 10 分 · evaluator 可能有'不给满分'的隐性偏见 · 顶尖 case 质量被低估 0.5-1 分",
+    "evaluator 是单模型(Opus 4.7)单评 · 没人工抽样校准 · 节后需 5% 抽样跨模型复核"
+  ],
+  "rubric_fixes_for_v2": {
+    "technical_accuracy": "v2 应只评'技术内容符合事实(凭 LLM 训练数据知识)' · 移除'来源域名权威度'因子",
+    "citation_alignment": "v2 保留'source_url 域名权威度 + URL 与 case 主题相关性' · 维度独立化"
+  },
   "scoring_rubric": {
     "completeness": "hard required 字段全 + 内容深度(symptom_description / diagnostic_steps / likely_causes 字数 · pattern_quote / scenario+recommendation quote 字数)",
-    "technical_accuracy": "技术内容符合事实 · 基于 LLM 训练知识 + 来源域名权威度(jira/mongodb/wiredtiger/hikunpeng > percona/brendangregg > cnblogs/blog)",
+    "technical_accuracy": "[v1 · 含 rubric 缺陷] 技术内容符合事实 · 基于 LLM 训练知识 + 来源域名权威度(jira/mongodb/wiredtiger/hikunpeng > percona/brendangregg > cnblogs/blog)",
     "citation_alignment": "source_url 域名权威度 + URL 与 case 主题相关性(MongoDB→mongodb.com · 鲲鹏→hikunpeng · flame→brendangregg)",
     "threshold_or_value_quality": "abnormal_pattern_threshold / recommendation_value 数值合理 · 有依据(宏观 · 详细评估在 a4)",
     "clarity": "title 长度合理 · 中英文混杂合理 · 描述不累赘 · symptom_description / scenario_description 充实"

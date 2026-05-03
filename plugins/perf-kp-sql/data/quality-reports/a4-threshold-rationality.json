@@ -1,9 +1,24 @@
 {
   "generated_at": "2026-05-03T08:58:18Z",
+  "revised_at": "2026-05-03T10:00:00Z",
+  "revised_reason": "Sonnet reviewer round 1 反馈:93 个 BP case 中有 47 个含具体数值配置(如 vm.dirty_ratio=5 / tcp_fin_timeout=30)· 应纳入阈值合理性评估 · 当前一刀切排除导致覆盖率仅 47.5% · 已记入 backlog 节后做 a4 v2",
   "judge_model": "Claude Opus 4.7 (1M context) via subagent",
+  "known_limitations": [
+    "BP 案例一刀切排除:93 个 BP 全部 not_applicable · 但其中 47 个含具体数值 recommendation_value(`vm.dirty_ratio = 5` / `net.core.somaxconn = 65535` / `net.ipv4.tcp_fin_timeout = 30` 等)· 这些数值的'阈值合理性'(来源依据 / 场景适用范围)完全可以、也应该评估",
+    "实际 a4 覆盖率仅 96/202 = 47.5% · 一半案例库的数值质量没被审计",
+    "维度 rigor 和 causal_clarity 存在语义重叠:NULL 阈值 case 在两个维度都低 · 应分离 — rigor 仅评'阈值是否存在 + 数值是否精确' · causal_clarity 仅评'有阈值后因果链是否完整'",
+    "维度 adaptability=6.03 偏低 · 5 个 < 5 分 case 中 4 个 adaptability ≤ 4 · 反映案例库系统性弱点(单一推荐值 · 缺机型 / workload 维度调整说明)· 但 a4 v1 未对此模式做汇总分析"
+  ],
+  "backlog_for_v2": [
+    "v2 把 47 个 BP numeric_value case 纳入 applicable · 评估'recommendation_value 的来源依据 / 适用场景'",
+    "v2 拆 rigor 与 causal_clarity 维度 · 让两者真正正交",
+    "v2 增加 adaptability 系统性弱点的汇总段(为什么这么多 case adaptability 低)"
+  ],
   "summary": {
     "total_cases": 202,
     "applicable": 96,
+    "applicable_coverage_pct": 47.5,
+    "applicable_coverage_note": "v1 仅评 DF 96 case · BP 93 + Flame 13 全排除 · v2 应扩到 96+47=143(含 BP numeric)",
     "not_applicable": 106,
     "avg_score_overall": 6.87,
     "by_dimension": {
