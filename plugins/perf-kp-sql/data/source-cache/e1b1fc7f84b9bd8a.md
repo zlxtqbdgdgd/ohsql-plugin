@@ -1,8 +1,8 @@
 <!-- source URL cache · perf-kp-sql LLM-as-Judge (a3) input -->
 <!-- url: https://www.hikunpeng.com/document/detail/zh/kunpengdbs/ecosystemEnable/MongoDB/kunpengdbstune_05_0006.html -->
 <!-- url_final: https://www.hikunpeng.com/document/detail/zh/kunpengdbs/ecosystemEnable/MongoDB/kunpengdbstune_05_0007.html -->
-<!-- fetched_at: 2026-05-03T08:51:17.899Z -->
-<!-- html_bytes: 189110 · text_chars: 2011 -->
+<!-- fetched_at: 2026-05-03T18:10:58.622Z -->
+<!-- html_bytes: 189110 · text_chars: 2028 -->
 <!-- used_by_cases: 3 -->
 文件系统调优-操作系统调优-调优指南-MongoDB-开源使能-鲲鹏BoostKit数据库场景开发文档-鲲鹏社区 
 
@@ -147,8 +147,7 @@ Submit Close
 
 建议在文件系统的mount参数上加上noatime、nobarrier两个选项，其中数据盘以及数据目录以实际为准。
 
-1 
-mount -o noatime,nobarrier /dev/sdb /data
+``` 1 ``` | ``` mount -o noatime,nobarrier /dev/sdb /data ```
 
 一般来说，Linux会给文件记录以下三个时间： access time指文件最后一次被读取的时间。
 modify time指的是文件的文本内容最后发生变化的时间。

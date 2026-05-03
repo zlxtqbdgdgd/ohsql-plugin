@@ -1,8 +1,8 @@
 <!-- source URL cache · perf-kp-sql LLM-as-Judge (a3) input -->
 <!-- url: https://www.mongodb.com/docs/manual/administration/performance-tuning/ -->
 <!-- url_final: https://www.mongodb.com/docs/manual/administration/performance-tuning/ -->
-<!-- fetched_at: 2026-05-03T08:51:38.288Z -->
-<!-- html_bytes: 502506 · text_chars: 19041 -->
+<!-- fetched_at: 2026-05-03T18:11:11.201Z -->
+<!-- html_bytes: 502506 · text_chars: 19089 -->
 <!-- used_by_cases: 5 -->
 Performance Tuning - Database Manual - MongoDB Docs Join us at MongoDB.local London on 7 May to unlock new possibilities for your data. Use WEB50 to save 50%. 
 Register now > 
@@ -380,7 +380,7 @@ Query Metrics
 
 You can also use the following query metrics to ensure
 your query is running at top speed:
-metrics.queryExecutor.scanned 
+`metrics.queryExecutor.scanned` 
 tells you how many documents were scanned to return your query results.
 Ideally, the ratio of scanned documents
 to returned documents is 1:1, which means MongoDB returns
@@ -394,7 +394,7 @@ If MongoDB is scanning large numbers of documents
 to respond to your query, you may be missing indexes or need to
 optimize your query.
 
-metrics.operation.scanAndOrder 
+`metrics.operation.scanAndOrder` 
 indicates the server's effort to sort query results.
 A high Scan and Order number, such as 20 or more, indicates
 that the server is having to sort results, increasing
@@ -418,8 +418,8 @@ The read and write tickets control the maximum number of concurrent transactions
 The WiredTiger ticket number should always be at 128. Sustained
 values below 128 indicates a server delay and consequential potential issues.
 
-You can use the serverStatus command to check the current number
-of read and write tickets and their usage. Look at the queues.execution 
+You can use the `serverStatus` command to check the current number
+of read and write tickets and their usage. Look at the `queues.execution` 
 section to understand the current load and ticket availability.
 
 To remedy a low WiredTiger ticket number:
@@ -433,12 +433,12 @@ If you are using MongoDB 3.2 or earlier,
 upgrade to a later version that uses WiredTiger.
 
 If you need to manually adjust the maximum number of concurrent
-transactions, you can modify the storageEngineConcurrentReadTransactions and
-storageEngineConcurrentWriteTransactions parameters.
+transactions, you can modify the `storageEngineConcurrentReadTransactions` and
+`storageEngineConcurrentWriteTransactions` parameters.
 
 Note
-Take caution when modifying storageEngineConcurrentReadTransactions 
-and storageEngineConcurrentWriteTransactions , as changing
+Take caution when modifying `storageEngineConcurrentReadTransactions` 
+and `storageEngineConcurrentWriteTransactions` , as changing
 these settings can lead to performance issues or errors. We recommend
 you consult with MongoDB Support before changing these parameters.
 
@@ -508,15 +508,15 @@ is rising beyond the planned capacity of your cluster. By keeping
 track of growth in throughput, you can expand your cluster's capacity
 efficiently.
 The following metrics can help you track your cluster's throughput.
-To find these metrics, run the serverStatus command and
+To find these metrics, run the `serverStatus` command and
 examine the fields specified below.
 Read and Write Operations 
 
 The Read and Write Operations metrics indicate how much work the
 cluster does. You can find read operations through the
-opcounters.query field and write operations through
-opcounters.insert , opcounters.update ,
-and opcounters.delete , which count the total number
+`opcounters.query` field and write operations through
+`opcounters.insert` , `opcounters.update` ,
+and `opcounters.delete` , which count the total number
 of insert, update, and delete operations, respectively.
 The ratio of reads to writes depends on the
 nature of the workloads running on the cluster.
@@ -533,10 +533,10 @@ too busy. Similarly to the Read and Write operations metric, there is
 no right or wrong number for these metrics, but having a good idea
 of what's normal helps you discern whether poor performance
 is coming from large workload size or attributable to other reasons.
-To retrieve Document Metrics, access the metrics.keysExamined 
-and metrics.totalExecMicros fields. To retrieve Query Executor metrics,
-examine the metrics.fromPlanCache field. You can find
-all of these fields using the $queryStats aggregation stage.
+To retrieve Document Metrics, access the `metrics.keysExamined`
+and `metrics.totalExecMicros` fields. To retrieve Query Executor metrics,
+examine the `metrics.fromPlanCache` field. You can find
+all of these fields using the `$queryStats` aggregation stage.
 MongoDB updates document metrics anytime you find a document
 or insert a document. The more documents that you find,
 insert, update or delete, the busier your cluster is.
@@ -576,7 +576,7 @@ computing and networking infrastructure provides.
 Number of Client Connections 
 
 The Current Number of Client Connections metric, located in the
-connections.current field in the serverStatus 
+`connections.current` field in the `serverStatus` 
 document, can indicate total load on a system. Keeping track of normal ranges
 at various times of the day or week can help you quickly identify spikes in traffic.
 A related metric, percentage of connections used, can indicate
@@ -587,21 +587,21 @@ Storage Metrics
 Storage metrics track how MongoDB uses persistent storage. In the WiredTiger
 storage engine, each collection and each index are individual files. When
 you update a document in a collection, MongoDB re-writes the entire document.
-If memory space metrics such as dbStats.dataSize ,
-dbStats.indexSize , dbStats.storageSize , or the number
+If memory space metrics such as `dbStats.dataSize` ,
+`dbStats.indexSize` , `dbStats.storageSize` , or the number
 of documents in the database show a significant unexpected change while
 the database traffic stays within ordinary ranges, it can indicate
 problems such as data deletion or corruption, unexpected data growth, or index changes.
 
-A sudden drop in dbStats.dataSize may indicate a large amount of
+A sudden drop in `dbStats.dataSize` may indicate a large amount of
 data deletion. If this drop is unexpected, you should quickly investigate.
 
 Memory Metrics 
 
 Memory metrics show how MongoDB uses the virtual memory
 of the computing infrastructure that is hosting the cluster.
-You can find memory metrics in the mem document
-in the results of serverStatus . 
+You can find memory metrics in the `mem` document
+in the results of `serverStatus`. 
 An increasing number of page faults or a growing amount of data
 changed but not yet written to disk can indicate problems
 related to the amount of memory available to the cluster.

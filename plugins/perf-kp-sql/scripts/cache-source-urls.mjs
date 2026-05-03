@@ -67,12 +67,33 @@ console.log(`[cache] cases=${allCases.length} · unique URLs=${uniqueUrls.length
 
 function htmlToText(html) {
   let s = html;
-  // 移除 script / style / noscript / svg / template 整段
-  s = s.replace(/<(script|style|noscript|svg|template)[\s\S]*?<\/\1>/gi, " ");
+  // 移除 script / style / noscript / svg / template / iframe 整段
+  s = s.replace(/<(script|style|noscript|svg|template|iframe)[\s\S]*?<\/\1>/gi, " ");
   // 移除 HTML 注释
   s = s.replace(/<!--[\s\S]*?-->/g, " ");
+
+  // <pre> / <code> 块特殊处理:保留内部换行 + 文本(命令行 / 配置示例的可读性关键)
+  s = s.replace(/<pre[^>]*>([\s\S]*?)<\/pre>/gi, (_, body) => {
+    const inner = body.replace(/<[^>]+>/g, ""); // 去掉内嵌标签
+    return "\n```\n" + inner.trim() + "\n```\n";
+  });
+  s = s.replace(/<code[^>]*>([\s\S]*?)<\/code>/gi, (_, body) => {
+    const inner = body.replace(/<[^>]+>/g, "");
+    return "`" + inner.trim() + "`";
+  });
+
+  // <table> 行处理:每个 <tr> 换行 · 每个 <td>/<th> 用 ` | ` 分隔(保表结构感)
+  s = s.replace(/<tr[^>]*>([\s\S]*?)<\/tr>/gi, (_, row) => {
+    const cells = [];
+    row.replace(/<(?:th|td)[^>]*>([\s\S]*?)<\/(?:th|td)>/gi, (_, cell) => {
+      cells.push(cell.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim());
+      return "";
+    });
+    return "\n" + cells.join(" | ") + "\n";
+  });
+
   // 把块级标签替换为换行(保留段落感)
-  s = s.replace(/<\/(p|div|h[1-6]|li|tr|br|hr|article|section|main)\s*>/gi, "\n");
+  s = s.replace(/<\/(p|div|h[1-6]|li|br|hr|article|section|main)\s*>/gi, "\n");
   s = s.replace(/<(br|hr)\s*\/?\s*>/gi, "\n");
   // 移除其余所有标签
   s = s.replace(/<[^>]+>/g, " ");

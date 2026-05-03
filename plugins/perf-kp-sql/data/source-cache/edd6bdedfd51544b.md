@@ -1,8 +1,8 @@
 <!-- source URL cache · perf-kp-sql LLM-as-Judge (a3) input -->
 <!-- url: https://www.hikunpeng.com/document/detail/zh/perftuning/tuningtip/kunpengtuning_12_0027.html -->
 <!-- url_final: https://www.hikunpeng.com/document/detail/zh/perftuning/tuningtip/kunpengtuning_12_0027.html -->
-<!-- fetched_at: 2026-05-03T08:51:18.303Z -->
-<!-- html_bytes: 186768 · text_chars: 1623 -->
+<!-- fetched_at: 2026-05-03T18:10:55.273Z -->
+<!-- html_bytes: 186768 · text_chars: 1639 -->
 <!-- used_by_cases: 2 -->
 中断聚合参数调整-优化方法-网络子系统性能调优-鲲鹏性能优化十板斧-鲲鹏性能调优开发文档-鲲鹏社区 
 
@@ -145,8 +145,7 @@ RAG
 修改方式
 使用ethtool -C $eth方法调整中断聚合参数。其中参数“$eth”为待调整配置的网卡设备名称，如eth0，eth1等。
 
-1 
-# ethtool -C eth3 adaptive-rx off adaptive-tx off rx-usecs N rx-frames N tx-usecs N tx-frames N 
+``` 1 ``` | ``` # ethtool -C eth3 adaptive-rx off adaptive-tx off rx-usecs N rx-frames N tx-usecs N tx-frames N ```
 
 为了确保使用静态值，需禁用自适应调节，关闭Adaptive RX和Adaptive TX。
 
