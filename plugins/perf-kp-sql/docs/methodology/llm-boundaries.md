@@ -109,14 +109,16 @@ perf-kp-sql 当前的 P3 缺口:
 | 0.3 | 0.10 NLM 鉴权状态机 | 判 NLM 是否可用 · 是否需要 relogin | 错判"NLM 不可用"误跳 NLM 兜底 · 凭"我记得这台机器没装"推断 | 唯一硬证据:`--op check --json` 返回 `installed=true && authenticated=true && notebooks 非空`(SKILL.md L458-479)· 任何其他间接信号一律不算 | P1 |
 | 1.1 | 1.1 NLP 抽用户问题关键词 | 从 user 自然语言抽现象 / 部署形态线索 / 紧急程度 | 漏关键现象(用户说"昨天又卡了一次"漏掉时间窗口) | 让用户描述充分(1.2 上下文化询问)+ Phase 2 case 路由能再补 + 描述模糊转 Phase 3.B 巡检模式 | P4 |
 | 2.1 | 2.2 案例 路由 | 语义匹配 user 描述 / 火焰图特征 → `cases/INDEX.md` top-K case_id | 路由错位 · 命中无关 case · 漏掉真正的 case | 收敛规则(SKILL.md L596-604):2-5 命中并行进 Phase 3;6+ 简短追问 ≤ 5 轮强制收口;**多 case 并行诊断是标准能力 · 不为收敛到 1 个无限追问** | P4 |
+| **2.2** | **2.3 单 case 字段解析** | Read `cases/CASES.md` 单 case 段(用 offset+limit)· LLM 解析字段值进 in-memory 上下文 | 字段抽错(把 `mechanism_quote` 当 `recommendation_value`)· 漏字段(忽略 `inferred_fields`) | 字段名硬 schema(SKILL.md L735 段)· `### symptom_description` 等 markdown 头切段(规则可写)· Phase 3.A.2 拼命令时若字段缺会报错(级联兜底) | P1 + P2 |
 | 3.1 | 3.A.2 SSH 命令拼接 | 把 case 的 `collection_method_quote` 字面适配 `[环境上下文]` 占位符 | 引号 / 变量替换被本机 shell 吃掉 · 远端拿到不完整命令 | `--command-file` 文件传命令字面 · 严禁 inline `$'...'` / heredoc(SKILL.md L186-197 · 红线 L1344) | P1 |
 | 3.2 | 3.A.5 解析 stdout 抽 metric | 从 mongosh / sysctl stdout 抽 metric → value 映射 | 单位混乱(MB vs MiB)· 数字错位(把 cache used 95% 写成 dirty 95%) | case 字段 `metric_name` / `abnormal_pattern_threshold` 写明 unit · LLM 解析错时 Phase 4 阈值对比能发现"我抽到的值跟阈值差 1000 倍 · 应该是单位错了" | P2 |
 | 4.1 | 4.A 阶段 1 案例 阈值直判 | 拿 [采集值] 跟 case `abnormal_pattern_threshold` 比较 → 偏离 / 正常 | 对错号(`>=` 写成 `<=`)· 把描述性 case(threshold=NULL)强行判 | `threshold=NULL` 时跳过阈值判 · 强制走 NLM 阶段拿初步答案(SKILL.md L840-844 · 阶段 1) | P1 + P2 |
 | 4.2 | 4.A 阶段 2 NLM 二次确认 | 给每个候选根因发一条 NLM query · 拿 answer + references | 答复跟 case 矛盾时 LLM 强行调和(把"不是该根因"读成"该根因有部分对") | 阶段 3 综合判定表硬规则(SKILL.md L887-895):案例 偏离 + NLM 否认 → **不进主表 · 移现场观测段** · 不许"反正 案例 命中就强行写进表" | P3 + P2 |
 | 4.3 | 4.A 阶段 3 综合写"根因主表" | 综合 案例 + NLM 多源写 `## 诊断结果` 6 列表行 | 凭训练数据编一行(`mongod tcmalloc 碎片是常见问题` · 没源)· 编 case_id · 编 URL | URL 强制溯源(SKILL.md L1110-1158)+ 5 标签来源标记(L992-1046)+ format-chat lint exit 2(L1194-1206)三层兜底 | P2 |
+| **4.4** | **4.B.3 BP 巡检模式 NLM 综合判定** | 巡检模式(无 case 命中)调 `notebooklm.mjs --op query-batch` 拿全 BP 答复 · LLM 综合判每条 BP 是否合规 | 把 NLM 模糊答复("可能"/"看场景")当作"合规" · 漏判违规项 | 综合判定 schema(SKILL.md L1077 段)· 三档判定 `合规 / 违规 / 不适用` · 加权重计算综合得分 · 跟 case 命中模式独立 | P3 + P2 |
 | 5.1 | 5.2 报告正文渲染 | 把根因主表写成 markdown · 6 列 + `<br>` 分行 · ≤ 20 字符/行 | 行数错位(漏 `<br>`)· 单行超 80 列触发竖排降级 · 漏挂 5 标签 | format-chat 重排 cell `<br>`(脚本 `rewrapTable()`)· 5 标签 lint 漏挂 exit 2 · self-check 4 规则(SKILL.md L1220-1227) | P2 |
 | 5.2 | 5.4 chat 输出 | 把 format-chat stdout **字面复制** 到 chat 输出 | LLM 美化:重排表为竖排 / 加 emoji bullet / 加叙述总结 / 自由发挥结尾 | self-check 4 规则硬卡(`|---|` 必含 / `|` ≥ 30 / 不许 `────` 独占行 / 不许 ≥ 3 个"字段:值"行)· 失败丢弃当前输出 · 回到步骤 2 重做 | P2 |
-| 5.3 | 5.2 一句话摘要 | (现状无此环节 · 只输出 6 列表)| — | — | — |
+| 5.3 | 5.2 一句话摘要(0.44.0 起新增 · "## 主要问题" 段) | 综合 Top Issues 写 1-2 句"主要问题 + 影响 + 建议先改 X" | 摘要跟正文矛盾(摘要说"主要 THP" · 正文说"主要 cache pressure")· 凭印象添加 Top Issues 没列的事实 | 当前**缺兜底**(本身就是 Day 2 reviewer 标的"黑盒风险点 5.2") · 节后改进路线:模板填空 / LLM 自检 / format-chat lint 交叉引用 | (待补 P2) |
 | 6.1 | 6 用户追问意图识别 | user 追问"这个 swappiness 改了会不会影响 swap 触发" → LLM 选 案例 / NLM 路径 | 答非所问 · 凭训练数据回答 · 不挂引用 | 6.1 案例 路径强制 Read · 6.2 NLM 路径强制走 `notebooklm.mjs --op query`(SKILL.md L1295-1336)· 不允许"我训练数据里见过"直接回 | P4(自由问答阶段约束相对宽) |
 | **2.1.1** | 节后 case 正交性判 | LLM-as-Judge 判 case A vs B 是否同根因 / 重复 / 互斥 | 风格偏差(case A 写得长 · 误判含 case B) | 当前无 · 应加 5% 人工抽样核对 | P3 |
 | **2.1.2** | 节后 case 质量评分 | 评分卡每 case 打分(完整性 / 准确性 / 可执行) | 长度偏差(长 case 给高分) | 当前无 · 应加评分卡分维度 + 5% 人工抽样 | P3 |
