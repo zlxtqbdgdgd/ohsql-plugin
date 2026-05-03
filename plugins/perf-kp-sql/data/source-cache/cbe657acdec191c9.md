@@ -1,7 +1,7 @@
 <!-- source URL cache · perf-kp-sql LLM-as-Judge (a3) input -->
 <!-- url: https://www.hikunpeng.com/document/detail/zh/perftuning/tuningtip/kunpengtuning_12_0037.html -->
 <!-- url_final: https://www.hikunpeng.com/document/detail/zh/perftuning/tuningtip/kunpengtuning_12_0038.html -->
-<!-- fetched_at: 2026-05-03T08:51:21.868Z -->
+<!-- fetched_at: 2026-05-03T18:10:58.429Z -->
 <!-- html_bytes: 102081 · text_chars: 1336 -->
 <!-- used_by_cases: 1 -->
 调整脏数据刷新策略，减小磁盘的I/O压力-优化方法-磁盘I/O子系统性能调优-鲲鹏性能优化十板斧-鲲鹏性能调优开发文档-鲲鹏社区 
