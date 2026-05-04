@@ -34,7 +34,25 @@ import { homedir } from "node:os";
 import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
-interface HostEntry {
+/**
+ * v0.49.0 · 环境画像缓存 · 跟连接信息一起持久化 · 复用时让用户能区分多台机器
+ * 字段全可选 · 缺哪个写哪个 · 兼容旧 hosts.json(无此字段视为 undefined)。
+ */
+export interface EnvContext {
+  os_kernel?: string;
+  os_distro?: string;
+  arch?: string;
+  cpu_vendor?: string;
+  cpu_model?: string;
+  cpu_count?: number;
+  numa_nodes?: number;
+  mem_total?: string;
+  mongod_version?: string;
+  deploy_form?: string;
+  is_container?: string;
+}
+
+export interface HostEntry {
   host: string;
   user: string;
   port: number;
@@ -46,9 +64,12 @@ interface HostEntry {
   mongo_user?: string;
   mongo_password?: string;
   auth_db?: string;
+  // v0.49.0 · cached env from last successful Phase 0.7 probe
+  env?: EnvContext;
+  env_captured_at?: string;
 }
 
-interface HistoryFile {
+export interface HistoryFile {
   hosts: HostEntry[];
 }
 
@@ -97,7 +118,9 @@ export function sortAndCap(hosts: HostEntry[], max: number): HostEntry[] {
  */
 export function mergeHistory(
   current: HistoryFile,
-  entry: { host: string; user: string; port: number; engine: string } & Partial<CredentialFields>,
+  entry: { host: string; user: string; port: number; engine: string } & Partial<CredentialFields> & {
+    env?: EnvContext;
+  },
   now: string,
   max: number = MAX_ENTRIES,
 ): HistoryFile {
@@ -113,6 +136,13 @@ export function mergeHistory(
   if (entry.mongo_password !== undefined && entry.mongo_password !== "") credPatch.mongo_password = entry.mongo_password;
   if (entry.auth_db !== undefined && entry.auth_db !== "") credPatch.auth_db = entry.auth_db;
 
+  // v0.49.0 · env 字段 · 仅当本次传入非空 object 才覆盖 · env_captured_at 同步刷新
+  const envPatch: { env?: EnvContext; env_captured_at?: string } = {};
+  if (entry.env !== undefined && Object.keys(entry.env).length > 0) {
+    envPatch.env = entry.env;
+    envPatch.env_captured_at = now;
+  }
+
   if (idx >= 0) {
     const existing = list[idx]!;
     list[idx] = {
@@ -121,6 +151,7 @@ export function mergeHistory(
       last_used: now,
       use_count: (existing.use_count ?? 0) + 1,
       ...credPatch,
+      ...envPatch,
     };
   } else {
     list.push({
@@ -131,6 +162,7 @@ export function mergeHistory(
       last_used: now,
       use_count: 1,
       ...credPatch,
+      ...envPatch,
     });
   }
 
@@ -202,6 +234,21 @@ async function runSave(argv: Record<string, string | boolean>): Promise<void> {
   const mongo_password = typeof argv["mongo-password"] === "string" ? argv["mongo-password"] : undefined;
   const auth_db = typeof argv["auth-db"] === "string" ? argv["auth-db"] : undefined;
 
+  // v0.49.0 · 可选 env 缓存(JSON string · 来自 Phase 0.7 probe 解析后的 [环境上下文])
+  let env: EnvContext | undefined;
+  if (typeof argv.env === "string") {
+    try {
+      const parsed = JSON.parse(argv.env);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        env = parsed as EnvContext;
+      } else {
+        writeError(`invalid --env: not a JSON object`);
+      }
+    } catch (e) {
+      writeError(`invalid --env: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+
   if (!host) writeError("missing --host");
   if (!user) writeError("missing --user");
   if (!portRaw) writeError("missing --port");
@@ -216,7 +263,7 @@ async function runSave(argv: Record<string, string | boolean>): Promise<void> {
   const current = await loadHistory(path);
   const merged = mergeHistory(
     current,
-    { host, user, port, engine, password, privateKeyPath, mongo_user, mongo_password, auth_db },
+    { host, user, port, engine, password, privateKeyPath, mongo_user, mongo_password, auth_db, env },
     new Date().toISOString(),
   );
   await writeHistory(path, merged);
@@ -235,6 +282,8 @@ async function main(): Promise<void> {
 const isCli = (() => {
   try {
     const entry = process.argv[1] ?? "";
+    // v0.49.0 · 排除 *.test.ts / *.spec.ts 等测试文件 · 避免被 import 时副作用执行 main()
+    if (/\.(test|spec)\.(mjs|js|ts)$/.test(entry)) return false;
     return /(^|[\\/])history\.(mjs|js|ts)$/.test(entry) || /cli-history/.test(entry);
   } catch {
     return false;

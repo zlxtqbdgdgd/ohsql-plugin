@@ -355,27 +355,52 @@ Bash(command="mkdir -p ~/.perf-kp-sql/tmp ~/.perf-kp-sql/runs/<TS>")
 
 **连通性硬约束**:0.7 SSH env probe 失败 → 阻断流程 · 给用户 troubleshooting · 等用户修凭据 / 网络后重发命令 · **不进 Phase 1 对话引导**。聊半天问题现象但凭据是错的 = 白聊。
 
-### 0.1 · 历史复用
+### 0.1 · 历史选单(每次 skill 启动都展示 · 不论是否传了 slash args)
 
-触发:slash args 缺 host 时。
+**触发**:skill 一被触发就跑 · 不论 slash args 给没给 host。**这是用户看到的第一个交互入口**(开场白之后)· 让用户从最近用过的连接里挑 · 或选"新连接"走参数抽取。
 
 ```
 Bash(command="node <PLUGIN_ROOT>/scripts/history.mjs --op load --max 5")
 ```
 
-hosts 非空 → ask the user to pick one (even if there's only 1 entry — explicit confirmation):
+`--op load` 返回 hosts 列表(已按 last_used 倒序 · 最多 5 条 · LRU 淘汰已由 history.mjs 内部处理)· 每条含:
+- 基础:`host` / `user` / `port` / `engine` / `last_used` / `use_count`
+- 可选凭据:`password` / `privateKeyPath` / `mongo_user` / `mongo_password` / `auth_db`(用户上次显式同意保存才有)
+- 可选环境(v0.49.0 起):`env`(os_distro / arch / cpu_model / mongod_version / deploy_form 等)+ `env_captured_at`
+
+**展示选单**(无论 hosts 是否为空都展示 · 让用户每次明确选择):
+
+hosts **非空** 时,prose 模板:
 
 ```
 请选择最近使用过的连接 · 或新建:
 
-  1. 192.168.1.10 · admin · mongo · 上次 2 小时前 (port=22 · 累计 8 次)
-  2. 10.20.30.40 · ec2-user · mongo · 上次 3 天前 (port=22 · 累计 3 次)
-  3. 新连接 · 手动输入参数
+  1. 192.168.1.10 · admin · port=22 · MongoDB 7.0.31 · Kunpeng-920 ARM · 单机 · 上次 2 小时前
+  2. 10.20.30.40 · ec2-user · port=22 · MongoDB 6.0.13 · x86_64 · 副本集 · 上次 3 天前
+  N. 新连接 · 手动输入参数
 ```
 
-Stop here and wait for the user's selection in the next turn. Once selected, fully decode the JSON (`host / user / port / engine / password / privateKeyPath / mongo_user / mongo_password / auth_db`) into the parameter set。
+每条把 `env` 摘要(`MongoDB <version> · <cpu_model> <arch> · <deploy_form>`)接在 host/user/port 后面 · 帮用户识别多台机器。`env` 字段缺失(老 hosts.json 没缓存过)→ 跳过这一段 · 只显示 host/user/port。
 
-**No stopping after selection**: same turn → render banner → declare 5-step task list(见 "Task tracking pattern" 段)→ 继续 Phase 0 后续步骤(0.4 banner → 0.6 DB 凭据 → 0.7 SSH env probe → 0.9 解析 → 0.10 NLM 探测)。Phase 0 全部子步完成后才 mark task 1 (环境信息采集) completed → mark task 2 (诊断案例匹配) in_progress → 进 Phase 1 对话引导。
+hosts **空** 时,prose 模板:
+
+```
+暂无历史连接。
+
+  1. 新连接 · 手动输入参数
+```
+
+Stop here and wait for the user's selection in the next turn。
+
+**用户选历史 N**(1-5):
+- 把那条记录的 host / user / port / engine 解码进参数集
+- 凭据(password / mongo_user / mongo_password / auth_db)存了就一起解码 · 没存就空着 · 0.6 反向问
+- env 字段记进 `[history-cached-env]`(供 0.8 后期对照用)· 但**不直接当 [环境上下文]**(还要 0.7 实测一遍验证连通性 + 拿最新 env)
+
+**用户选"新连接"**(N 号):
+- 跳过历史复用 · 直接进 0.2 参数抽取询问
+
+**No stopping after selection**: same turn → render banner(0.4)→ declare 5-step task list → 继续 Phase 0 后续步骤(0.4 banner → 0.6 DB 凭据 → 0.7 SSH env probe → 0.9 解析 → 0.9.5 持久化询问 → 0.10 NLM 探测)。Phase 0 全部子步完成后才 mark task 1 (环境信息采集) completed → mark task 2 (诊断案例匹配) in_progress → 进 Phase 1 对话引导。
 
 ### 0.2 · 参数抽取
 
@@ -544,6 +569,61 @@ LLM 解析 ###标记### 切段 · 抽以下字段(in-memory 记):
   · 内存 · <mem_total>
   · MongoDB · <version> · <deploy_form>
 ```
+
+**v0.49.0 · 历史 cached env 对照**(仅当 0.1 用户选了历史 N 时跑):
+
+把刚拿到的 `[环境上下文]` 跟 `[history-cached-env]` 逐字段比对 · 任一字段变化(典型例:mongod_version 升级 · deploy_form 由 standalone 变 replica-set · arch 从 x86_64 变 aarch64)→ 在公告活动行追加一行变化提示:
+
+```
+  · 环境变化 · MongoDB 7.0.31 → 8.0.5 · 已更新缓存
+  · 环境变化 · 单机 → 副本集 · 已更新缓存
+```
+
+完全一致 → 不打提示行(默静)· cached env 仍会在 0.9.5 持久化询问时跟新值一起 save 刷新 `env_captured_at` 时间戳。
+
+### 0.9.5 · 持久化询问(v0.49.0 起 · 探活成功后 always 跑)
+
+env probe 跑通 + [环境上下文] 解析完后 · 把本次连接 + 环境信息写回 history。**主连接信息(host/user/port/engine + env)无须问 · 直接 save**(用户后续要在选单看到这台机器); **凭据(password / mongo_password)opt-in 每次问**:
+
+#### 第 1 步 · 自动 save 主连接 + env(无须问 · 静默执行)
+
+```
+Write(file_path="/Users/<yourlogin>/.perf-kp-sql/tmp/perf-kp-sql-env-<TS>.json", content="<JSON of [环境上下文] · 字段名跟 EnvContext 一致>")
+Bash(command="node <PLUGIN_ROOT>/scripts/history.mjs --op save \
+       --host <ip> --user <user> --port <n> --engine mongo \
+       --env \"$(cat /Users/<yourlogin>/.perf-kp-sql/tmp/perf-kp-sql-env-<TS>.json)\"")
+```
+
+> `--env` 接受 JSON string · 字段子集即可(脚本内部按 EnvContext schema 持久化)。
+
+#### 第 2 步 · 凭据 opt-in 询问(用户每次都问 · 不批量记忆)
+
+ask the user(topic = `保存凭据`):
+
+```
+━ 保存凭据 ━
+本次连接已存进历史(host / user / port / 环境画像)。
+
+是否把密码也一起保存到 ~/.ohsql/perf-kp-sql/hosts.json?
+(文件 chmod 600 · 仅本用户可读 · 下次选这条历史可免输密码)
+请回复:
+  1. 保存(SSH 密码 + MongoDB 密码都存)
+  2. 不保存(只本会话用 · 下次重输)
+```
+
+stop and wait for next turn。
+
+**用户选 1(保存)**:再调一次 `--op save` 带凭据 flag 覆盖上去:
+
+```
+Bash(command="node <PLUGIN_ROOT>/scripts/history.mjs --op save \
+       --host <ip> --user <user> --port <n> --engine mongo \
+       --password '<pw>' [--mongo-user <u> --mongo-password '<p>' --auth-db <d>]")
+```
+
+**用户选 2(不保存)**:跳过 · 第 1 步已经把主连接存好 · 凭据本会话内存里有 · 下次还是要重输。
+
+**用户回答模糊或问"什么风险"**:简短答 "明文存 chmod 600 文件 · 仅本用户可读 · 跟 known_hosts / Recent Connections 同级风险" · 不重发问题(不当 LLM 教育课堂)· 答完再 wait。
 
 ### 0.10 · NLM 连通性探测(可选 · 软告警 · 不阻断)
 
@@ -1511,6 +1591,7 @@ NLM 不可用时只走 案例 · 回答末尾附:
 - **诊断表权威性约束**:`## 诊断结果` 主表里所有 row 必须有 案例/NLM 背书(`参考来源` 列必须是 `[参考N]` · 不是 `(无案例引用)` · 不是空)。**案例/NLM 都没有的根因不许混进主表** — 即使加 "(无案例引用)" 标记也不许。这种根因必须移到独立段 `## 现场观测(无权威来源)` · 标"请独立验证"。详见 Phase 5.2 "URL 强制溯源约束" 段。
 - **NLM 鉴权失败统一处理**:Phase 0.10 NLM 连通性探测 / Phase 4.* / Phase 6 任何 NLM 调用 · 返回鉴权失败信号(`auth_expired` / `unauthorized` / `cookie_invalid` / 401 / 403 等)· 必须触发 NLM-relogin 流程(开 Chrome 让用户登录 → 等用户确认 → 重 check → 重试被中断的调用)。详见 Phase 0.10 "#NLM-relogin" 段。**绝对不许** 拿到鉴权错误就 skip NLM 用 仅案例 应付 — 用户该看到 NLM 兜底的根因没被看到 = 工具能力打折。
 - **诊断案例匹配收敛硬约束**(团队规则):候选 ≤ 3 个就停 · 不再追问区分;追问轮数累计 ≤ 5 轮 · 第 5 轮仍 > 3 个就强制带前 3 个进 Phase 3。多 case 并行诊断是标准能力。
+- **历史选单 + 持久化询问硬约束**(v0.49.0):每次 skill 触发都要跑 `history.mjs --op load` 并展示选单(空也展示 + 一行"暂无历史" + "新连接"选项)· **不许** "我看 args 已经传了 host 就跳过 0.1"。env probe 跑通后 0.9.5 必须主动 save 主连接 + env(无须问)+ 单独问凭据 opt-in(每次问 · 不批量记忆)· **不许** "我替用户决定不存" / "我假设用户上次同意所以这次也存"。详见 Phase 0.1 + 0.9.5。
 - **Phase 2 内部数据不暴露给用户**:LLM 在前期只负责引导提问 + 范围收敛 + 推进进入下一阶段 · **不许给用户列**:case_id 字面值 / 候选概率 / 待采集 metric 清单 / 内部分类名 / 案例 规模数字 / "已排除哪几类"长 bullet。LLM 看似只问 1-2 个引导问题然后说"开始采集数据" · 内部所有候选 case + metric 准备都对用户透明。详见"用户可见消息 · 禁用元词清单"。
 - 问用户时 header / topic 只写具体字段名,不用模糊词
 - **Phase 2-3 之间禁止任何探测性 SSH**(`command -v perf` / `pgrep` / `ss -lntp` 等):环境画像在 Phase 0 已做、Phase 3 命令直接来自 case 的 collection_method_quote 适配

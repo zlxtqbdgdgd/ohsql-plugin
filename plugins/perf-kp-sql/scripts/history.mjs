@@ -45,6 +45,11 @@ function mergeHistory(current, entry, now, max = MAX_ENTRIES) {
   if (entry.mongo_user !== void 0 && entry.mongo_user !== "") credPatch.mongo_user = entry.mongo_user;
   if (entry.mongo_password !== void 0 && entry.mongo_password !== "") credPatch.mongo_password = entry.mongo_password;
   if (entry.auth_db !== void 0 && entry.auth_db !== "") credPatch.auth_db = entry.auth_db;
+  const envPatch = {};
+  if (entry.env !== void 0 && Object.keys(entry.env).length > 0) {
+    envPatch.env = entry.env;
+    envPatch.env_captured_at = now;
+  }
   if (idx >= 0) {
     const existing = list[idx];
     list[idx] = {
@@ -52,7 +57,8 @@ function mergeHistory(current, entry, now, max = MAX_ENTRIES) {
       engine: entry.engine,
       last_used: now,
       use_count: (existing.use_count ?? 0) + 1,
-      ...credPatch
+      ...credPatch,
+      ...envPatch
     };
   } else {
     list.push({
@@ -62,7 +68,8 @@ function mergeHistory(current, entry, now, max = MAX_ENTRIES) {
       engine: entry.engine,
       last_used: now,
       use_count: 1,
-      ...credPatch
+      ...credPatch,
+      ...envPatch
     });
   }
   list.sort((a, b) => {
@@ -118,6 +125,19 @@ async function runSave(argv) {
   const mongo_user = typeof argv["mongo-user"] === "string" ? argv["mongo-user"] : void 0;
   const mongo_password = typeof argv["mongo-password"] === "string" ? argv["mongo-password"] : void 0;
   const auth_db = typeof argv["auth-db"] === "string" ? argv["auth-db"] : void 0;
+  let env;
+  if (typeof argv.env === "string") {
+    try {
+      const parsed = JSON.parse(argv.env);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        env = parsed;
+      } else {
+        writeError(`invalid --env: not a JSON object`);
+      }
+    } catch (e) {
+      writeError(`invalid --env: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
   if (!host) writeError("missing --host");
   if (!user) writeError("missing --user");
   if (!portRaw) writeError("missing --port");
@@ -130,7 +150,7 @@ async function runSave(argv) {
   const current = await loadHistory(path);
   const merged = mergeHistory(
     current,
-    { host, user, port, engine, password, privateKeyPath, mongo_user, mongo_password, auth_db },
+    { host, user, port, engine, password, privateKeyPath, mongo_user, mongo_password, auth_db, env },
     (/* @__PURE__ */ new Date()).toISOString()
   );
   await writeHistory(path, merged);
@@ -146,6 +166,7 @@ async function main() {
 var isCli = (() => {
   try {
     const entry = process.argv[1] ?? "";
+    if (/\.(test|spec)\.(mjs|js|ts)$/.test(entry)) return false;
     return /(^|[\\/])history\.(mjs|js|ts)$/.test(entry) || /cli-history/.test(entry);
   } catch {
     return false;

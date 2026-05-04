@@ -104,8 +104,10 @@ perf-kp-sql 当前的 P3 缺口:
 
 | # | Phase | LLM 干什么 | 失败模式 | 当前兜底 | 设计原则 |
 |---|---|---|---|---|---|
+| **0.0** | **0.1 历史选单渲染**(v0.49.0 起 always 跑 · 不只 host 缺时) | 加载 `history.mjs --op load` 返回的 hosts · 给每条拼 env 摘要(`MongoDB <ver> · <cpu_model> <arch> · <deploy_form>`) · 渲染选单 prose | env 摘要拼错(arch 跟 cpu_model 串了)· 误判 hosts 空时仍渲染历史(假数据)· 列出超过 5 条 | history.mjs 内部 LRU 5 条已固定 · env 字段从 hosts.json 直接取 · 不靠 LLM 推理 · 选单格式 prose 模板写死 | P1 + P2 |
 | 0.1 | 0.2 参数抽取 | 从自然语言抽 SSH 凭据(host / user / privateKeyPath / password) | 字段抽错(host 跟 user 错位 · port 抽进 password) | 0.4 banner 渲染让用户校对 · password 脱敏前 3 + `***` + 后 3(SKILL.md L327-336)· 0.5 Gate 2 SSH 命令字段必须与 banner 字面一致 | P2 |
-| 0.2 | 0.9 解析环境画像 | 解析 8 段 stdout(`###UNAME###` 切段)抽 OS / arch / cpu_model / mongod_version / deploy_form 等 12 字段 | 版本号识别错 · 部署形态判错(单机 vs 副本集 vs 分片) | `###标记###` 字面切段(规则可写 · 不靠 LLM 找边界)· 公告环境画像活动行让用户能看到(SKILL.md L424-452) | P1 + P2 |
+| 0.2 | 0.9 解析环境画像 | 解析 8 段 stdout(`###UNAME###` 切段)抽 OS / arch / cpu_model / mongod_version / deploy_form 等 12 字段 · v0.49.0 起还要把这些字段同步缓存到 history record(EnvContext 字段) | 版本号识别错 · 部署形态判错(单机 vs 副本集 vs 分片) | `###标记###` 字面切段(规则可写 · 不靠 LLM 找边界)· 公告环境画像活动行让用户能看到(SKILL.md L424-452)· EnvContext schema 字段名硬约束 · `--op save --env <json>` 落盘 | P1 + P2 |
+| **0.2.5** | **0.9.5 持久化询问**(v0.49.0 起 always 跑) | 探活成功后自动 save 主连接 + env(无须问)+ 单独问"密码也存吗?"(每次问 · 不批量记忆) | LLM 替用户决定(没问就把密码存了)/ 假设上次同意所以这次也存 / 漏问跳过整步 / 把"保存连接"和"保存密码"混成一个问题 | 红线段硬约束 "凭据 opt-in 每次问 · 不批量记忆"(SKILL.md L1593+)· prose 模板分两步问(主连接无须问 · 凭据单独问)· 问之前先静默 save 主连接保证选单不丢 | P3 |
 | 0.3 | 0.10 NLM 鉴权状态机 | 判 NLM 是否可用 · 是否需要 relogin | 错判"NLM 不可用"误跳 NLM 兜底 · 凭"我记得这台机器没装"推断 | 唯一硬证据:`--op check --json` 返回 `installed=true && authenticated=true && notebooks 非空`(SKILL.md L458-479)· 任何其他间接信号一律不算 | P1 |
 | 1.1 | 1.1 NLP 抽用户问题关键词 | 从 user 自然语言抽现象 / 部署形态线索 / 紧急程度 | 漏关键现象(用户说"昨天又卡了一次"漏掉时间窗口) | 让用户描述充分(1.2 上下文化询问)+ Phase 2 case 路由能再补 + 描述模糊转 Phase 3.B 巡检模式 | P4 |
 | 2.1 | 2.2 案例 路由 | 语义匹配 user 描述 / 火焰图特征 → `cases/INDEX.md` top-K case_id | 路由错位 · 命中无关 case · 漏掉真正的 case | 收敛规则(SKILL.md L596-604):2-5 命中并行进 Phase 3;6+ 简短追问 ≤ 5 轮强制收口;**多 case 并行诊断是标准能力 · 不为收敛到 1 个无限追问** | P4 |
@@ -124,7 +126,7 @@ perf-kp-sql 当前的 P3 缺口:
 | **2.1.2** | 节后 case 质量评分 | 评分卡每 case 打分(完整性 / 准确性 / 可执行) | 长度偏差(长 case 给高分) | 当前无 · 应加评分卡分维度 + 5% 人工抽样 | P3 |
 | **2.2.1** | 节后 MySQL 蒸馏(prompt 复用) | mongo prompt 跨 engine 复用 | 跨 engine 提示词不通用(mongo cache 概念跟 mysql innodb_buffer_pool 不对应) | 当前无 · 应加抽样人工评 case 质量 | P3 |
 
-> 表 row 总数:16 个主流程介入点 + 3 个节后规划点 = **19 介入点**(0.48.0 起 · 含补漏的 2.2 / 4.4 + 实化的 5.3)。
+> 表 row 总数:18 个主流程介入点 + 3 个节后规划点 = **21 介入点**(0.49.0 起 · 含补漏的 2.2 / 4.4 + 实化的 5.3 + 新增的 0.0 历史选单渲染 / 0.2.5 持久化询问)。
 
 ### 3.1 兜底分类统计(主流程 16 点)
 

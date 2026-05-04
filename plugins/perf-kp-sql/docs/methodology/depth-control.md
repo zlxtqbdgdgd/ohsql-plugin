@@ -61,7 +61,7 @@ LLM 通用能力(GPT/Claude/Gemini)+ 蒸馏库(202 case)是同行都拿得到的
 
 | Phase | 干啥 | 输入 → 输出 | 该 phase 控深度的关键 |
 |---|---|---|---|
-| 0 · 环境信息采集 | SSH 凭据 + 8 段 env probe | slash args → `[环境上下文]` | env 画字面切段(`###UNAME###`)· 不让 LLM "估计" |
+| 0 · 环境信息采集 | 历史选单 + SSH 凭据 + 8 段 env probe + 持久化询问 | slash args + cached history → `[环境上下文]` + persisted history(host/user/port/engine + env + opt-in 凭据) | env 画字面切段(`###UNAME###`)不让 LLM "估计" · history persist 自动 save 主连接 + env · 凭据 opt-in 每次问(v0.49.0) |
 | 1 · 对话引导 | NLP 抽用户现象 / 紧急程度 | `[环境上下文]` + 对话 → 现象描述 | 描述模糊 → Phase 3.B 巡检模式 · 不让 LLM 凭一句话编根因 |
 | 2 · 案例匹配 | LLM 语义匹配 INDEX → top-K case_id | 现象 → 内部 case 列表(≤5) | 收敛规则 · 6+ 命中追问 ≤5 轮 · 不许无限收敛(L692-700) |
 | 3 · 指标采集 | SSH 跑 case 的 `collection_method_quote` | case → collect-os.txt + collect-mongo.txt | 命令必须 verbatim 来自 case · 不许 LLM 凭印象写 `top -H`(L762-767) |
