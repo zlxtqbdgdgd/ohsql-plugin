@@ -5,12 +5,10 @@
 // 火焰图段、头尾文字原样透传。
 //
 // 导出函数（供测试 / 外部调用）:
-//   lintReport(mdText, {fix})  → lint 结果 · fix=true 时同步补 [LLM]
 //   rewrapTable(content, cols) → 重排后的全文
 //   parseCells(line)           → cell 数组
 //   buildRow(cells)            → 表行字符串
 //   displayWidth(str)          → 显示宽度
-//   stripChatTags(text)        → 剥 5 标签 + legend
 //
 // CLI 用法:
 //   node scripts/format-chat.mjs --chat <chat.md> [--cols N]
@@ -18,11 +16,8 @@
 import { readFileSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-// ── Lint + Auto-fix（5 标签来源标记验证 · 可选自动补 [LLM]）────
+// ── Lint(5 标签来源标记验证) ──────────────────────────────
 // 参见 docs/superpowers/specs/2026-05-01-md-report-source-tags-design.md
-//
-// fix=false（默认）: 只统计漏挂 · 返回 { total, missing, missRate }
-// fix=true:          同一次遍历里给漏挂原子补 [LLM] · 额外返回 { fixedContent, fixed }
 
 // 允许标签后跟 1 个可选标点(如 `[LLM]:` 风格)
 const TAG_AT_END_RE = /\[(IDX|CASE|NLM|OBS|LLM)\]\s*(\[参考\d+\])?\s*[:,。;?!]?\s*$/;
@@ -31,10 +26,13 @@ const TAG_AT_END_RE = /\[(IDX|CASE|NLM|OBS|LLM)\]\s*(\[参考\d+\])?\s*[:,。;?!
 // 防止句末标点切分进入代码内部
 function splitNarrativeAtoms(line) {
   const codeSpans = [];
+  // 占位符用 \x00 包裹索引 · 这俩控制符在正文里不会出现
   const protectedLine = line.replace(/`[^`]+`/g, (m) => {
     codeSpans.push(m);
     return `\x00${codeSpans.length - 1}\x00`;
   });
+  // 先按 ` · ` 切 atom · 再按 [。?!] 切句末
+  // 不切 `:` / `;`(常见于"建议措施:"标签 / 代码内)
   const atoms = [];
   for (const chunk of protectedLine.split(" · ")) {
     for (const sub of chunk.split(/[。?!]/)) {
@@ -44,13 +42,11 @@ function splitNarrativeAtoms(line) {
   return atoms;
 }
 
-export function lintReport(mdText, { fix = false } = {}) {
+export function lintReport(mdText) {
   const lines = mdText.split("\n");
-  let total = 0;
-  const missing = [];
-  let fixed = 0;
+  const total_missing = { total: 0, missing: [] };
 
-  let inMetadata = true;
+  let inMetadata = true;     // start: 在 # title 之后 · 第一个 ## 之前
   let inLegend = false;
   let inRef = false;
   let inCodeFence = false;
@@ -59,17 +55,19 @@ export function lintReport(mdText, { fix = false } = {}) {
     const raw = lines[i];
     const trimmed = raw.trim();
 
+    // code fence toggle
     if (/^```|^~~~/.test(trimmed)) {
       inCodeFence = !inCodeFence;
       continue;
     }
     if (inCodeFence) continue;
 
+    // section transitions(只在 ## 级别 · ### 不切)
     if (/^##\s/.test(trimmed) && !/^###/.test(trimmed)) {
       inMetadata = false;
       inLegend = trimmed === "## 来源标记 (debug)";
       inRef = trimmed === "## 参考";
-      continue;
+      continue; // heading 行本身豁免
     }
 
     if (inMetadata || inLegend || inRef) continue;
@@ -77,105 +75,98 @@ export function lintReport(mdText, { fix = false } = {}) {
     if (trimmed.startsWith("#")) continue;
     if (trimmed.startsWith(">")) continue;
 
+    // table separator + table header row 豁免
     if (/^\|[-| ]+\|$/.test(trimmed)) continue;
     if (trimmed.startsWith("|") && i + 1 < lines.length) {
       const next = lines[i + 1].trim();
-      if (/^\|[-| ]+\|$/.test(next)) continue;
+      if (/^\|[-| ]+\|$/.test(next)) continue; // header 行
     }
 
+    // 处理 table data row vs narrative
     if (trimmed.startsWith("|") && trimmed.endsWith("|")) {
-      // ── table data row ──
+      // table data row
       const cells = parseCells(raw);
-      let rowDirty = false;
-      const fixedCells = cells.map(cell => {
-        const subs = cell.split("<br>");
-        const fixedSubs = subs.map(sub => {
+      for (const cell of cells) {
+        const sublines = cell.split("<br>");
+        for (const sub of sublines) {
           const subTrim = sub.trim();
-          if (!subTrim) return sub;
-          if (/^(\[参考\d+\]\s*(\[(CASE|NLM)\])?\s*)+$/.test(subTrim)) return sub;
+          if (!subTrim) continue;
+          // 单纯的 [参考N] cell(不属 5 标签事实 cell)豁免
+          if (/^(\[参考\d+\]\s*(\[(CASE|NLM)\])?\s*)+$/.test(subTrim)) continue;
 
           if (subTrim.includes(" · ")) {
+            // sub-atom 切分
             const atoms = subTrim.split(" · ");
             for (const atom of atoms) {
               const a = atom.trim();
               if (!a) continue;
-              total++;
+              total_missing.total++;
               if (!TAG_AT_END_RE.test(a)) {
-                missing.push({ line: i + 1, text: a });
+                total_missing.missing.push({ line: i + 1, text: a });
               }
-            }
-            if (fix && !TAG_AT_END_RE.test(subTrim)) {
-              fixed++;
-              rowDirty = true;
-              return sub.replace(/\s*$/, "") + " [LLM]";
             }
           } else {
-            total++;
+            total_missing.total++;
             if (!TAG_AT_END_RE.test(subTrim)) {
-              missing.push({ line: i + 1, text: subTrim });
-              if (fix) {
-                fixed++;
-                rowDirty = true;
-                return sub.replace(/\s*$/, "") + " [LLM]";
-              }
-            }
-          }
-          return sub;
-        });
-        return fixedSubs.join("<br>");
-      });
-      if (fix && rowDirty) {
-        lines[i] = buildRow(fixedCells);
-      }
-    } else {
-      // ── narrative line / list item ──
-      const sentences = splitNarrativeAtoms(trimmed);
-      let result = fix ? raw : null;
-      for (const sentence of sentences) {
-        const s = sentence.trim();
-        if (s.length < 4) continue;
-        total++;
-        if (!TAG_AT_END_RE.test(s)) {
-          missing.push({ line: i + 1, text: s });
-          if (fix && result) {
-            const escaped = s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-            const re = new RegExp(escaped.replace(/\s+/g, "\\s+") + "(?!\\s*\\[)");
-            if (re.test(result)) {
-              result = result.replace(re, (m) => m + " [LLM]");
-              fixed++;
+              total_missing.missing.push({ line: i + 1, text: subTrim });
             }
           }
         }
       }
-      if (fix && result && result !== raw) {
-        lines[i] = result;
+    } else {
+      // narrative line / list item
+      // 切分顺序: ` · ` (atom separator) > [。?!] (sentence terminator)
+      // 不切 `:` / `;` (常见于"建议措施:"标签 / 代码内)
+      // 不切 backtick code 内的标点(`...`)
+      const sentences = splitNarrativeAtoms(trimmed);
+      for (const sentence of sentences) {
+        const s = sentence.trim();
+        if (s.length < 4) continue; // 短碎片豁免
+        total_missing.total++;
+        if (!TAG_AT_END_RE.test(s)) {
+          total_missing.missing.push({ line: i + 1, text: s });
+        }
       }
     }
   }
 
-  const missRate = total === 0 ? 0 : missing.length / total;
-  const out = { total, missing, missRate };
-  if (fix) {
-    out.fixedContent = lines.join("\n");
-    out.fixed = fixed;
-  }
-  return out;
+  const missRate = total_missing.total === 0
+    ? 0
+    : total_missing.missing.length / total_missing.total;
+
+  return { ...total_missing, missRate };
 }
 
-// ── Strip（chat 输出剥标签 · .md 文件不动）──────────────
-// 参见 docs/superpowers/specs/2026-05-01-md-report-source-tags-design.md
+// ── Strip(chat 输出剥标签 · .md 文件不动) ──────────────
+// 参见 docs/superpowers/specs/2026-05-01-md-report-source-tags-design.md §"验证机制 2 Step 1"
 
 export function stripChatTags(text) {
+  // 归一化 CRLF → LF · 防止 Windows 编辑过的报告破坏后续 lookahead 正则
   let out = text.replace(/\r\n/g, "\n");
 
+  // 1. 删除 ## 来源标记 (debug) 段(从该标题起 · 到下一个 ## 前 · 或文件末尾)
+  // g flag: 防御性应对意外多 legend 报告
   out = out.replace(
     /(?:^|\n)## 来源标记 \(debug\)[\s\S]*?(?=\n## |$)/g,
     ""
   );
 
+  // 2 + 3. 移除所有 5 标签字面 · 保留 [参考N] 角标
+  // 已知局限(spec 设计上不出现 · 这里仅作记录):
+  //   - 多 5-标签连挂(如 `[OBS][CASE][参考3]`)spec 禁止 · 此处会损失 [参考N] 前的空格
+  //   - backtick code 内的字面 `[OBS]` 也会被剥(spec 不会出现 · legend 段已整段删除)
+  // 如未来报告形态变更 · 可仿照 splitNarrativeAtoms 的占位符技巧加 backtick 保护。
+  //    规则:
+  //    · tag 后紧跟 [参考N](有无空格均可) → 只删 tag 本身(保留前导空格供 [参考N] 使用)
+  //    · 其他情况 → 删 tag + 其前导空白([ \t]*)
+  //    两步实现:
+  //    a. 先处理"tag 后跟 [参考...]"：只移除 tag + tag 后的空格(保留 tag 前的空格)
   out = out.replace(/\[(IDX|CASE|NLM|OBS|LLM)\]([ \t]*)(?=\[参考)/g, "");
+  //    b. 其余 tag: 移除前导空白 + tag
   out = out.replace(/[ \t]*\[(IDX|CASE|NLM|OBS|LLM)\]/g, "");
 
+  // 4. 清理残留双空格(仅压缩行内中间位置 · 不动行首缩进)
+  // 用 (?<=\S) 确保只压缩非行首的连续空格 · 保留 ## 参考 段的 URL 缩进
   out = out.replace(/(?<=\S)  +/g, " ");
 
   return out;
@@ -183,21 +174,27 @@ export function stripChatTags(text) {
 
 // ── CJK 显示宽度 ─────────────────────────────────────────
 export function charWidth(cp) {
+  // CJK Unified Ideographs + Extensions
   if (cp >= 0x4E00 && cp <= 0x9FFF) return 2;
   if (cp >= 0x3400 && cp <= 0x4DBF) return 2;
   if (cp >= 0x20000 && cp <= 0x2A6DF) return 2;
   if (cp >= 0x2A700 && cp <= 0x2CEAF) return 2;
   if (cp >= 0x2CEB0 && cp <= 0x2EBEF) return 2;
   if (cp >= 0x30000 && cp <= 0x3134F) return 2;
+  // CJK Compatibility Ideographs
   if (cp >= 0xF900 && cp <= 0xFAFF) return 2;
+  // Fullwidth Forms
   if (cp >= 0xFF01 && cp <= 0xFF60) return 2;
   if (cp >= 0xFFE0 && cp <= 0xFFE6) return 2;
+  // CJK Symbols, Hiragana, Katakana, Hangul, etc.
   if (cp >= 0x3000 && cp <= 0x303F) return 2;
   if (cp >= 0x3040 && cp <= 0x309F) return 2;
   if (cp >= 0x30A0 && cp <= 0x30FF) return 2;
   if (cp >= 0xAC00 && cp <= 0xD7AF) return 2;
+  // Enclosed CJK
   if (cp >= 0x3200 && cp <= 0x32FF) return 2;
   if (cp >= 0x3300 && cp <= 0x33FF) return 2;
+  // CJK Compatibility
   if (cp >= 0xFE30 && cp <= 0xFE4F) return 2;
   return 1;
 }
@@ -213,38 +210,47 @@ export function displayWidth(str) {
 // ── 断词优先级 ────────────────────────────────────────────
 const BREAK_CHARS = new Set(["·", " ", "→", "+", "/", "(", "；", "，", "、", "：", ";", ",", ".", "_", "-", "="]);
 
-// 把单个段(已无 <br>)按 budget 二次断 · 内部辅助 · 仅在段宽超 budget 时调用
-function wrapOneSegment(text, budget) {
-  // 把 backtick 代码段替换成不含空格的占位符 · 防止被拆断
-  const codeSpans = [];
-  const protected_ = text.replace(/`[^`]+`/g, (m) => {
-    codeSpans.push(m);
-    return `\x01${codeSpans.length - 1}\x01`;
-  });
+export function rewrapCell(text, budget) {
+  // 去掉现有 <br>，合并为纯文本
+  const plain = text.replace(/<br\s*\/?>/gi, " ").replace(/\s+/g, " ").trim();
+  if (!plain) return "";
+
+  // 如果已经 fit，直接返回
+  if (displayWidth(plain) <= budget) return plain;
 
   const result = [];
   let line = "";
   let lineW = 0;
-  let lastBreakIdx = -1;
+  let lastBreakIdx = -1; // index in line (char count) of last break opportunity
+  let lastBreakW = 0;
   let charIdx = 0;
 
-  for (const ch of protected_) {
+  for (const ch of plain) {
     const cw = charWidth(ch.codePointAt(0));
+
     if (BREAK_CHARS.has(ch)) {
       lastBreakIdx = charIdx;
+      lastBreakW = lineW + cw;
     }
+
     if (lineW + cw > budget && line.length > 0) {
+      // 需要断行
       if (lastBreakIdx >= 0) {
+        // 在断词点处断
         const chars = [...line];
-        result.push(chars.slice(0, lastBreakIdx + 1).join(""));
-        line = chars.slice(lastBreakIdx + 1).join("") + ch;
+        const keep = chars.slice(0, lastBreakIdx + 1).join("");
+        const rest = chars.slice(lastBreakIdx + 1).join("");
+        result.push(keep);
+        line = rest + ch;
         lineW = displayWidth(line);
       } else {
+        // 无断词点，强制在当前位置断
         result.push(line);
         line = ch;
         lineW = cw;
       }
       lastBreakIdx = -1;
+      lastBreakW = 0;
       charIdx = [...line].length - 1;
     } else {
       line += ch;
@@ -254,46 +260,12 @@ function wrapOneSegment(text, budget) {
   }
   if (line) result.push(line);
 
-  // 还原占位符 · 代码段完整保留在同一行
-  return result.map(l => l.replace(/\x01(\d+)\x01/g, (_, n) => codeSpans[+n]));
-}
-
-// 重排 cell · 严格保留 LLM 在源 .md 里挂的 <br> 语义断点
-//
-// 算法(0.49 起 · 修 0.40.1 commit 50c6eb5 引入的"strip→rewrap 全推平"回归):
-//   1. 按 <br> 切 segment(不再拍成空格)
-//   2. 每段独立判宽
-//      - 段宽 ≤ budget → 原样保留(尊重 LLM 5 标签 spec 的"1 atom = 1 行"契约)
-//      - 段宽 > budget → 该段内按 BREAK_CHARS 二次断
-//   3. 各段间始终用 <br> 重连
-//
-// 设计冲突解决:
-//   spec/2026-04-30-format-chat-adaptive-table-design.md(去 <br> 重断)
-//   vs spec/2026-05-01-md-report-source-tags-design.md(每 <br> = 1 atom)
-//   → 后者优先 · 前者降级为"只动过宽段"。
-export function rewrapCell(text, budget) {
-  if (!text || !text.trim()) return "";
-
-  const segments = text
-    .split(/<br\s*\/?>/i)
-    .map(s => s.replace(/\s+/g, " ").trim())
-    .filter(s => s.length > 0);
-
-  if (segments.length === 0) return "";
-
-  const out = [];
-  for (const seg of segments) {
-    if (displayWidth(seg) <= budget) {
-      out.push(seg);
-    } else {
-      out.push(...wrapOneSegment(seg, budget));
-    }
-  }
-  return out.join("<br>");
+  return result.join("<br>");
 }
 
 // ── 解析 pipe table ──────────────────────────────────────
 export function parseCells(line) {
+  // | cell1 | cell2 | ... | → ["cell1", "cell2", ...]
   const stripped = line.replace(/^\|/, "").replace(/\|$/, "");
   return stripped.split("|").map(c => c.trim());
 }
@@ -306,17 +278,20 @@ export function buildRow(cells) {
 export function rewrapTable(content, cols) {
   const lines = content.split("\n");
 
+  // 每列显示宽度预算: (cols - 7个pipe) / 6, 最少 8
   const budget = Math.max(Math.floor((cols - 7) / 6), 8);
 
-  let tableStart = -1;
-  let sepLine = -1;
-  let tableEnd = -1;
+  // 找诊断结果表的位置
+  let tableStart = -1;  // 表头行 index
+  let sepLine = -1;     // |---| 分隔行 index
+  let tableEnd = -1;    // 表数据最后一行的下一行 index
 
   for (let i = 0; i < lines.length; i++) {
     if (lines[i].trim() === "## 诊断结果") {
+      // 向下找表头和分隔行
       for (let j = i + 1; j < lines.length; j++) {
         const trimmed = lines[j].trim();
-        if (!trimmed) continue;
+        if (!trimmed) continue; // 跳过空行
         if (trimmed.startsWith("|") && tableStart < 0) {
           tableStart = j;
           continue;
@@ -334,6 +309,7 @@ export function rewrapTable(content, cols) {
     return { content, found: false };
   }
 
+  // 找数据行范围
   tableEnd = sepLine + 1;
   while (tableEnd < lines.length) {
     const trimmed = lines[tableEnd].trim();
@@ -341,13 +317,16 @@ export function rewrapTable(content, cols) {
     tableEnd++;
   }
 
+  // 处理数据行
   const output = [];
   for (let i = 0; i < lines.length; i++) {
     if (i >= sepLine + 1 && i < tableEnd) {
+      // 数据行：重新折行
       const cells = parseCells(lines[i]);
       const rewrapped = cells.map(c => rewrapCell(c, budget));
       output.push(buildRow(rewrapped));
     } else {
+      // 其他行：原样保留
       output.push(lines[i]);
     }
   }
@@ -361,8 +340,9 @@ const isCli = process.argv[1] &&
 
 if (isCli) {
   // Exit codes:
-  //   0 = 成功（含自动补标签后成功）
+  //   0 = 成功
   //   1 = CLI 参数错误 / 文件不存在
+  //   2 = lint 失败(漏挂率 > 5%)
   //   3 = 未找到 ## 诊断结果 pipe table
   const args = process.argv.slice(2);
   let chatPath = null;
@@ -382,33 +362,33 @@ if (isCli) {
     process.exit(1);
   }
 
-  // fallback 200 而非 100:Bash sub-shell 没 TTY 时 process.stdout.columns 是 undefined,
-  // 历史 fallback 100 算出 budget=15、CJK 折半 = 7 字 / cell · 触发 Claude Code 竖排降级
-  // (regression of f2007f4 "诊断表单元格强制 <br> 换行 · 防终端 80 列竖排降级")。
-  // 现代终端基本 ≥ 150,200 是更安全的"不假阳"默认。
-  cols = cols || process.stdout.columns || 200;
+  cols = cols || process.stdout.columns || 100;
   cols = Math.max(cols, 80);
 
   const content = readFileSync(chatPath, "utf8");
 
-  // ─ Step 0: lint + auto-fix（漏挂时自动补 [LLM] · 不阻断）
-  let workingContent = content;
-  const lint = lintReport(workingContent, { fix: false });
+  // ─ Step 0: lint(漏挂率 > 5% → exit 2)
+  const lint = lintReport(content);
   if (lint.missRate > 0.05) {
-    const fixResult = lintReport(workingContent, { fix: true });
-    console.error(`⚠ 来源标签自动修复 · 补挂 ${fixResult.fixed} 个 [LLM] (原漏挂率 ${(lint.missRate * 100).toFixed(1)}% ${lint.missing.length}/${lint.total})`);
-    workingContent = fixResult.fixedContent;
+    console.error(`✗ 来源标签 lint 失败 · 漏挂率 ${(lint.missRate * 100).toFixed(1)}% (${lint.missing.length}/${lint.total})`);
+    console.error(`  Spec: docs/superpowers/specs/2026-05-01-md-report-source-tags-design.md`);
+    console.error(`  前 10 个漏挂位置:`);
+    for (const m of lint.missing.slice(0, 10)) {
+      console.error(`    L${m.line}: ${m.text.slice(0, 80)}`);
+    }
+    console.error(`  → 必须回 SKILL.md Phase 5.2 重写报告 · 每个原子事实挂 1 个 [IDX]/[CASE]/[NLM]/[OBS]/[LLM] 标签 · 然后重跑 format-chat.mjs。`);
+    process.exit(2);
   }
 
-  // ─ Step 1: strip 5 标签 + legend
-  const stripped = stripChatTags(workingContent);
+  // ─ Step 1: strip 5 标签 + legend(在 rewrap 前 · 否则 rewrap 按带标签宽度算 cell · 剥后 <br> 位置全错)
+  const stripped = stripChatTags(content);
 
-  // ─ Step 2: rewrap 诊断结果表格
+  // ─ Step 2: rewrap 表格(基于干净宽度)
   const { content: rewrapped, found } = rewrapTable(stripped, cols);
   if (!found) {
     console.error("⚠ 未找到 ## 诊断结果 pipe table");
     process.stdout.write(stripped);
-    process.exit(3);
+    process.exit(3);  // ← 3 (lint-fail 占用 2)
   }
 
   process.stdout.write(rewrapped);
