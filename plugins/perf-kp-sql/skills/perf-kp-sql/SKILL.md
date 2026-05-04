@@ -605,7 +605,7 @@ INDEX 含两段:
 | 内部命中数 | 处理 |
 |---|---|
 | 1 | 直接 case 确认 → 进 2.3 |
-| **2-5** | **直接停止收敛 · 全部确认 → 并行进 2.3 拿这 N 个 case 完整字段** · 不再追问用户区分(多 case 一起诊断完全可行 · Phase 3 采集 metric 合并去重 · Phase 4 分别推断) |
+| **2-5** | **默认**:直接停止收敛 · 全部确认 → 并行进 2.3 拿这 N 个 case 完整字段 · 不再追问用户区分(多 case 一起诊断完全可行 · Phase 3 采集 metric 合并去重 · Phase 4 分别推断)。**例外 · sweet-spot 1 轮追问**:LLM 内部判断这 N 个 case 中**存在 1 个二元区分问题**(典型:"持续高 vs 间歇尖峰" / "mongod 进程占主 vs 系统态占主" / "单机 vs 副本集")· 答完能砍掉 ≥ N-1 个候选 → 允许追问 1 轮 · **严格不超 1 轮** · 答完进 2.3。判定线:1 轮 sweet-spot 追问合规 · 第 2 轮就是回到无限追问反模式 · 强制带当前候选进 Phase 3。 |
 | 6+ | LLM 简短追问 1-2 个最有区分度的问题(例:"是单机还是副本集?" / "现象是持续性还是间歇尖峰?")· 收敛到 ≤ 5 个 → 进 2.3 |
 | 6+ 收窄追问累计 ≥ 5 轮仍 > 5 个 | 强制收口 · 取 LLM 当前认为最可能的 5 个 → 进 2.3(不再纠缠) |
 | 0 | nothing 模式 → 跳过 2.3 · 进 Phase 3.B(BP 巡检) |
@@ -704,7 +704,20 @@ mark phase 2 completed → mark phase 3 in_progress。
 | `log-grep` | `grep -E '...' /var/log/mongodb/mongod.log` |
 | `atlas-advisor` | **不直接采** · 提示用户 Atlas UI 取(后续追问场景)|
 
-3.A.3 · 火焰图采集(case 含 stack-pattern / signature_type=stack-pattern):
+3.A.3 · 火焰图采集(双门控 AND · 缺一即跳过 · 火焰图是按需 · 不是默认):
+
+⚠️ **触发条件**(必须 (a) AND (b) 同时满足):
+
+- **(a) signature 类型门控**:Phase 2 命中的 case 中**至少 1 个** `signature_type=stack-pattern`(Flame case · 不是 DF case)。LLM 必须先核对 Phase 2.3 Read 出来的 case 字段 · 不靠记忆判定。
+- **(b) 现场未锁定根因**:Phase 3.A.5 解析现场观测后 · DF case 的 `likely_cause` 阈值**尚未独立确认主根因**。典型反例:`db.currentOp` 已抓到长跑 COLLSCAN active query · 根因已自证 · 火焰图无新增证据 · **跳过**。
+
+**任缺其一 = 跳过 · 不采**。实际触发概率:在 Flame case 命中 + 现场无 active query 时才采 — 大多数 cpu-high / query-slow / lock-contention 诊断都不应该启动火焰图。
+
+**❌ 反例 · LLM 看到 cpu-high 就盲采**(已实证回归):Phase 2 命中 5 个 case · 没有一个 `signature_type=stack-pattern` · LLM 仍并行启动 capture-flamegraph(理由:"看看热点函数")。**违规** — 火焰图对 DF case 是冗余 · `db.currentOp` + `top` + `serverStatus` 已经够看 · 浪费 ~30s 采集时间 + 3s 生产扰动。
+
+**❌ 反例 · 现场已锁定还追采**:`db.currentOp` 抓到长跑 COLLSCAN aggregate · 根因明确就是 query 反模式 · LLM 仍然采火焰图 · 火焰图 Top10 全是 `__wt_btcur_next` / `CollectionScan::doWork` — 完全是 COLLSCAN 路径的预期热点 · **零新增信息** · 浪费用户等待 + 生产扰动。
+
+✅ **触发后**才用以下命令(双门控同时满足):
 
 ```
 Bash(command="node <PLUGIN_ROOT>/scripts/capture-flamegraph.mjs \
@@ -1126,9 +1139,22 @@ cache used=94.7%<br>接近阈值 95% [OBS+案例]
 | WT eviction [CASE]<br>dirty_target [CASE]<br>与负载不匹配 [LLM] | cache used=94.7% [OBS]<br>接近阈值 95% [CASE]<br>dirty ratio=18% [OBS]<br>远超 target 5% [CASE] | 调低 target=3% [LLM]:<br>`db.adminCommand(…)` [CASE] | high [LLM] | 高 [LLM] | [参考1] |
 | vm.swappiness [CASE]<br>过高 [LLM] | 当前值=60 [OBS]<br>案例 推荐=1 [CASE]<br>NLM 确认=1 [NLM] | `sysctl -w` [CASE]<br>`vm.swappiness=1` [CASE]<br>写入 sysctl.conf [LLM] | warning [LLM] | 中 [LLM] | [参考2] |
 
-## 火焰图分析(若 Phase 3.A.3 采到)
+## 火焰图分析(若 Phase 3.A.3 双门控触发了才采到 · 未采到则**整段省略**)
 
-(此处插入 capture-flamegraph.mjs 输出的 Top-N 文本块 [LLM] · 用 markdown 缩进代码块或 ~~~ 围栏避免跟外层 \`\`\`markdown 围栏冲突 [LLM])
+⚠️ **强制操作步骤**(违反将导致表列宽崩坏 · 不允许 LLM 自由发挥):
+
+1. **Read** Phase 3.A.3 capture-flamegraph 任务的 stdout 输出文件(背景任务的 `output_file` 路径 · 典型 `/private/tmp/.../tasks/<taskId>.output`)· 解析 JSON · 提取 `terminalReport` 字段的字面值字符串。
+2. **字面整段贴入** `~~~` 围栏(用 `~~~` 不用 ` ``` ` · 避免跟外层 ` ```markdown ` 围栏冲突)。
+3. **绝对禁止**(已实证多次的回归):
+   - 删任何列(原表 5 列含 `# / 函数 / 模块 / 占比 / 分布(20 格 bar)` · 一列不许少)
+   - 改 legend 文案(`ⓘ = 有 RAG 调优建议(知识库正则命中 · 非 LLM 推测)` 字面文案不动)
+   - 删调用树段(`═══ 调用树 ═══`) / 知识库解读段(`═══ 知识库解读 ═══`) / 远端产物段(`═══ 远端产物位置 ═══`)
+   - 重排空格 / 合并多空格 / 改 box-drawing 字符(`╭ ┬ ┤ ╯ ─ │ ├ ┴ ╰` 等)
+   - 整段重写 / 摘要式插入 / "我把它做得更好读"
+
+ASCII 表的列宽是 cpu-flamegraph 上游 `dw()` 精算过的 · LLM 任何重打 = 列错位 = 用户在终端看到表崩 · **这是已实证多次的回归**。
+
+✅ **正确做法**:Read stdout 文件 → 拿 `terminalReport` 字段字符串 → Write 到 .md 报告时直接复制 · 不动一个字符 · 哪怕看起来"多了几个空格"也不动。
 
 ## 现场观测(无权威来源 · 仅供参考 · 可选段 · 仅 案例 和 NLM 都无背书的根因才进这里)
 
@@ -1236,17 +1262,13 @@ LLM 这一步**必须严格按操作步骤来 · 不许自由发挥**:
 **步骤 1 · 调 format-chat.mjs 拿终端宽度适配后的 chat 文本**:用 Bash 调 `format-chat.mjs` 直接读 5.3 落盘的 `.md` 报告文件。**不要靠 Phase 4 内存里的根因表自己重组**——必须真的发起一次 Bash 调用:
 
 ```
-Bash(command="tput cols 2>/dev/null || echo 100")
+Bash(command="node <PLUGIN_ROOT>/scripts/format-chat.mjs --chat /Users/<yourlogin>/.perf-kp-sql/reports/perf-kp-sql-<engine>-<TS>.md")
 ```
 
-stdout 是终端列数(纯数字)· agent 记为 `<TERMCOLS>` · 替换进下一条命令:
-
-```
-Bash(command="node <PLUGIN_ROOT>/scripts/format-chat.mjs --chat /Users/<yourlogin>/.perf-kp-sql/reports/perf-kp-sql-<engine>-<TS>.md --cols <TERMCOLS>")
-```
+> ⚠️ **不传 `--cols`**。`tput cols` 在 Bash sub-shell 里没 TTY 永远返回 80,会让脚本算出极窄 budget 触发 Claude Code 竖排降级(f2007f4 那次"防 80 列降级"修复就是被这条 SKILL 反向推翻的)。让脚本自决:`process.stdout.columns || 200` · 200 是现代终端"不假阳"默认值。
 
 > `format-chat.mjs` 读 .md 报告 · 找 `## 诊断结果` pipe table · 按终端列宽重排每个 cell 内的 `<br>` 位置 · 表结构 6 列不变 · 其余内容(火焰图段等)原样透传。
-> 终端宽度获取优先级:`--cols` 显式传入 > `process.stdout.columns` > 默认 100 · 最小钳位 80。
+> 终端宽度获取优先级:`--cols` 显式传入(用户手动调试用)> `process.stdout.columns` > 默认 200 · 最小钳位 80。
 
 **format-chat.mjs lint 失败处置(exit code = 2):**
 
@@ -1408,7 +1430,9 @@ NLM 不可用时只走 案例 · 回答末尾附:
 - **根因来源强约束**:Phase 4 每个"确认根因" **默认要求 案例 + NLM 双源** — 案例 阶段命中后 · 阶段 2 强制发一条 NLM query 二次确认 + 求最新建议 · 综合两者写进主表。NLM 不可用(check / refresh-auth 失败)时降级为 仅案例 单源 · 报告头标 "⚠️ NLM 不可用 · 本次无 NLM 二次确认 · 请独立验证修复建议"。**绝对不许**: 凭训练数据知识写根因 / 编 case_id / 把 案例 多个 case 字段拼一起 / **案例 命中后跳过 NLM 二次确认就进表**(本次 spec 改动重点)。案例 没覆盖的现象(如 \$where 烧 CPU)→ 单独发 NLM query 兜底拿 references → 单 NLM 源进表(置信度中)。NLM 是 Google 检索系统 · references 是真实文档链接 · 跟 案例 双源互为交叉验证。详见 Phase 4 "根因来源强约束" + Phase 4.A 阶段 1/2/3 流程。
 - **诊断表权威性约束**:`## 诊断结果` 主表里所有 row 必须有 案例/NLM 背书(`参考来源` 列必须是 `[参考N]` · 不是 `(无案例引用)` · 不是空)。**案例/NLM 都没有的根因不许混进主表** — 即使加 "(无案例引用)" 标记也不许。这种根因必须移到独立段 `## 现场观测(无权威来源)` · 标"请独立验证"。详见 Phase 5.2 "URL 强制溯源约束" 段。
 - **NLM 鉴权失败统一处理**:Phase 0.10 NLM 连通性探测 / Phase 4.* / Phase 6 任何 NLM 调用 · 返回鉴权失败信号(`auth_expired` / `unauthorized` / `cookie_invalid` / 401 / 403 等)· 必须触发 NLM-relogin 流程(开 Chrome 让用户登录 → 等用户确认 → 重 check → 重试被中断的调用)。详见 Phase 0.10 "#NLM-relogin" 段。**绝对不许** 拿到鉴权错误就 skip NLM 用 仅案例 应付 — 用户该看到 NLM 兜底的根因没被看到 = 工具能力打折。**例外**: 用户在 Phase 0.10 已明确选择 skip-NLM 时 · 该选择在全流程生效 · 不再触发 relogin · 直接走 仅案例 降级。
-- **现象路由收敛硬约束**(团队规则):候选 ≤ 5 个就停 · 不再追问区分;追问轮数累计 ≤ 5 轮 · 第 5 轮仍 > 5 个就强制带前 5 个进 Phase 3。多 case 并行诊断是标准能力。
+- **现象路由收敛硬约束**(团队规则):候选 ≤ 5 个就停 · 默认不追问;**sweet-spot 例外**:N 候选里有 1 个二元区分问题(持续 vs 间歇 / mongod 进程 vs 系统态 / 单机 vs 副本集等)· 答完能砍 ≥ N-1 时 · 允许 1 轮追问(严格不超 1 轮)· 答完进 Phase 3。追问轮数累计 ≤ 5 轮 · 第 5 轮仍 > 5 个就强制带前 5 个进 Phase 3。多 case 并行诊断是标准能力。
+- **火焰图采集是按需 · 不是默认**(Phase 3.A.3 双门控):必须 (a) Phase 2 命中至少 1 个 `signature_type=stack-pattern` Flame case · 且 (b) Phase 3 现场观测尚未独立锁定根因 · 二者同时满足才采。DF case(`signature_type` 非 stack-pattern)从来不采;现场已锁定根因(典型 `db.currentOp` 抓到长跑 COLLSCAN active query)严禁追采 — 浪费 ~30s 采集 + 3s 生产扰动 + 火焰图 Top10 必然是预期路径热点 · 零新增信息。详见 Phase 3.A.3 双门控段。
+- **火焰图段必须字面复制 stdout**(若 Phase 3.A.3 真采了):Read capture-flamegraph 任务 output_file 文件 → 取 `terminalReport` 字段字符串 → 字面贴入 `~~~` 围栏 · 不许重打、不许删列(原表 5 列 `# / 函数 / 模块 / 占比 / 分布`)、不许改 legend 文案、不许删调用树/知识库解读/远端产物段、不许重排 box-drawing 字符。详见 Phase 5.2 报告骨架"火焰图分析"段。
 - **Phase 2 内部数据不暴露给用户**:LLM 在前期只负责引导提问 + 范围收敛 + 推进进入下一阶段 · **不许给用户列**:case_id 字面值 / 候选概率 / 待采集 metric 清单 / 内部分类名 / 案例 规模数字 / "已排除哪几类"长 bullet。LLM 看似只问 1-2 个引导问题然后说"开始拉数据" · 内部所有候选 case + metric 准备都对用户透明。详见"用户可见消息 · 禁用元词清单"。
 - 问用户时 header / topic 只写具体字段名,不用模糊词
 - **Phase 2-3 之间禁止任何探测性 SSH**(`command -v perf` / `pgrep` / `ss -lntp` 等):环境画像在 Phase 0 已做、Phase 3 命令直接来自 case 的 collection_method_quote 适配

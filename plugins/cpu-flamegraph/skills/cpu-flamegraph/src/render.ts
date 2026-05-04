@@ -28,7 +28,11 @@ function dw(s: string): number {
       (c >= 0x4e00 && c <= 0x9fff) ||
       (c >= 0x3000 && c <= 0x303f) ||
       (c >= 0xff00 && c <= 0xffef) ||
-      (c >= 0x3400 && c <= 0x4dbf)
+      (c >= 0x3400 && c <= 0x4dbf) ||
+      // UAX#11 Ambiguous: zh/ja/ko locale 终端按 wide=2 渲染
+      // 已确认例:ⓘ U+24D8 (Enclosed Alphanumerics) — 在火焰图 Top10 表的"# 函数"列出现 ·
+      // 漏算时含 ⓘ 的 row 跟不含的列错位 1 格 · 整张表崩
+      (c >= 0x2460 && c <= 0x24ff)
     )
       w += 2;
     else w += 1;
