@@ -46,6 +46,22 @@ function loadConfig() {
   }
 }
 
+/** Resolve NLM source_id UUIDs → actual source URLs using config mapping */
+function resolveSourceIds(references, cfg) {
+  if (!references || !Array.isArray(references) || !cfg?.notebooks) return references;
+  const idToUrl = new Map();
+  for (const nb of Object.values(cfg.notebooks)) {
+    for (const entry of nb.urls ?? []) {
+      if (entry.source_id && entry.url) idToUrl.set(entry.source_id, entry.url);
+    }
+  }
+  return references.map(ref => {
+    const sid = ref.source_id ?? ref.id;
+    const resolvedUrl = sid ? idToUrl.get(sid) : undefined;
+    return { ...ref, source_url: resolvedUrl ?? null };
+  });
+}
+
 function saveConfig(cfg) {
   mkdirSync(CONFIG_DIR, { recursive: true });
   writeFileSync(CONFIG_PATH, JSON.stringify(cfg, null, 2));
@@ -566,7 +582,7 @@ function opQuery(domain, query) {
           domain: d,
           notebook_id: nb.id,
           answer: r.data?.answer ?? r.data?.response ?? "",
-          references: r.data?.references ?? r.data?.citations ?? [],
+          references: resolveSourceIds(r.data?.references ?? r.data?.citations ?? [], cfg),
           attempts: r.attempts,
         });
       } else {
@@ -603,7 +619,7 @@ function opQuery(domain, query) {
   out({
     ok: true,
     answer: r.data?.answer ?? r.data?.response ?? "",
-    references: r.data?.references ?? r.data?.citations ?? [],
+    references: resolveSourceIds(r.data?.references ?? r.data?.citations ?? [], cfg),
     domain,
     notebook_id: notebookId,
     attempts: r.attempts,
@@ -748,7 +764,7 @@ function opQueryBatch({ fromDiagnose, fromBpList, hwArch }) {
 
       if (r.ok) {
         const answer = r.data?.answer ?? r.data?.response ?? "";
-        const references = r.data?.references ?? r.data?.citations ?? [];
+        const references = resolveSourceIds(r.data?.references ?? r.data?.citations ?? [], cfg);
         for (const item of chunk) {
           results.push({
             case_id: item.case_id,

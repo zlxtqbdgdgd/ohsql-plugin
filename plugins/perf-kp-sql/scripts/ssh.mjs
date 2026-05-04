@@ -6,7 +6,7 @@ const require = createRequire(import.meta.url);
 
 // plugins/perf-kp-sql/src/cli-ssh.ts
 import { spawn } from "node:child_process";
-import { createWriteStream, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { createWriteStream, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -491,6 +491,16 @@ async function runExec(argv) {
   const sshArgs = [...baseArgs, `${args.user}@${args.host}`, args.command];
   const plan = planSshSpawn(args, sshArgs);
   const result = await runSshExec(plan, args.timeout, args.outputFile);
+  if (result.exitCode === 255 && existsSync(controlPath)) {
+    try {
+      rmSync(controlPath, { force: true });
+    } catch {
+    }
+    const retryPlan = planSshSpawn(args, sshArgs);
+    const retryResult = await runSshExec(retryPlan, args.timeout, args.outputFile);
+    execOutput(retryResult);
+    return;
+  }
   execOutput(result);
 }
 function parseSessionCloseArgs(argv) {

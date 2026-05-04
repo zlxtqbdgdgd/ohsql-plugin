@@ -11,7 +11,7 @@ All skills follow the [Anthropic Agent Skills open standard](https://github.com/
 | Plugin | Version | Hosts | What it does |
 |---|---|---|---|
 | [`cpu-flamegraph`](./plugins/cpu-flamegraph/) | 0.2.1 | Claude Code · Codex CLI · ohsql · any agent with shell + read/write | Remote `perf` over SSH → on-CPU / off-CPU flamegraph SVG → top-N hotspot extraction. Pure local `ssh` + Perl `flamegraph.pl`, zero kernel-tool dependency. |
-| [`perf-kp-sql`](./plugins/perf-kp-sql/) | 0.49.0 | Claude Code · Codex CLI · ohsql · any standard-compliant agent | Kunpeng ARM64 + MongoDB joint perf diagnosis. SSH-based collection → 6-phase LLM-orchestrated pipeline against 202-case markdown case library → NotebookLM authoritative refresh → impact-ranked markdown report. |
+| [`perf-kp-sql`](./plugins/perf-kp-sql/) | 0.49.1 | Claude Code · Codex CLI · ohsql · any standard-compliant agent | Kunpeng ARM64 + MongoDB joint perf diagnosis. SSH-based collection → 6-phase LLM-orchestrated pipeline against 202-case markdown case library → NotebookLM authoritative refresh → impact-ranked markdown report. |
 
 ---
 

@@ -49,7 +49,7 @@
 
 import { spawn } from "node:child_process";
 import type { ChildProcess } from "node:child_process";
-import { createWriteStream, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { createWriteStream, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -517,6 +517,19 @@ async function runExec(argv: Record<string, string | boolean>): Promise<void> {
   const plan = planSshSpawn(args, sshArgs);
 
   const result = await runSshExec(plan, args.timeout, args.outputFile);
+
+  // Stale ControlMaster socket retry: if SSH fails with 255 and the control
+  // socket file exists, remove it and retry once. This handles the case where
+  // a previous session crashed without calling session-close.
+  if (result.exitCode === 255 && existsSync(controlPath)) {
+    try { rmSync(controlPath, { force: true }); } catch { /* ignore */ }
+    // Regenerate plan — the first runSshExec may have cleaned up the askpass script
+    const retryPlan = planSshSpawn(args, sshArgs);
+    const retryResult = await runSshExec(retryPlan, args.timeout, args.outputFile);
+    execOutput(retryResult);
+    return;
+  }
+
   execOutput(result);
 }
 
