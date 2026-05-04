@@ -883,6 +883,10 @@ LLM 解析单 case 完整字段(in-memory 记 · 后续 phase 用):
 
 mark task 2 (诊断案例匹配) completed → mark task 3 (诊断指标采集) in_progress。
 
+### 2.4 · 写 phase2-trace.md(强制 · 落盘 · 不打屏)
+
+Phase 2.3 完成后 LLM **必须** Write 一份收敛决策追踪到 `~/.perf-kp-sql/runs/<TS>/phase2-trace.md` · 模板 Read `<PLUGIN_ROOT>/skills/perf-kp-sql/templates/trace-phase2.md` 按字段填充。不打屏 · UX 不变 · jsonl 里 Write tool_use 即"过程日志"· 可被 claude-code-log 解析。
+
 > **进入 Phase 3 时**:必须把 task 3 content 字段更新成带 2 个层的子结构 ·
 > ```
 > 3. 诊断指标采集
@@ -1221,6 +1225,10 @@ Bash(command="node <PLUGIN_ROOT>/scripts/notebooklm.mjs --op query-batch \
 | 案例 值 + NLM 一致 + 采集值偏离 | 确认问题 | 高 |
 | 案例 ≠ NLM | 以 NLM 为准(警告 案例 过时)| 中 |
 | 采集值符合两者推荐 | 正常 · skip 不进报告 | — |
+
+### 4.C · 写 phase4-trace.md(强制 · 落盘 · 不打屏)
+
+Phase 4 综合判定结束后 LLM **必须** Write 一份多源判定明细到 `~/.perf-kp-sql/runs/<TS>/phase4-trace.md` · 模板 Read `<PLUGIN_ROOT>/skills/perf-kp-sql/templates/trace-phase4.md` 按字段填充。每根因独立一段(案例 阈值判定 / NLM 答复关键摘录 / 双源结论 / references unique URLs)。不打屏 · UX 不变 · jsonl 里 Write tool_use 即"双源判定日志"· 可被 claude-code-log 解析。
 
 mark task 4 (多源综合诊断) completed → mark task 5 (报告生成) in_progress。
 
