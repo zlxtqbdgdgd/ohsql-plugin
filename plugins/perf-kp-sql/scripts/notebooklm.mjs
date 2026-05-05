@@ -13,7 +13,7 @@
  */
 
 import { spawnSync, execSync, spawn } from "node:child_process";
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, mkdirSync, statSync } from "node:fs";
 import { resolve, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
@@ -210,9 +210,28 @@ function checkAuth() {
 
 /**
  * 用 rookiepy 从本机浏览器重新提取 Google cookie → 写入 ~/.notebooklm/storage_state.json
- * @returns {{ ok: boolean, cookie_count?: number, browser?: string, error?: string }}
+ *
+ * mtime short-circuit:storage_state.json mtime < 24h 时直接返回 cached(避免每次 spawn python3
+ * 触发 macOS Keychain 解 Chrome Safe Storage 弹窗中断用户)。Google session cookie 寿命数周-月,
+ * 24h 远低于过期窗口;若仍失效,`checkAuth()` 真打 list API 会拿到 401 → opRefreshAuth 走完整 flow。
+ *
+ * @param {{ force?: boolean }} opts force=true 跳过 short-circuit(给 setup 强刷用)
+ * @returns {{ ok: boolean, cookie_count?: number, browser?: string, error?: string, method?: string }}
  */
-function refreshCookies() {
+function refreshCookies({ force = false } = {}) {
+  if (!force) {
+    try {
+      const statePath = join(homedir(), ".notebooklm", "storage_state.json");
+      if (existsSync(statePath)) {
+        const ageMs = Date.now() - statSync(statePath).mtimeMs;
+        if (ageMs < 24 * 3600 * 1000) {
+          return { ok: true, method: "cached", browser: "n/a" };
+        }
+      }
+    } catch {
+      // statSync 失败 · fall through 走完整 refresh
+    }
+  }
   const cookieScript = `
 import rookiepy, json, os, sys
 
@@ -413,8 +432,9 @@ async function opSetup(urlsFile) {
   }
 
   // Step 10: cookie extraction via rookiepy (auto-detect browser)
+  // setup 强刷 · 不走 mtime short-circuit(因为 setup 是首次安装 / 有意重置 · 必须真打 rookiepy)
   console.error("→ 提取浏览器 cookie (rookiepy · 自动探测)...");
-  const cookieResult = refreshCookies();
+  const cookieResult = refreshCookies({ force: true });
   if (!cookieResult.ok) {
     console.error(`cookie 提取失败: ${cookieResult.error}`);
     console.error("请确保已在任意浏览器中登录 https://notebooklm.google.com/");
