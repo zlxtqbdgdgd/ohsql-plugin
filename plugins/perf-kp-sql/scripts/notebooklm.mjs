@@ -144,17 +144,13 @@ function isAuthFailure(r) {
   return false;
 }
 
-// nlmJson(["ask", ...]) 的 retry 包装 · 透明地完成第一次失败后的 1 次 retry
-// LLM 只 call 一次 · 内部失败时(非鉴权)等 2s 再打一次 · 只有两次都挂才返回失败
-// 返回结果对象里加 attempts: 1 | 2 字段 · 方便上层 / 报告诊断
+// 历史名 nlmAskWithRetry · 现已对齐 SKILL.md L1086-1103 反例段:
+//   "非鉴权失败 → skip 当前 NLM call · 不做 retry"
+// retry 是 LLM 自决偏见的脚本侧实现 · 与 spec 反例直接冲突 · 已删。
+// 配套效果:不再翻倍 NLM 配额、不再 burst 触发 429 雪崩、用户感知耗时上限砍半。
+// 函数名 + attempts: 1 字段保留 · 3 处 caller 0 改动 · 下游若读 attempts 仍兼容。
 function nlmAskWithRetry(args, opts) {
-  const first = nlmJson(args, opts);
-  if (first.ok) return { ...first, attempts: 1 };
-  if (isAuthFailure(first)) return { ...first, attempts: 1 };
-  // 非鉴权失败 · 等 2s 再打一次
-  spawnSync("sleep", ["2"]);
-  const second = nlmJson(args, opts);
-  return { ...second, attempts: 2 };
+  return { ...nlmJson(args, opts), attempts: 1 };
 }
 
 /** async spawn — 返回 Promise<{status, stdout, stderr}> */
