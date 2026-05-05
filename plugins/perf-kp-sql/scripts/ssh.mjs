@@ -445,8 +445,8 @@ async function readCommandFileWithDiag(commandFile) {
     commandFile_codepoints: Array.from(commandFile).map((c) => c.codePointAt(0)),
     isAbsolute: path.isAbsolute(commandFile),
     cwd: process.cwd(),
-    HOME: process.env.HOME ?? "",
-    full_argv: process.argv
+    HOME: process.env.HOME ?? ""
+    // full_argv 已删除 · process.argv 含 --password 明文,泄漏到 LLM 上下文 / trace
   };
   try {
     const dir = path.dirname(commandFile);

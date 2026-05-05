@@ -467,7 +467,9 @@ async function readCommandFileWithDiag(commandFile: string): Promise<string> {
     isAbsolute: path.isAbsolute(commandFile),
     cwd: process.cwd(),
     HOME: process.env.HOME ?? "",
-    full_argv: process.argv,
+    // 不输出 full_argv:process.argv 含 `--password` / `--privateKeyPath` 后跟的明文,
+    // 经 stdout JSON 倒灌进 LLM 上下文与 trace.jsonl 是凭据泄漏。其余 diag 字段
+    // (commandFile_argv_raw / codepoints / dirname 等)已足够定位 ENOENT 根因。
   };
   try {
     const dir = path.dirname(commandFile);
