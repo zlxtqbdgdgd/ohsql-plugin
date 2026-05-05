@@ -31,7 +31,7 @@
  */
 
 import { homedir } from "node:os";
-import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
+import { chmod, mkdir, open, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
 /**
@@ -176,9 +176,20 @@ export function mergeHistory(
 }
 
 export async function writeHistory(path: string, data: HistoryFile): Promise<void> {
-  await mkdir(dirname(path), { recursive: true });
-  await writeFile(path, JSON.stringify(data, null, 2) + "\n", "utf8");
-  // v0.5.1 · 凭据落盘 · 强制 0600 · 仅本用户可读写
+  // 原子写:tmp 文件(open 时 mode 0600 直接生效,避免 0644 短暂窗口)→ fsync → rename
+  // POSIX rename 同 FS 同目录原子,中断时旧文件原封,不会出现"半字节坏 JSON 让 loadHistory 静默
+  // 返空 → 下次 save 把空 + 1 条写回 → 历史归零"。无并发 writer(单 CLI 串行),不引入锁文件。
+  await mkdir(dirname(path), { recursive: true, mode: 0o700 });
+  const tmp = `${path}.tmp.${process.pid}`;
+  const fh = await open(tmp, "w", 0o600);
+  try {
+    await fh.writeFile(JSON.stringify(data, null, 2) + "\n", "utf8");
+    await fh.sync();
+  } finally {
+    await fh.close();
+  }
+  await rename(tmp, path);
+  // 兜底:已存在的旧文件 mode 可能是 0644(老版本写的),rename 不改 mode → chmod 拉齐到 0600
   try {
     await chmod(path, 0o600);
   } catch {

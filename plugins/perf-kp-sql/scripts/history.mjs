@@ -6,7 +6,7 @@ const require = createRequire(import.meta.url);
 
 // plugins/perf-kp-sql/src/cli-history.ts
 import { homedir } from "node:os";
-import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
+import { chmod, mkdir, open, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 var MAX_ENTRIES = 5;
 function historyPath() {
@@ -80,8 +80,16 @@ function mergeHistory(current, entry, now, max = MAX_ENTRIES) {
   return { hosts: list.slice(0, Math.max(1, max)) };
 }
 async function writeHistory(path, data) {
-  await mkdir(dirname(path), { recursive: true });
-  await writeFile(path, JSON.stringify(data, null, 2) + "\n", "utf8");
+  await mkdir(dirname(path), { recursive: true, mode: 0o700 });
+  const tmp = `${path}.tmp.${process.pid}`;
+  const fh = await open(tmp, "w", 0o600);
+  try {
+    await fh.writeFile(JSON.stringify(data, null, 2) + "\n", "utf8");
+    await fh.sync();
+  } finally {
+    await fh.close();
+  }
+  await rename(tmp, path);
   try {
     await chmod(path, 384);
   } catch {
