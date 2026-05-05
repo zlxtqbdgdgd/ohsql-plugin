@@ -392,7 +392,14 @@ const lines = content.split("\n");
 
 // 按 ## 标题切段
 function extractSection(heading) {
-  const startIdx = lines.findIndex(l => l.trim() === heading);
+  // 边界放宽:行 trim 后等于 heading,或以 `heading(` 起首(允许尾部括号注释如
+  // "## 火焰图分析(若 Phase 3.A.3 采到)" / "## 现场观测(...)")。这样 SKILL 段标题
+  // 加 / 改括号注释时无需同步改本文件。注意 `## 参考` 不会撞 `## 参考文件`,因为后者
+  // 不是 + "(" 模式。
+  const startIdx = lines.findIndex((l) => {
+    const t = l.trim();
+    return t === heading || t.startsWith(heading + "(");
+  });
   if (startIdx < 0) return null;
   let endIdx = lines.length;
   for (let i = startIdx + 1; i < lines.length; i++) {
@@ -404,7 +411,7 @@ function extractSection(heading) {
 const diagSection = extractSection("## 诊断结果");
 const flameSection = extractSection("## 火焰图分析");
 const refSection = extractSection("## 参考");
-const observeSection = extractSection("## 现场观测(无权威来源 · 仅供参考 · 可选段 · 仅 KB 和 NLM 都无背书的根因才进这里)");
+const observeSection = extractSection("## 现场观测");
 
 if (!diagSection) {
   console.error("⚠ 未找到 ## 诊断结果");
