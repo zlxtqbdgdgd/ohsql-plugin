@@ -164,12 +164,12 @@ if (!localSvgOut) {
       const jsonStr = lastBrace >= 0 ? stdoutBuf.slice(lastBrace + 1) : stdoutBuf;
       parsed = JSON.parse(jsonStr);
     } catch (e) {
-      process.stderr.write(`[capture-flamegraph] 无法解析 capture.mjs stdout JSON · 跳过 SVG 落本地: ${e.message}\n`);
+      process.stderr.write(`[capture-flamegraph][localSvgOk=false]无法解析 capture.mjs stdout JSON · 跳过 SVG 落本地: ${e.message}\n`);
       process.exit(0);
     }
     const serverSvgPath = parsed?.artifacts?.serverSvgPath;
     if (!serverSvgPath) {
-      process.stderr.write(`[capture-flamegraph] capture.mjs 未返回 serverSvgPath · 跳过 SVG 落本地\n`);
+      process.stderr.write(`[capture-flamegraph][localSvgOk=false]capture.mjs 未返回 serverSvgPath · 跳过 SVG 落本地\n`);
       process.exit(0);
     }
     // 拼 scp 命令 · 复用用户给的 host/user/port/key/password
@@ -184,18 +184,18 @@ if (!localSvgOut) {
     const port = argMap.port;
     const key = argMap.key;
     if (!host || !user) {
-      process.stderr.write(`[capture-flamegraph] cleanedArgs 缺 host/user · 跳过 SVG 落本地\n`);
+      process.stderr.write(`[capture-flamegraph][localSvgOk=false]cleanedArgs 缺 host/user · 跳过 SVG 落本地\n`);
       process.exit(0);
     }
     if (host.startsWith("-") || user.startsWith("-") || (key && key.startsWith("-")) || (localSvgOut && localSvgOut.startsWith("-"))) {
-      process.stderr.write(`[capture-flamegraph] host/user/key/local-svg-out 不得以 \`-\` 起首(防 scp 选项注入) · 跳过 SVG 落本地\n`);
+      process.stderr.write(`[capture-flamegraph][localSvgOk=false]host/user/key/local-svg-out 不得以 \`-\` 起首(防 scp 选项注入) · 跳过 SVG 落本地\n`);
       process.exit(0);
     }
     // mkdir -p 本地目录
     try {
       mkdirSync(dirname(localSvgOut), { recursive: true });
     } catch (e) {
-      process.stderr.write(`[capture-flamegraph] 无法创建本地目录 ${dirname(localSvgOut)}: ${e.message}\n`);
+      process.stderr.write(`[capture-flamegraph][localSvgOk=false]无法创建本地目录 ${dirname(localSvgOut)}: ${e.message}\n`);
       process.exit(0);
     }
     // 用 scp 拉 · 复用 ssh.mjs 已建的 ControlMaster socket(避免重新 auth)
@@ -226,11 +226,11 @@ if (!localSvgOut) {
     scpArgs.push("--", `${user}@${host}:${serverSvgPath}`, localSvgOut);
     const scpRes = spawnSync("scp", scpArgs, { stdio: ["ignore", "pipe", "pipe"], encoding: "utf8" });
     if (scpRes.status === 0) {
-      process.stderr.write(`[capture-flamegraph] SVG 已落本地: ${localSvgOut}\n`);
+      process.stderr.write(`[capture-flamegraph][localSvgOk=true] SVG 已落本地: ${localSvgOut}\n`);
     } else {
       // 复用 ControlMaster 失败时(过期 / cpu-flamegraph 用了不同 socket) · 给一行提示让 LLM 用 ssh.mjs 兜底
-      process.stderr.write(`[capture-flamegraph] scp 失败 (exit=${scpRes.status}) · stderr: ${scpRes.stderr?.slice(0, 200)}\n`);
-      process.stderr.write(`[capture-flamegraph] 可以让 LLM 在 SKILL.md 里手动跑 scp/mv 兜底 · 远端 SVG 路径: ${serverSvgPath}\n`);
+      process.stderr.write(`[capture-flamegraph][localSvgOk=false]scp 失败 (exit=${scpRes.status}) · stderr: ${scpRes.stderr?.slice(0, 200)}\n`);
+      process.stderr.write(`[capture-flamegraph][localSvgOk=false]可以让 LLM 在 SKILL.md 里手动跑 scp/mv 兜底 · 远端 SVG 路径: ${serverSvgPath}\n`);
     }
     process.exit(0);
   });

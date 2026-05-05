@@ -440,6 +440,14 @@ async function opSetup(urlsFile) {
     console.error("请确保已在任意浏览器中登录 https://notebooklm.google.com/");
   } else {
     console.error(`→ 从 ${cookieResult.browser} 提取到 ${cookieResult.cookie_count} 条 cookie`);
+    // 偷完 cookie 立刻打 API 是机器人节奏(rookiepy 提 → list/check 链路)· Google 端从浏览器侧
+    // 看到 cookie 刚被读取就立刻被 Python UA 使用 · 是反爬启发式信号。等一段随机时间(30-60s)
+    // 模拟用户"切窗 → 看页面"的节奏 · 显著降低封号风险。setup 是一次性首装,几十秒延迟可接受。
+    if (cookieResult.method !== "cached") {
+      const waitSec = 30 + Math.floor(Math.random() * 31);
+      console.error(`→ 等待 ${waitSec}s 模拟人类节奏(防反爬)...`);
+      spawnSync("sleep", [String(waitSec)]);
+    }
   }
 
   // Step 10b: verify auth
@@ -532,8 +540,8 @@ async function opSetup(urlsFile) {
     // add new URLs (concurrent, batch of 5)
     const addedUrls = [...(cfg.notebooks[domain]?.urls ?? []).filter((u) => plannedUrlSet.has(u.url))];
     if (toAdd.length > 0) {
-      console.error(`    并发添加 ${toAdd.length} 个 URL (每批 5 个)...`);
-      const addResults = await concurrentBatch(toAdd, 5, async (urlEntry) => {
+      console.error(`    串行添加 ${toAdd.length} 个 URL(防 NLM 反爬 burst · concurrency=1)...`);
+      const addResults = await concurrentBatch(toAdd, 1, async (urlEntry) => {
         const r = await nlmJsonAsync(["source", "add", urlEntry.url]);
         if (r.ok) {
           const sourceId = r.data?.source?.id ?? r.data?.id ?? r.data?.source_id ?? null;
@@ -568,7 +576,17 @@ async function opSetup(urlsFile) {
   cfg.auth_checked_at = new Date().toISOString();
   saveConfig(cfg);
 
-  out({ ok: true, results });
+  // 部分失败 → 顶层 ok 改 "partial" + 列出 failed_domains;全成功才 ok:true。
+  // exit code 保 0(SKILL.md L112/L129 明文"NLM 不阻塞 setup",改 exit 65 会破契约)。
+  // 调用方靠 stdout JSON ok 字段判别 — full / partial / 全失败。
+  const failedDomains = Object.entries(results)
+    .filter(([, r]) => !r.ok)
+    .map(([domain]) => domain);
+  if (failedDomains.length > 0) {
+    out({ ok: "partial", failed_domains: failedDomains, results });
+  } else {
+    out({ ok: true, results });
+  }
 }
 
 // ── op: query ────────────────────────────────────────────────────────
@@ -623,7 +641,7 @@ function opQuery(domain, query) {
         });
       }
       // throttle between notebooks
-      if (targets.length > 1) spawnSync("sleep", ["2"]);
+      if (targets.length > 1) spawnSync("sleep", [String(5 + Math.floor(Math.random() * 6))]);
     }
     return out({ ok: true, results: allResults });
   }
@@ -820,13 +838,13 @@ function opQueryBatch({ fromDiagnose, fromBpList, hwArch }) {
 
       // throttle between chunks (2s within same notebook)
       if (i + CHUNK_SIZE < domainItems.length) {
-        spawnSync("sleep", ["2"]);
+        spawnSync("sleep", [String(5 + Math.floor(Math.random() * 6))]);
       }
     }
 
     // throttle between notebooks (2s)
     if (Object.keys(grouped).length > 1) {
-      spawnSync("sleep", ["2"]);
+      spawnSync("sleep", [String(5 + Math.floor(Math.random() * 6))]);
     }
   }
 
@@ -900,8 +918,8 @@ async function opAddDomain(domain, urlsFile) {
   const urlResults = [];
 
   if (toAdd.length > 0) {
-    console.error(`  并发添加 ${toAdd.length} 个 URL (每批 5 个)...`);
-    const addResults = await concurrentBatch(toAdd, 5, async (urlEntry) => {
+    console.error(`  串行添加 ${toAdd.length} 个 URL(防 NLM 反爬 burst · concurrency=1)...`);
+    const addResults = await concurrentBatch(toAdd, 1, async (urlEntry) => {
       const r = await nlmJsonAsync(["source", "add", urlEntry.url]);
       const sourceId = r.ok ? (r.data?.source?.id ?? r.data?.id ?? r.data?.source_id ?? null) : null;
       const status = r.ok ? "PENDING" : "FAILED";
