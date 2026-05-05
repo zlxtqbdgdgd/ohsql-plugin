@@ -423,7 +423,8 @@ Bash(command="node <PLUGIN_ROOT>/scripts/history.mjs --op load --max 5")
 
 `--op load` 返回 hosts 列表(已按 last_used 倒序 · 最多 5 条 · LRU 淘汰已由 history.mjs 内部处理)· 每条含:
 - 基础:`host` / `user` / `port` / `engine` / `last_used` / `use_count`
-- 可选凭据:`password` / `privateKeyPath` / `mongo_user` / `mongo_password` / `auth_db`(用户上次显式同意保存才有)
+- **凭据 bool**(0.49.x 起脱敏):`has_password` / `has_private_key_path` / `has_mongo_password` 仅返 true/false · **不返回原始密码字段**(防明文密码进 LLM transcript)。若 `has_password=true`,LLM 引导用户重输密码("上次保存过密码,出于安全本会话不直接复用,请重输");`has_private_key_path=true` 时同理(用户需重输路径或确认上次的路径)
+- 非凭据可选字段:`mongo_user` / `auth_db`(不算秘密 · 仍透传)
 - 可选环境(v0.49.0 起):`env`(os_distro / arch / cpu_model / mongod_version / deploy_form 等)+ `env_captured_at`
 
 **展示选单**(无论 hosts 是否为空都展示 · 让用户每次明确选择):

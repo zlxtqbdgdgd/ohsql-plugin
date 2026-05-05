@@ -115,12 +115,35 @@ function writeError(msg) {
   process.stdout.write(JSON.stringify({ ok: false, error: msg }));
   process.exit(1);
 }
+// 凭据脱敏 · 详见 src/cli-history.ts redactHostCreds 注释
+function redactHostCreds(h) {
+  const out = { ...h };
+  if (typeof out.password === "string") {
+    out.has_password = true;
+    delete out.password;
+  } else {
+    out.has_password = false;
+  }
+  if (typeof out.privateKeyPath === "string") {
+    out.has_private_key_path = true;
+    delete out.privateKeyPath;
+  } else {
+    out.has_private_key_path = false;
+  }
+  if (typeof out.mongo_password === "string") {
+    out.has_mongo_password = true;
+    delete out.mongo_password;
+  } else {
+    out.has_mongo_password = false;
+  }
+  return out;
+}
 async function runLoad(argv) {
   const maxRaw = argv.max;
   const max = typeof maxRaw === "string" ? parseInt(maxRaw, 10) || 5 : 5;
   const path = historyPath();
   const hist = await loadHistory(path);
-  const hosts = sortAndCap(hist.hosts, max);
+  const hosts = sortAndCap(hist.hosts, max).map(redactHostCreds);
   process.stdout.write(JSON.stringify({ ok: true, hosts }));
 }
 async function runSave(argv) {
