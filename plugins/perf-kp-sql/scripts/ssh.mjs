@@ -253,6 +253,9 @@ function parseExecArgs(argv) {
   if (!host || !user) {
     execDie("\u5FC5\u987B\u63D0\u4F9B --host \u548C --user");
   }
+  if (host.startsWith("-") || user.startsWith("-")) {
+    execDie("--host / --user \u4E0D\u5F97\u4EE5 `-` \u8D77\u9996(\u9632 ssh \u9009\u9879\u6CE8\u5165)");
+  }
   const portRaw = typeof argv.port === "string" ? argv.port : "22";
   const timeoutRaw = typeof argv.timeout === "string" ? argv.timeout : "120000";
   const password = typeof argv.password === "string" ? argv.password : void 0;
@@ -488,7 +491,7 @@ async function runExec(argv) {
     usePassword,
     privateKeyPath: args.privateKeyPath
   });
-  const sshArgs = [...baseArgs, `${args.user}@${args.host}`, args.command];
+  const sshArgs = [...baseArgs, "--", `${args.user}@${args.host}`, args.command];
   const plan = planSshSpawn(args, sshArgs);
   const result = await runSshExec(plan, args.timeout, args.outputFile);
   if (result.exitCode === 255 && existsSync(controlPath)) {
@@ -509,6 +512,9 @@ function parseSessionCloseArgs(argv) {
   if (!host || !user) {
     execDie("\u5FC5\u987B\u63D0\u4F9B --host \u548C --user");
   }
+  if (host.startsWith("-") || user.startsWith("-")) {
+    execDie("--host / --user \u4E0D\u5F97\u4EE5 `-` \u8D77\u9996(\u9632 ssh \u9009\u9879\u6CE8\u5165)");
+  }
   const portRaw = typeof argv.port === "string" ? argv.port : "22";
   return { host, user, port: parseInt(portRaw, 10) || 22 };
 }
@@ -527,7 +533,7 @@ async function runSessionClose(argv) {
     try {
       proc = spawn(
         "ssh",
-        ["-O", "exit", "-S", controlPath, "-p", String(args.port), `${args.user}@${args.host}`],
+        ["-O", "exit", "-S", controlPath, "-p", String(args.port), "--", `${args.user}@${args.host}`],
         { stdio: ["ignore", "pipe", "pipe"] }
       );
     } catch (e) {

@@ -43,6 +43,9 @@ printf '%s\\n' '${escaped}'
   };
 }
 function openRemoteSession(conn) {
+  if (conn.user.startsWith("-") || conn.host.startsWith("-")) {
+    throw new Error("conn.user / conn.host 不得以 `-` 起首(防 ssh 选项注入)");
+  }
   const target = `${conn.user}@${conn.host}`;
   const port = conn.port ?? DEFAULT_PORT;
   const usePassword = !!conn.password && !conn.privateKeyPath;
@@ -122,7 +125,7 @@ function openRemoteSession(conn) {
   };
   return {
     async exec(cmd, opts = {}) {
-      const wrapped = wrap([...baseSshArgs(), target, cmd]);
+      const wrapped = wrap([...baseSshArgs(), "--", target, cmd]);
       return await runProcess(wrapped, {
         timeoutMs: opts.timeoutMs ?? DEFAULT_TIMEOUT_MS
       });
@@ -130,6 +133,7 @@ function openRemoteSession(conn) {
     async uploadFile(remotePath, content, opts = {}) {
       const wrapped = wrap([
         ...baseSshArgs(),
+        "--",
         target,
         `cat > ${shellEscape(remotePath)}`
       ]);
@@ -149,7 +153,7 @@ function openRemoteSession(conn) {
       try {
         const cleanup = spawn(
           "ssh",
-          ["-O", "exit", "-S", controlPath, "-p", String(port), target],
+          ["-O", "exit", "-S", controlPath, "-p", String(port), "--", target],
           { stdio: "ignore" }
         );
         cleanup.unref();

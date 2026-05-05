@@ -122,6 +122,10 @@ function makeAskpassScript(password: string): { scriptPath: string; cleanup: () 
  * 想验证连通性就 `await session.exec("true")`。
  */
 export function openRemoteSession(conn: SshConn): RemoteSession {
+  // 防 ssh option injection(`-oProxyCommand=...` 通过 user/host 前导 `-` 注入)
+  if (conn.user.startsWith("-") || conn.host.startsWith("-")) {
+    throw new Error("conn.user / conn.host 不得以 `-` 起首(防 ssh 选项注入)");
+  }
   const target = `${conn.user}@${conn.host}`;
   const port = conn.port ?? DEFAULT_PORT;
   // 同时给 password + privateKeyPath → key 优先，password 静默忽略
@@ -236,7 +240,8 @@ export function openRemoteSession(conn: SshConn): RemoteSession {
 
   return {
     async exec(cmd, opts = {}): Promise<ExecResult> {
-      const wrapped = wrap([...baseSshArgs(), target, cmd]);
+      // `--` 终止 ssh 选项解析,防 user/host 起首 `-` 触发 -oProxyCommand 注入
+      const wrapped = wrap([...baseSshArgs(), "--", target, cmd]);
       return await runProcess(wrapped, {
         timeoutMs: opts.timeoutMs ?? DEFAULT_TIMEOUT_MS,
       });
@@ -247,6 +252,7 @@ export function openRemoteSession(conn: SshConn): RemoteSession {
       // remotePath 经 shellEscape 后单引号包裹，shell 不会再解析。
       const wrapped = wrap([
         ...baseSshArgs(),
+        "--",
         target,
         `cat > ${shellEscape(remotePath)}`,
       ]);
@@ -270,7 +276,7 @@ export function openRemoteSession(conn: SshConn): RemoteSession {
       try {
         const cleanup = spawn(
           "ssh",
-          ["-O", "exit", "-S", controlPath, "-p", String(port), target],
+          ["-O", "exit", "-S", controlPath, "-p", String(port), "--", target],
           { stdio: "ignore" },
         );
         cleanup.unref();

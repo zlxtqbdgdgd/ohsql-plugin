@@ -187,6 +187,10 @@ if (!localSvgOut) {
       process.stderr.write(`[capture-flamegraph] cleanedArgs 缺 host/user · 跳过 SVG 落本地\n`);
       process.exit(0);
     }
+    if (host.startsWith("-") || user.startsWith("-") || (key && key.startsWith("-")) || (localSvgOut && localSvgOut.startsWith("-"))) {
+      process.stderr.write(`[capture-flamegraph] host/user/key/local-svg-out 不得以 \`-\` 起首(防 scp 选项注入) · 跳过 SVG 落本地\n`);
+      process.exit(0);
+    }
     // mkdir -p 本地目录
     try {
       mkdirSync(dirname(localSvgOut), { recursive: true });
@@ -205,7 +209,8 @@ if (!localSvgOut) {
     ];
     if (port) scpArgs.push("-P", port);
     if (key) scpArgs.push("-i", key);
-    scpArgs.push(`${user}@${host}:${serverSvgPath}`, localSvgOut);
+    // `--` 终止 scp 选项解析,防 user/host/path 起首 `-` 触发 -oProxyCommand 注入
+    scpArgs.push("--", `${user}@${host}:${serverSvgPath}`, localSvgOut);
     const scpRes = spawnSync("scp", scpArgs, { stdio: ["ignore", "pipe", "pipe"], encoding: "utf8" });
     if (scpRes.status === 0) {
       process.stderr.write(`[capture-flamegraph] SVG 已落本地: ${localSvgOut}\n`);

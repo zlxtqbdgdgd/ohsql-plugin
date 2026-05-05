@@ -243,6 +243,10 @@ function parseExecArgs(argv: Record<string, string | boolean>): ExecArgs {
   if (!host || !user) {
     execDie("必须提供 --host 和 --user");
   }
+  // 防 ssh option injection(`-oProxyCommand=...` 通过 user/host 前导 `-` 注入)
+  if (host.startsWith("-") || user.startsWith("-")) {
+    execDie("--host / --user 不得以 `-` 起首(防 ssh 选项注入)");
+  }
 
   const portRaw = typeof argv.port === "string" ? argv.port : "22";
   const timeoutRaw = typeof argv.timeout === "string" ? argv.timeout : "120000";
@@ -513,7 +517,8 @@ async function runExec(argv: Record<string, string | boolean>): Promise<void> {
     usePassword,
     privateKeyPath: args.privateKeyPath,
   });
-  const sshArgs = [...baseArgs, `${args.user}@${args.host}`, args.command];
+  // `--` 终止 ssh 选项解析,防 user/host 起首 `-` 触发 -oProxyCommand 注入(深度防御:parseExecArgs 已拒绝)
+  const sshArgs = [...baseArgs, "--", `${args.user}@${args.host}`, args.command];
   const plan = planSshSpawn(args, sshArgs);
 
   const result = await runSshExec(plan, args.timeout, args.outputFile);
@@ -543,6 +548,9 @@ function parseSessionCloseArgs(argv: Record<string, string | boolean>): SessionC
   if (!host || !user) {
     execDie("必须提供 --host 和 --user");
   }
+  if (host.startsWith("-") || user.startsWith("-")) {
+    execDie("--host / --user 不得以 `-` 起首(防 ssh 选项注入)");
+  }
   const portRaw = typeof argv.port === "string" ? argv.port : "22";
   return { host, user, port: parseInt(portRaw, 10) || 22 };
 }
@@ -566,7 +574,7 @@ async function runSessionClose(argv: Record<string, string | boolean>): Promise<
     try {
       proc = spawn(
         "ssh",
-        ["-O", "exit", "-S", controlPath, "-p", String(args.port), `${args.user}@${args.host}`],
+        ["-O", "exit", "-S", controlPath, "-p", String(args.port), "--", `${args.user}@${args.host}`],
         { stdio: ["ignore", "pipe", "pipe"] },
       );
     } catch (e) {
