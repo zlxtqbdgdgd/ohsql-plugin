@@ -5,21 +5,13 @@
 // Usage: node scripts/format-chat.mjs --report <report.md> [--cols N]
 
 import { readFileSync, existsSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 
-// ── CLI args ──────────────────────────────────────────────
-const args = process.argv.slice(2);
+const isCli = !!(process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]);
+
+// CLI 共享变量(test import 时 reportPath 保持 null,主流程不进入)
 let reportPath = null;
-let cols = null;
-
-for (let i = 0; i < args.length; i++) {
-  if ((args[i] === "--report" || args[i] === "--chat") && args[i + 1]) { reportPath = args[++i]; continue; }
-  if (args[i] === "--cols" && args[i + 1]) { cols = parseInt(args[++i], 10); continue; }
-}
-
-if (!reportPath) { console.error("usage: format-chat.mjs --report <report.md> [--cols N]"); process.exit(1); }
-if (!existsSync(reportPath)) { console.error(`file not found: ${reportPath}`); process.exit(1); }
-
-if (!cols || isNaN(cols)) cols = process.stdout.columns || 100;
+let cols = process.stdout.columns || 100;
 if (cols < 80) cols = 80;
 
 // ── CJK 显示宽度 ─────────────────────────────────────────
@@ -70,8 +62,264 @@ function cleanCell(text) {
   return text.replace(/<br\s*\/?>/gi, " ").replace(/\s+/g, " ").trim();
 }
 
-function parseCells(line) {
+export function parseCells(line) {
   return line.replace(/^\|/, "").replace(/\|$/, "").split("|").map(c => c.trim());
+}
+
+// ── Lint(5 标签来源标记验证) ──────────────────────────────
+// 参见 docs/superpowers/specs/2026-05-01-md-report-source-tags-design.md
+// CLI 不再调用(box-drawing 主流程),但保留 export 供测试 / 外部脚本使用
+
+const TAG_AT_END_RE = /\[(IDX|CASE|NLM|OBS|LLM)\]\s*(\[参考\d+\])?\s*[:,。;?!]?\s*$/;
+
+function splitNarrativeAtoms(line) {
+  const codeSpans = [];
+  const protectedLine = line.replace(/`[^`]+`/g, (m) => {
+    codeSpans.push(m);
+    return `\x00${codeSpans.length - 1}\x00`;
+  });
+  const atoms = [];
+  for (const chunk of protectedLine.split(" · ")) {
+    for (const sub of chunk.split(/[。?!]/)) {
+      atoms.push(sub.replace(/\x00(\d+)\x00/g, (_, n) => codeSpans[+n]));
+    }
+  }
+  return atoms;
+}
+
+export function lintReport(mdText) {
+  const lines = mdText.split("\n");
+  const total_missing = { total: 0, missing: [] };
+
+  let inMetadata = true;
+  let inLegend = false;
+  let inRef = false;
+  let inCodeFence = false;
+
+  for (let i = 0; i < lines.length; i++) {
+    const raw = lines[i];
+    const trimmed = raw.trim();
+
+    if (/^```/.test(trimmed)) {
+      inCodeFence = !inCodeFence;
+      continue;
+    }
+    if (inCodeFence) continue;
+
+    if (/^##\s/.test(trimmed) && !/^###/.test(trimmed)) {
+      inMetadata = false;
+      inLegend = trimmed === "## 来源标记 (debug)";
+      inRef = trimmed === "## 参考";
+      continue;
+    }
+
+    if (inMetadata || inLegend || inRef) continue;
+    if (!trimmed) continue;
+    if (trimmed.startsWith("#")) continue;
+    if (trimmed.startsWith(">")) continue;
+
+    if (/^\|[-| ]+\|$/.test(trimmed)) continue;
+    if (trimmed.startsWith("|") && i + 1 < lines.length) {
+      const next = lines[i + 1].trim();
+      if (/^\|[-| ]+\|$/.test(next)) continue;
+    }
+
+    if (trimmed.startsWith("|") && trimmed.endsWith("|")) {
+      const cells = parseCells(raw);
+      for (const cell of cells) {
+        const sublines = cell.split("<br>");
+        for (const sub of sublines) {
+          const subTrim = sub.trim();
+          if (!subTrim) continue;
+          if (/^\[参考\d+\]$/.test(subTrim)) continue;
+
+          if (subTrim.includes(" · ")) {
+            const atoms = subTrim.split(" · ");
+            for (const atom of atoms) {
+              const a = atom.trim();
+              if (!a) continue;
+              total_missing.total++;
+              if (!TAG_AT_END_RE.test(a)) {
+                total_missing.missing.push({ line: i + 1, text: a });
+              }
+            }
+          } else {
+            total_missing.total++;
+            if (!TAG_AT_END_RE.test(subTrim)) {
+              total_missing.missing.push({ line: i + 1, text: subTrim });
+            }
+          }
+        }
+      }
+    } else {
+      const sentences = splitNarrativeAtoms(trimmed);
+      for (const sentence of sentences) {
+        const s = sentence.trim();
+        if (s.length < 4) continue;
+        total_missing.total++;
+        if (!TAG_AT_END_RE.test(s)) {
+          total_missing.missing.push({ line: i + 1, text: s });
+        }
+      }
+    }
+  }
+
+  const missRate = total_missing.total === 0
+    ? 0
+    : total_missing.missing.length / total_missing.total;
+
+  return { ...total_missing, missRate };
+}
+
+// ── Strip(chat 输出剥标签 · .md 文件不动) ──────────────
+
+export function stripChatTags(text) {
+  let out = text.replace(/\r\n/g, "\n");
+
+  out = out.replace(
+    /(?:^|\n)## 来源标记 \(debug\)[\s\S]*?(?=\n## |$)/g,
+    ""
+  );
+
+  out = out.replace(/\[(IDX|CASE|NLM|OBS|LLM)\]([ \t]*)(?=\[参考)/g, "");
+  out = out.replace(/[ \t]*\[(IDX|CASE|NLM|OBS|LLM)\]/g, "");
+
+  out = out.replace(/(?<=\S)  +/g, " ");
+
+  return out;
+}
+
+// ── CJK 显示宽度(供 rewrapCell / rewrapTable 使用) ─────
+// 与上方 charW/dw 同语义;不同名,允许两路并存。
+function charWidth(cp) {
+  if (cp >= 0x4E00 && cp <= 0x9FFF) return 2;
+  if (cp >= 0x3400 && cp <= 0x4DBF) return 2;
+  if (cp >= 0x20000 && cp <= 0x2A6DF) return 2;
+  if (cp >= 0x2A700 && cp <= 0x2CEAF) return 2;
+  if (cp >= 0x2CEB0 && cp <= 0x2EBEF) return 2;
+  if (cp >= 0x30000 && cp <= 0x3134F) return 2;
+  if (cp >= 0xF900 && cp <= 0xFAFF) return 2;
+  if (cp >= 0xFF01 && cp <= 0xFF60) return 2;
+  if (cp >= 0xFFE0 && cp <= 0xFFE6) return 2;
+  if (cp >= 0x3000 && cp <= 0x303F) return 2;
+  if (cp >= 0x3040 && cp <= 0x309F) return 2;
+  if (cp >= 0x30A0 && cp <= 0x30FF) return 2;
+  if (cp >= 0xAC00 && cp <= 0xD7AF) return 2;
+  if (cp >= 0x3200 && cp <= 0x32FF) return 2;
+  if (cp >= 0x3300 && cp <= 0x33FF) return 2;
+  if (cp >= 0xFE30 && cp <= 0xFE4F) return 2;
+  return 1;
+}
+
+function displayWidth(str) {
+  let w = 0;
+  for (const ch of str) {
+    w += charWidth(ch.codePointAt(0));
+  }
+  return w;
+}
+
+const BREAK_CHARS = new Set(["·", " ", "→", "+", "/", "(", "；", ",", "、", ":", ";", ",", ".", "_", "-", "="]);
+
+function rewrapCell(text, budget) {
+  const plain = text.replace(/<br\s*\/?>/gi, " ").replace(/\s+/g, " ").trim();
+  if (!plain) return "";
+
+  if (displayWidth(plain) <= budget) return plain;
+
+  const result = [];
+  let line = "";
+  let lineW = 0;
+  let lastBreakIdx = -1;
+  let charIdx = 0;
+
+  for (const ch of plain) {
+    const cw = charWidth(ch.codePointAt(0));
+
+    if (BREAK_CHARS.has(ch)) {
+      lastBreakIdx = charIdx;
+    }
+
+    if (lineW + cw > budget && line.length > 0) {
+      if (lastBreakIdx >= 0) {
+        const chars = [...line];
+        const keep = chars.slice(0, lastBreakIdx + 1).join("");
+        const rest = chars.slice(lastBreakIdx + 1).join("");
+        result.push(keep);
+        line = rest + ch;
+        lineW = displayWidth(line);
+      } else {
+        result.push(line);
+        line = ch;
+        lineW = cw;
+      }
+      lastBreakIdx = -1;
+      charIdx = [...line].length - 1;
+    } else {
+      line += ch;
+      lineW += cw;
+    }
+    charIdx++;
+  }
+  if (line) result.push(line);
+
+  return result.join("<br>");
+}
+
+function buildRow(cells) {
+  return "| " + cells.join(" | ") + " |";
+}
+
+// ── 表格重排(独立于 box-drawing 主流程,仅供测试 / 外部调用) ──
+export function rewrapTable(content, cols) {
+  const lines = content.split("\n");
+  const budget = Math.max(Math.floor((cols - 7) / 6), 8);
+
+  let tableStart = -1;
+  let sepLine = -1;
+  let tableEnd = -1;
+
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].trim() === "## 诊断结果") {
+      for (let j = i + 1; j < lines.length; j++) {
+        const trimmed = lines[j].trim();
+        if (!trimmed) continue;
+        if (trimmed.startsWith("|") && tableStart < 0) {
+          tableStart = j;
+          continue;
+        }
+        if (tableStart >= 0 && /^\|[-| ]+\|$/.test(trimmed)) {
+          sepLine = j;
+          break;
+        }
+      }
+      break;
+    }
+  }
+
+  if (tableStart < 0 || sepLine < 0) {
+    return { content, found: false };
+  }
+
+  tableEnd = sepLine + 1;
+  while (tableEnd < lines.length) {
+    const trimmed = lines[tableEnd].trim();
+    if (!trimmed.startsWith("|")) break;
+    tableEnd++;
+  }
+
+  const output = [];
+  for (let i = 0; i < lines.length; i++) {
+    if (i >= sepLine + 1 && i < tableEnd) {
+      const cells = parseCells(lines[i]);
+      const rewrapped = cells.map(c => rewrapCell(c, budget));
+      output.push(buildRow(rewrapped));
+    } else {
+      output.push(lines[i]);
+    }
+  }
+
+  return { content: output.join("\n"), found: true };
 }
 
 // ── 6 列 → 4 列合并 ─────────────────────────────────────
@@ -122,6 +370,21 @@ function renderTable(headerCells, dataRows) {
   parts.push(botLine);
   return parts.join("\n");
 }
+
+// ── CLI 主流程(仅 isCli 时执行) ─────────────────────────
+if (isCli) {
+
+// 解析 args(reportPath/cols 已在顶部声明)
+{
+  const args = process.argv.slice(2);
+  for (let i = 0; i < args.length; i++) {
+    if ((args[i] === "--report" || args[i] === "--chat") && args[i + 1]) { reportPath = args[++i]; continue; }
+    if (args[i] === "--cols" && args[i + 1]) { const c = parseInt(args[++i], 10); if (!isNaN(c)) cols = c; continue; }
+  }
+}
+if (!reportPath) { console.error("usage: format-chat.mjs --report <report.md> [--cols N]"); process.exit(1); }
+if (!existsSync(reportPath)) { console.error(`file not found: ${reportPath}`); process.exit(1); }
+if (cols < 80) cols = 80;
 
 // ── 从 .md 提取各段 ─────────────────────────────────────
 const content = readFileSync(reportPath, "utf8");
@@ -199,3 +462,5 @@ if (refSection) {
 }
 
 process.stdout.write(output.join("\n"));
+
+} // end if (isCli)
