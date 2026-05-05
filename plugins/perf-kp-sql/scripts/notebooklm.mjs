@@ -85,12 +85,21 @@ function isCliInstalled() {
   }
 }
 
+// 屏蔽 cookie/authorization 值与长 base64/token-like 字符串
+// 关键字本身保留(`cookie` / `authorization`),`isAuthFailure` 等关键字识别不受影响
+function redactSecrets(s) {
+  if (!s) return s;
+  let out = s.replace(/(cookie|set-cookie|authorization)\s*[:=]\s*[^\r\n;]+/gi, "$1: [REDACTED]");
+  out = out.replace(/[A-Za-z0-9_\-]{40,}={0,2}/g, "[REDACTED_TOKEN]");
+  return out;
+}
+
 function nlmExec(args, { timeoutMs = 60_000 } = {}) {
   const r = spawnSync("notebooklm", args, {
     encoding: "utf8",
     timeout: timeoutMs,
   });
-  return { status: r.status, stdout: (r.stdout ?? "").trim(), stderr: (r.stderr ?? "").trim() };
+  return { status: r.status, stdout: (r.stdout ?? "").trim(), stderr: redactSecrets((r.stderr ?? "").trim()) };
 }
 
 function nlmJson(args, opts) {
@@ -152,8 +161,8 @@ function nlmExecAsync(args, { timeoutMs = 60_000 } = {}) {
     let stdout = "", stderr = "";
     child.stdout?.on("data", (d) => (stdout += d));
     child.stderr?.on("data", (d) => (stderr += d));
-    child.on("close", (code) => resolve({ status: code, stdout: stdout.trim(), stderr: stderr.trim() }));
-    child.on("error", (e) => resolve({ status: 1, stdout: "", stderr: e.message }));
+    child.on("close", (code) => resolve({ status: code, stdout: stdout.trim(), stderr: redactSecrets(stderr.trim()) }));
+    child.on("error", (e) => resolve({ status: 1, stdout: "", stderr: redactSecrets(e.message) }));
   });
 }
 
@@ -263,7 +272,7 @@ print(json.dumps({"ok": True, "cookie_count": len(cookies), "browser": used}))
   try {
     return JSON.parse(py.stdout);
   } catch {
-    return { ok: false, error: "rookiepy_spawn_failed", detail: (py.stderr ?? "").slice(0, 300) };
+    return { ok: false, error: "rookiepy_spawn_failed", detail: redactSecrets((py.stderr ?? "").slice(0, 300)) };
   }
 }
 
