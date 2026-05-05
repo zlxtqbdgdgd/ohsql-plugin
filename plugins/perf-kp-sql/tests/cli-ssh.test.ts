@@ -1,6 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { tmpdir } from "node:os";
+import { homedir, tmpdir } from "node:os";
+import { join } from "node:path";
 
 import { buildSshBaseArgs, controlPathFor } from "../src/cli-ssh.js";
 
@@ -21,11 +22,15 @@ describe("controlPathFor", () => {
     assert.notEqual(a, d);
   });
 
-  it("路径在 tmpdir 内 · 长度 < 108 字节(UNIX socket 上限)", () => {
+  it("路径优先 ~/.ssh/perf-kp-sql/ · 长 HOME 回退 tmpdir · 长度 ≤ 104 字节(macOS 上限)", () => {
     const p = controlPathFor("very-long-hostname.example.com", 65535, "some-user");
-    assert.ok(p.startsWith(tmpdir()));
+    const expectedSshDir = join(homedir(), ".ssh", "perf-kp-sql");
+    assert.ok(
+      p.startsWith(expectedSshDir) || p.startsWith(tmpdir()),
+      `controlPath ${p} 既不在 ~/.ssh/perf-kp-sql/ 也不在 tmpdir,意外路径`
+    );
     assert.ok(p.endsWith(".sock"));
-    assert.ok(p.length < 108, `controlPath 长度 ${p.length} 超过 UNIX socket 上限 108`);
+    assert.ok(p.length <= 104, `controlPath 长度 ${p.length} 超 macOS UNIX socket 上限 104`);
   });
 });
 

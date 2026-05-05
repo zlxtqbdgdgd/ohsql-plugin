@@ -8,7 +8,7 @@ const require = createRequire(import.meta.url);
 import { spawn } from "node:child_process";
 import { createWriteStream, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { createHash } from "node:crypto";
 
@@ -171,6 +171,15 @@ var CONNECT_TIMEOUT_SEC = 10;
 var CONTROL_PERSIST_SEC = 600;
 function controlPathFor(host, port, user) {
   const hash = createHash("sha1").update(`${host}:${port}:${user}`).digest("hex").slice(0, 12);
+  // 优先 ~/.ssh/perf-kp-sql/(0700)· 防 /tmp 共享路径被 socket 劫持
+  const sshDir = join(homedir(), ".ssh", "perf-kp-sql");
+  const sshPath = join(sshDir, `cm-${hash}.sock`);
+  if (sshPath.length <= 100) {
+    try {
+      mkdirSync(sshDir, { recursive: true, mode: 0o700 });
+      return sshPath;
+    } catch {}
+  }
   return join(tmpdir(), `perf-kp-sql-cm-${hash}.sock`);
 }
 function makeAskpassScript(password) {

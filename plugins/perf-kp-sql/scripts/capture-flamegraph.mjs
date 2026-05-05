@@ -199,10 +199,23 @@ if (!localSvgOut) {
       process.exit(0);
     }
     // 用 scp 拉 · 复用 ssh.mjs 已建的 ControlMaster socket(避免重新 auth)
-    // ControlPath = <tmpdir>/perf-kp-sql-cm-<sha1(host:port:user)[:12]>.sock
+    // ControlPath 与 cli-ssh.ts/controlPathFor 对齐:优先 ~/.ssh/perf-kp-sql/(0700)
+    // 复用 perf-kp-sql 早先建立的 ControlMaster socket(同 hash)。长 HOME 回退 /tmp。
     const portNum = port ? parseInt(port, 10) : 22;
     const cpHash = createHash("sha1").update(`${host}:${portNum}:${user}`).digest("hex").slice(0, 12);
-    const controlPath = join(tmpdir(), `perf-kp-sql-cm-${cpHash}.sock`);
+    const sshDir = join(homedir(), ".ssh", "perf-kp-sql");
+    const sshPath = join(sshDir, `cm-${cpHash}.sock`);
+    let controlPath;
+    if (sshPath.length <= 100) {
+      try {
+        mkdirSync(sshDir, { recursive: true, mode: 0o700 });
+        controlPath = sshPath;
+      } catch {
+        controlPath = join(tmpdir(), `perf-kp-sql-cm-${cpHash}.sock`);
+      }
+    } else {
+      controlPath = join(tmpdir(), `perf-kp-sql-cm-${cpHash}.sock`);
+    }
     const scpArgs = [
       "-o", `ControlPath=${controlPath}`,
       "-o", "StrictHostKeyChecking=accept-new",

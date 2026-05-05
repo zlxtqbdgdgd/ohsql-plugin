@@ -51,7 +51,7 @@ import { spawn } from "node:child_process";
 import type { ChildProcess } from "node:child_process";
 import { createWriteStream, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { createHash } from "node:crypto";
 import { parseOsIntoMetrics } from "./shared/utils.js";
@@ -127,6 +127,18 @@ export function controlPathFor(host: string, port: number, user: string): string
     .update(`${host}:${port}:${user}`)
     .digest("hex")
     .slice(0, 12);
+  // 优先 ~/.ssh/perf-kp-sql/(0700 父目录)· 防 /tmp 共享目录可预测路径被 socket 劫持。
+  // 长 HOME(超 macOS 104B UNIX socket 上限)回退 tmpdir 兜底。
+  const sshDir = join(homedir(), ".ssh", "perf-kp-sql");
+  const sshPath = join(sshDir, `cm-${hash}.sock`);
+  if (sshPath.length <= 100) {
+    try {
+      mkdirSync(sshDir, { recursive: true, mode: 0o700 });
+      return sshPath;
+    } catch {
+      // mkdir 失败则回退 tmpdir(权限 / 文件系统等罕见原因)
+    }
+  }
   return join(tmpdir(), `perf-kp-sql-cm-${hash}.sock`);
 }
 
