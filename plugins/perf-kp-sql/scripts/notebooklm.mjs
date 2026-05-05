@@ -98,6 +98,9 @@ function nlmExec(args, { timeoutMs = 60_000 } = {}) {
   const r = spawnSync("notebooklm", args, {
     encoding: "utf8",
     timeout: timeoutMs,
+    // 默认 1MB 太小 · NLM 长答 + 多 references 并不少见 · 截断后 r.status=null + r.error.code=ENOBUFS,
+    // nlmJson 走"非 0 → ok:false"分支 · 触发 silent retry 浪费配额且根因不可见。32MB 足够覆盖。
+    maxBuffer: 32 * 1024 * 1024,
   });
   return { status: r.status, stdout: (r.stdout ?? "").trim(), stderr: redactSecrets((r.stderr ?? "").trim()) };
 }
