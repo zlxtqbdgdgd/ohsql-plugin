@@ -584,7 +584,7 @@ function opQuery(domain, query) {
       const nb = cfg.notebooks?.[d];
       if (!nb?.id) continue;
       nlmExec(["use", nb.id]);
-      const r = nlmAskWithRetry(["ask", query], { timeoutMs: 60_000 });
+      const r = nlmAskWithRetry(["ask", query], { timeoutMs: 150_000 });
       if (r.ok) {
         allResults.push({
           domain: d,
@@ -613,7 +613,7 @@ function opQuery(domain, query) {
   const notebookId = cfg.notebooks[domain].id;
   nlmExec(["use", notebookId]);
 
-  const r = nlmAskWithRetry(["ask", query], { timeoutMs: 60_000 });
+  const r = nlmAskWithRetry(["ask", query], { timeoutMs: 150_000 });
   if (!r.ok) {
     return out({
       ok: false,
@@ -768,7 +768,7 @@ function opQueryBatch({ fromDiagnose, fromBpList, hwArch }) {
         .map((item, j) => `【问题 ${j + 1}】${item.prompt}`)
         .join("\n\n");
 
-      const r = nlmAskWithRetry(["ask", mergedPrompt], { timeoutMs: 90_000 });
+      const r = nlmAskWithRetry(["ask", mergedPrompt], { timeoutMs: 150_000 });
 
       if (r.ok) {
         const answer = r.data?.answer ?? r.data?.response ?? "";

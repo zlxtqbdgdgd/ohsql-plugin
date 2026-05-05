@@ -1160,7 +1160,7 @@ Write(file_path="/Users/<yourlogin>/.perf-kp-sql/tmp/perf-kp-sql-nlm-q-<TS>.txt"
 Bash(command="node <PLUGIN_ROOT>/scripts/notebooklm.mjs --op query \
        --domain auto \
        --query \"<查询字面>\" \
-       --json", timeout=300000)
+       --json", timeout=360000)
 ```
 
 #### 阶段 3 · 综合判定
@@ -1625,7 +1625,7 @@ Read(file_path="<PLUGIN_ROOT>/data/cases/CASES.md", offset=<line>, limit=80)
 Bash(command="node <PLUGIN_ROOT>/scripts/notebooklm.mjs --op query \
        --domain auto \
        --query \"<原话>\" \
-       --json", timeout=300000)
+       --json", timeout=360000)
 ```
 
 `--domain auto` 时脚本内部按关键词路由:
