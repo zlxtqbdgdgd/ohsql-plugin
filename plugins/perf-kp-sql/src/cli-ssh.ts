@@ -24,7 +24,8 @@
  *     SSH_ASKPASS_REQUIRE=force + setsid)· 不依赖 sshpass(macOS 上 sshpass
  *     wrapper 把 stderr 合并 stdout · 也无法稳定传特殊字符密码)· OpenSSH ≥ 8.4
  *     直接走脚本 · 老版本通过 setsid 断 tty 后强制走 askpass 路径
- *   · ControlMaster=auto + ControlPath=/tmp/perf-kp-sql-cm-<sha1[host:port:user]>.sock
+ *   · ControlMaster=auto + ControlPath=~/.ssh/perf-kp-sql/cm-<sha1[host:port:user]>.sock
+ *     (长 HOME 回退 <tmpdir>/perf-kp-sql-cm-<hash>.sock)
  *     + ControlPersist=600 · 同 SKILL 流程内多次 ssh.mjs 调用复用一条已认证 TCP ·
  *     服务端只看到 1 个连接 · 避开 PAM faillock / fail2ban / sshd MaxStartups ·
  *     stale socket 由 ControlMaster=auto 自动接管/重建,无需特殊处理
@@ -114,7 +115,8 @@ const CONNECT_TIMEOUT_SEC = 10;
 const CONTROL_PERSIST_SEC = 600;
 
 /**
- * ControlPath = /tmp/perf-kp-sql-cm-<sha1(host:port:user)[0..12]>.sock
+ * ControlPath = ~/.ssh/perf-kp-sql/cm-<sha1(host:port:user)[0..12]>.sock
+ * (长 HOME 回退 <tmpdir>/perf-kp-sql-cm-<hash>.sock · 防 /tmp 共享路径 socket 劫持)
  *
  * 稳定 hash · 同一 (host, port, user) 跨多次 cli-ssh 调用都得到同一 socket 路径,
  * ControlMaster=auto 自动接管已存活 master 或重建死 socket。
