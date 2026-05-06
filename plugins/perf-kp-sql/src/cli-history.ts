@@ -223,38 +223,12 @@ function writeError(msg: string): never {
   process.exit(1);
 }
 
-// 凭据脱敏:删 password / privateKeyPath / mongo_password 原始值,改 has_* bool。
-// password 进 LLM stdout = 进 transcript 永久落盘,违反 OWASP A02 / NIST 凭据隔离。
-// LLM 拿 has_password=true 后,调 ssh.mjs 加 --from-history-cred,由 ssh.mjs 自己读盘取真值。
-function redactHostCreds(h: HostEntry): Record<string, unknown> {
-  const out: Record<string, unknown> = { ...h };
-  if (typeof out.password === "string") {
-    out.has_password = true;
-    delete out.password;
-  } else {
-    out.has_password = false;
-  }
-  if (typeof out.privateKeyPath === "string") {
-    out.has_private_key_path = true;
-    delete out.privateKeyPath;
-  } else {
-    out.has_private_key_path = false;
-  }
-  if (typeof out.mongo_password === "string") {
-    out.has_mongo_password = true;
-    delete out.mongo_password;
-  } else {
-    out.has_mongo_password = false;
-  }
-  return out;
-}
-
 async function runLoad(argv: Record<string, string | boolean>): Promise<void> {
   const maxRaw = argv.max;
   const max = typeof maxRaw === "string" ? parseInt(maxRaw, 10) || 5 : 5;
   const path = historyPath();
   const hist = await loadHistory(path);
-  const hosts = sortAndCap(hist.hosts, max).map(redactHostCreds);
+  const hosts = sortAndCap(hist.hosts, max);
   process.stdout.write(JSON.stringify({ ok: true, hosts }));
 }
 
