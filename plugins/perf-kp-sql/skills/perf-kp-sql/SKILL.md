@@ -510,7 +510,11 @@ password / mongo_password 一律输出 `***`(全脱敏)· 不输出前 3 / 后 3
 片段进入 LLM transcript 与报告 · 长会话里能被前后文拼接还原。后续 SSH 命令的 host/user/port/auth_db
 参数必须与 banner 字段一一对应(密码字段不参与对齐 · banner 不再持有真值)。
 
-### 0.5 · SSH 参数门(Gates)
+### 0.5 · SSH 参数门(Gates · 兜底自检规则,正常路径不触发)
+
+正常路径(Phase 0.1 历史选单已选齐凭据 / 0.3 参数校验通过):**直接跳过本节进 0.6 / 0.7**,不触发任何自检 thinking。
+
+仅在 0.7 SSH 命令失败时回头查下面规则:
 
 **Gate 2** — SSH 命令的 host/user/port/password/privateKeyPath 必须与 banner 字面一致。
 
@@ -523,10 +527,11 @@ password / mongo_password 一律输出 `***`(全脱敏)· 不输出前 3 / 后 3
 
 ### 0.6 · DB 凭据预询问(凭据缺时前置)
 
-**触发**:DB 凭据缺(0.9.2 起只支持 mongo,无 engine 分支):
-- mongo 缺 `mongo_user` 或 `mongo_password` → 触发本步
+**触发条件**:`mongo_user` 或 `mongo_password` 任一字段为空 / 未提供。
 
-如果用户 slash args 已经把对应凭据传齐 → 跳过本步,直接进 0.7。
+**已齐路径(从历史选单或 slash args 拿到 mongo_user + mongo_password)**:跳过本节,**0.4 banner 渲染完直接进 0.7**,不思考、不询问、不 stop wait。
+
+**触发本节的判定**:仅当确实缺字段才进入下面 ask 流程。
 
 **为什么前置**:不问就跑后续采集会浪费 60-100s · 等到 Phase 3 DB 命令报 auth fail 才反向问 — 用户体验差。这里给用户一个**主动选择**的入口。
 
@@ -552,7 +557,9 @@ Stop and wait for the next turn。
 
 ### 0.7 · SSH 连通性探测 + 环境画像(关键 gate · 不通不进 Phase 1)
 
-凭据收齐 + banner 渲染后 · **立即跑一次 SSH** 拿环境画像 — 同时验证连通性。**这一步成功前不跟用户继续聊问题现象**。
+凭据收齐 + banner 渲染后,**banner 输出与本步执行放进同一个 assistant message** 连续动作,不在中间另起 thinking 或 stop wait:0.4 输出 banner → 同 message 立刻 Write cmd 文件 + Bash ssh.mjs --op exec + Bash notebooklm.mjs --op check 三个工具 block 一起发。
+
+**这一步成功前不跟用户继续聊问题现象**。
 
 固定 8 条命令(不依赖 case · 不依赖 collect-cmds.json):
 
