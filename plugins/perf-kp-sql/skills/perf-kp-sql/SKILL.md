@@ -578,6 +578,8 @@ Read(file_path="/Users/<yourlogin>/.perf-kp-sql/runs/<TS>/env.txt")
 > - 命令文件落 `~/.perf-kp-sql/tmp/perf-kp-sql-cmd-<TS>.txt`(用完即弃 · 不属于 run 产物)
 > - env probe 输出落 `~/.perf-kp-sql/runs/<TS>/env.txt`(归档进 run 目录)
 
+本步 SSH probe 与 0.10 `notebooklm.mjs --op check` 同 message 并行触发(两个 Bash content block,无数据依赖,各自 stdout 单独消化)。
+
 ### 0.8 · 连通性判定(关键 gate)
 
 | ssh.mjs 返回 | 判定 |
@@ -874,6 +876,8 @@ Read(file_path="<PLUGIN_ROOT>/data/cases/CASES.md", offset=<line>, limit=100)
 
 `limit=100` 经实测覆盖全部 109 case(最长 91 行)。若 LLM 读出来发现末尾还在 case 中部(没看到下一个 `## case_id:` 边界),用 `offset=<line+100>, limit=50` 再读一次拼接。
 
+收敛到 N(≤3)个 case 时,N 个 Read 放在同一个 assistant message 的 N 个 tool_use block 内一次性发出。
+
 LLM 解析单 case 完整字段(in-memory 记 · 后续 phase 用):
 
 **DF case**:
@@ -956,35 +960,32 @@ narration 写"开始拉指标 + 30s 火焰图(并行)"。**违规** — wrapper 
 
 (`capture-flamegraph.mjs` 是 wrapper · 内部自定位**姐妹 skill `cpu-flamegraph`** 后透传给 ta 的 `scripts/capture.mjs` 真正干活 · 跨 harness 兼容 · 依赖关系详见 Architecture 段「外部依赖」)
 
-3.A.4 · **按层拼 cmd 文件 · 操作系统层 + MongoDB 层各一次 SSH** · 落到 run 目录:
+3.A.4 · **按层拼 cmd 文件 · 操作系统层 + MongoDB 层同 message 并行 SSH** · 落到 run 目录:
 
-> **为什么按层拆**:0.44.0 起单目录归档 · run 目录里要看到 `collect-os.txt` 和 `collect-mongo.txt` 两个文件 · 用户 / 后续诊断回看时一眼能区分。task list 子结构(操作系统层 / MongoDB 层)也跟这两个文件一一对应 · 子项进度 = 这一层的 SSH 调用是否完成。
+> **为什么按层拆**:0.44.0 起单目录归档 · run 目录里要看到 `collect-os.txt` 和 `collect-mongo.txt` 两个文件 · 用户 / 后续诊断回看时一眼能区分。task list 子结构(操作系统层 / MongoDB 层)跟这两个文件一一对应。
 
-**操作系统层采集**(`collection_layer=os` 的 metric · CPU / 内存 / 磁盘 / 网络):
+两层独立 · 共用同一 ControlMaster socket(多 channel 并发)· 同一个 assistant message 内发两份 Write + 两份 Bash:
 
 ```
-Write(file_path="/Users/<yourlogin>/.perf-kp-sql/tmp/perf-kp-sql-cmd-<TS>.txt", content="<OS 层合并命令字面>")
+Write(file_path="/Users/<yourlogin>/.perf-kp-sql/tmp/perf-kp-sql-cmd-os-<TS>.txt", content="<OS 层合并命令字面>")
+Write(file_path="/Users/<yourlogin>/.perf-kp-sql/tmp/perf-kp-sql-cmd-mongo-<TS>.txt", content="<MongoDB 层合并命令字面>")
 Bash(command="node <PLUGIN_ROOT>/scripts/ssh.mjs --op exec \
        --host <ip> --user <user> [--privateKeyPath <path> | --password '<pw>'] [--port <n>] \
-       --command-file /Users/<yourlogin>/.perf-kp-sql/tmp/perf-kp-sql-cmd-<TS>.txt \
+       --command-file /Users/<yourlogin>/.perf-kp-sql/tmp/perf-kp-sql-cmd-os-<TS>.txt \
        --output-file /Users/<yourlogin>/.perf-kp-sql/runs/<TS>/collect-os.txt", timeout=120000)
-```
-
-OS 层完成 → task 3 子项 `操作系统层` 标 `✔` · 子项 `MongoDB 层` 切 `⏳` (update task content)。
-
-**MongoDB 层采集**(`collection_layer=mongo-shell` / `mongo-runtime-cmd` / `log-grep` 的 metric · 连接池 / 慢查询 / 锁竞争 / 存储引擎):
-
-```
-Write(file_path="/Users/<yourlogin>/.perf-kp-sql/tmp/perf-kp-sql-cmd-<TS>.txt", content="<MongoDB 层合并命令字面>")
 Bash(command="node <PLUGIN_ROOT>/scripts/ssh.mjs --op exec \
        --host <ip> --user <user> [--privateKeyPath <path> | --password '<pw>'] [--port <n>] \
-       --command-file /Users/<yourlogin>/.perf-kp-sql/tmp/perf-kp-sql-cmd-<TS>.txt \
+       --command-file /Users/<yourlogin>/.perf-kp-sql/tmp/perf-kp-sql-cmd-mongo-<TS>.txt \
        --output-file /Users/<yourlogin>/.perf-kp-sql/runs/<TS>/collect-mongo.txt", timeout=120000)
 ```
 
-MongoDB 层完成 → task 3 子项 `MongoDB 层` 标 `✔`。
+- 操作系统层 metric:`collection_layer=os`(CPU / 内存 / 磁盘 / 网络)
+- MongoDB 层 metric:`collection_layer=mongo-shell` / `mongo-runtime-cmd` / `log-grep`(连接池 / 慢查询 / 锁竞争 / 存储引擎)
+- cmd 文件用 `cmd-os-<TS>.txt` / `cmd-mongo-<TS>.txt` 两个不同后缀,避免并行覆写
 
-> **每条 cmd 文件用完后**:同一 `cmd-<TS>.txt` 路径直接覆写复用即可 · 它是临时文件 · 不进 run 目录归档。
+两个 Bash 都返回后,task 3 子项 `操作系统层` + `MongoDB 层` 同时标 `✔`。
+
+> **cmd 文件**:临时文件 · 不进 run 目录归档。
 
 3.A.5 · LLM Read 两个采集文件 → 解析 metric → value 映射 (in-memory):
 
@@ -1491,18 +1492,15 @@ Phase 5.4 的 `format-chat.mjs` 直接读这个 `runs/<TS>/report.md` 文件。
 
 ### 5.4 · session-close + chat 输出格式化报告
 
-```
-Bash(command="node <PLUGIN_ROOT>/scripts/ssh.mjs --op session-close \
-       --host <ip> --user <user> [--port <n>]")
-```
-
 #### 强制操作步骤(不许跳 · 不许重新组织语言)
 
 LLM 这一步**必须严格按操作步骤来 · 不许自由发挥**:
 
-**步骤 1 · 调 format-chat.mjs 拿终端宽度适配后的 chat 文本**:用 Bash 调 `format-chat.mjs` 直接读 5.3 落盘的 `.md` 报告文件。**不要靠 Phase 4 内存里的根因表自己重组**——必须真的发起一次 Bash 调用:
+**步骤 1 · 同 message 并行触发 session-close + format-chat**:两个 Bash 独立(session-close 是 fire-and-forget 收 master,stdout 仅 `{ok:true}` 不进 chat;format-chat 的 stdout 才是步骤 2 字面复制源),同一个 assistant message 内发两个 Bash content block:
 
 ```
+Bash(command="node <PLUGIN_ROOT>/scripts/ssh.mjs --op session-close \
+       --host <ip> --user <user> [--port <n>]")
 Bash(command="node <PLUGIN_ROOT>/scripts/format-chat.mjs --chat /Users/<yourlogin>/.perf-kp-sql/runs/<TS>/report.md --cols 140")
 ```
 
