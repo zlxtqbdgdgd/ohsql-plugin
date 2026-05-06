@@ -994,6 +994,8 @@ Read(file_path="/Users/<yourlogin>/.perf-kp-sql/runs/<TS>/collect-os.txt")
 Read(file_path="/Users/<yourlogin>/.perf-kp-sql/runs/<TS>/collect-mongo.txt")
 ```
 
+两个文件**各 Read 一次**(同 message 两个 Read tool_use block 并行),完整内容已在 context。后续阶段(3.A.6 阈值判定 / 4.A NLM query / 5.2 写报告)引用 metric 值时**直接用 in-memory 解析结果**,**不许**对同一 collect 文件再次 Read。如发现某个 metric 没采到,记入 missing 列表往下走,不要回头重新 Read。
+
 ### 3.B · nothing 模式(Phase 2 命中 0 · 用户现象描述模糊)
 
 3.B.1 · 加载 BP 索引:
