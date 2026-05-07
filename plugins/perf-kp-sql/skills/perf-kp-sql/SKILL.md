@@ -349,11 +349,11 @@ This skill 对外呈现 **5 步主任务**(对应内部 Phase 0-5 · Phase 6 是
 
 | 场景 | narration 模板 |
 |---|---|
-| Phase 0.7 env probe | `[1. 环境信息采集 · 系统/数据库版本/硬件信息]` |
-| Phase 3.A.4 OS 层采集 | `[3. 诊断指标采集 · 操作系统层 CPU/内存/磁盘/网络指标]` |
-| Phase 3.A.4 Mongo 层采集 | `[3. 诊断指标采集 · MongoDB 连接池/慢查询/锁/WiredTiger 指标]` |
-| Phase 3.A.3 火焰图 | `[3. 诊断指标采集 · mongod CPU 火焰图 perf 3s]` |
-| Phase 4.* 任意 NLM 调用(单/并行/batch) | `[4. 多源综合诊断 · 案例库 + NotebookLM 联网知识库]` |
+| Phase 0.7 env probe | `[1. 环境信息采集: 系统/数据库版本/硬件信息]` |
+| Phase 3.A.4 OS 层采集 | `[3. 诊断指标采集: 操作系统层 CPU/内存/磁盘/网络指标]` |
+| Phase 3.A.4 Mongo 层采集 | `[3. 诊断指标采集: MongoDB 连接池/慢查询/锁/WiredTiger 指标]` |
+| Phase 3.A.3 火焰图 | `[3. 诊断指标采集: mongod CPU 火焰图 perf 3s]` |
+| Phase 4.* 任意 NLM 调用(单/并行/batch) | `[4. 多源综合诊断: 案例库 + NotebookLM 联网知识库]` |
 | Phase 5.4 format-chat | `[5. 报告生成]` |
 
 **短 Bash(< 30s · 例如 mkdir / history.mjs / notebooklm check / session-close)**:不用 narration · 静默执行避免噪音。
@@ -371,7 +371,7 @@ This skill 对外呈现 **5 步主任务**(对应内部 Phase 0-5 · Phase 6 是
 
 **✅ 正例**:
 ```
-[4. 多源综合诊断 · 案例库 + NotebookLM 联网知识库]
+[4. 多源综合诊断: 案例库 + NotebookLM 联网知识库]
 
 ⏺ Bash(node /.../notebooklm.mjs --op query --domain mongo --query "..." )
 ```
@@ -493,7 +493,7 @@ Stop here and wait for the user's selection in the next turn。
 
 > Ask the user (with the missing field name as the topic):
 > ```
-> ━ kunpeng · 参数待补全 ━
+> ━ kunpeng: 参数待补全 ━
 > 还缺:<缺字段名>(例:SSH 密码 / SSH 私钥路径)
 > 请补充。
 > ```
@@ -503,7 +503,7 @@ Stop here and wait for the user's selection in the next turn。
 
 > Ask the user (with the bad field name as the topic):
 > ```
-> ━ kunpeng · 参数格式异常 ━
+> ━ kunpeng: 参数格式异常 ━
 > <字段名> 格式不对:<原值> → <期望格式 / 合法集合>
 > 请重新提供。
 > ```
@@ -517,9 +517,9 @@ Stop here and wait for the user's selection in the next turn。
 
 ```
 [连接信息]
-  · host=192.168.1.10 · user=admin · port=22 · engine=mongo
-  · password=ABC***XYZ
-  · mongo_password=ABC***XYZ · auth_db=admin
+  - host=192.168.1.10, user=admin, port=22, engine=mongo
+  - password=ABC***XYZ
+  - mongo_password=ABC***XYZ, auth_db=admin
 ```
 
 password 前 3 + `***` + 后 3 脱敏。后续 SSH 命令的 host/user/port/password/privateKeyPath 参数必须与 banner 字段一一对应。
@@ -606,10 +606,10 @@ troubleshooting 模板(连通性失败时给用户):
 SSH 连接失败:<err 字面消息>
 
 请检查:
-  · host=<ip> · port=<port> 是否可达(本地能否 ping / nc 通)
-  · user=<user> 是否存在
-  · <key 模式>privateKeyPath=<path> 文件是否存在 + 权限 600
-  · <password 模式>密码是否正确(可能含特殊字符未脱敏)
+  - host=<ip>, port=<port> 是否可达(本地能否 ping / nc 通)
+  - user=<user> 是否存在
+  - <key 模式>privateKeyPath=<path> 文件是否存在 + 权限 600
+  - <password 模式>密码是否正确(可能含特殊字符未脱敏)
 
 修好后重发 /perf-kp-sql 命令。
 ```
@@ -638,10 +638,10 @@ LLM 解析 ###标记### 切段 · 抽以下字段(in-memory 记):
 公告环境画像活动行(给用户看):
 
 ```
-  · OS · <distro> <kernel> · <arch>
-  · CPU · <model> · <cpu_count>核 · <numa_nodes> NUMA 节点
-  · 内存 · <mem_total>
-  · MongoDB · <version> · <deploy_form>
+  - OS: <distro> <kernel>, <arch>
+  - CPU: <model>, <cpu_count> 核, <numa_nodes> NUMA 节点
+  - 内存: <mem_total>
+  - MongoDB: <version>, <deploy_form>
 ```
 
 **历史 cached env 对照**(仅当 0.1 用户选了历史 N 时跑):
@@ -649,8 +649,8 @@ LLM 解析 ###标记### 切段 · 抽以下字段(in-memory 记):
 把刚拿到的 `[环境上下文]` 跟 `[history-cached-env]` 逐字段比对 · 任一字段变化(典型例:mongod_version 升级 · deploy_form 由 standalone 变 replica-set · arch 从 x86_64 变 aarch64)→ 在公告活动行追加一行变化提示:
 
 ```
-  · 环境变化 · MongoDB 7.0.31 → 8.0.5 · 已更新缓存
-  · 环境变化 · 单机 → 副本集 · 已更新缓存
+  - 环境变化: MongoDB 7.0.31 → 8.0.5 (已更新缓存)
+  - 环境变化: 单机 → 副本集 (已更新缓存)
 ```
 
 完全一致 → 不打提示行(默静)· cached env 仍会在 0.9.5 持久化询问时跟新值一起 save 刷新 `env_captured_at` 时间戳。
@@ -695,10 +695,10 @@ Bash(command="node <PLUGIN_ROOT>/scripts/history.mjs --op save \
 本次连接已存进历史(host / user / port / 环境画像)。
 
 是否把密码也一起保存到 ~/.ohsql/perf-kp-sql/hosts.json?
-(文件 chmod 600 · 仅本用户可读 · 下次选这条历史可免输密码)
+(文件 chmod 600, 仅本用户可读, 下次选这条历史可免输密码)
 请回复:
   1. 保存(SSH 密码 + MongoDB 密码都存)
-  2. 不保存(只本会话用 · 下次重输)
+  2. 不保存(只本会话用, 下次重输)
 ```
 
 **模板 B · 凭据更新覆盖**(场景 3):
@@ -709,7 +709,7 @@ Bash(command="node <PLUGIN_ROOT>/scripts/history.mjs --op save \
 是否用本次的密码覆盖 history 中的旧值?
 请回复:
   1. 覆盖保存(用新密码替换 history 中的旧值)
-  2. 不动 history(本会话照旧用新密码 · history 保留旧值)
+  2. 不动 history(本会话照旧用新密码, history 保留旧值)
 ```
 
 stop and wait for next turn。
@@ -779,8 +779,8 @@ Bash(command="node <PLUGIN_ROOT>/scripts/notebooklm.mjs --op refresh-auth --json
 **提示用户的话术**(need_browser_login 时):
 
 ```
-我已经打开了浏览器 · 请在浏览器里登录你的 Google 账号。
-登录完成后告诉我 · 或回复"跳过"走 仅案例 模式。
+我已经打开了浏览器, 请在浏览器里登录你的 Google 账号。
+登录完成后告诉我, 或回复"跳过"走 仅案例 模式。
 
 支持的浏览器: Chrome / Edge / Firefox / Safari / Brave / Arc / Vivaldi / Opera
 ```
@@ -819,13 +819,13 @@ mark task 1 (环境信息采集) completed → mark task 2 (诊断案例匹配) 
 ### 1.2 · 上下文化询问(用 [环境上下文] 让对话更具体)
 
 ```
-我已经连上你的机器(<distro> · <arch> · MongoDB <version> · <deploy_form>)。
+我已经连上你的机器(<distro>, <arch>, MongoDB <version>, <deploy_form>)。
 
-请简短描述你想诊断的问题 · 例如:
-  · "<arch=aarch64 时插这条:鲲鹏 ARM 上 mongod CPU 一直 90%+>"
-  · "<deploy_form=replica-set 时插这条:secondary 落后 primary 10 分钟>"
-  · "应用偶发 connection timeout · DB 侧无慢查询"
-  · "想做个整体配置巡检 · 看有没有问题"
+请简短描述你想诊断的问题, 例如:
+  - "<arch=aarch64 时插这条:鲲鹏 ARM 上 mongod CPU 一直 90%+>"
+  - "<deploy_form=replica-set 时插这条:secondary 落后 primary 10 分钟>"
+  - "应用偶发 connection timeout, DB 侧无慢查询"
+  - "想做个整体配置巡检, 看有没有问题"
 ```
 
 stop and wait for next turn。
@@ -940,7 +940,7 @@ mark task 2 (诊断案例匹配) completed → mark task 3 (诊断指标采集) 
 
 **目标**: 从命中 case 提采集命令 · SSH 批量采集指标 → 落盘 collect 文件。
 
-⚠️ **采集只采不诊断**(硬约束):Phase 3 全程**只做采集**。chat 通道**完全静默任何分析性陈述** —— 不许打 metric 数值、不许打案例匹配状态、不许打阈值对比、不许打因果推断、不许打"是否是根因 / 看起来正常 / 已排除"等判断词汇。**采集到的所有事实在 Phase 3 内部记忆中持有 · 一律留到 Phase 4 才开始判读**。允许的 chat 输出只有:`[3. 诊断指标采集 · ...]` narration 行 + task list 状态切换 + Bash 调用 + 必要的错误提示。如果 Read 完两份 collect 文件后想说"我看到 cache_used=94% 接近阈值" —— **立刻停**,这是 Phase 4 的事。
+⚠️ **采集只采不诊断**(硬约束):Phase 3 全程**只做采集**。chat 通道**完全静默任何分析性陈述** —— 不许打 metric 数值、不许打案例匹配状态、不许打阈值对比、不许打因果推断、不许打"是否是根因 / 看起来正常 / 已排除"等判断词汇。**采集到的所有事实在 Phase 3 内部记忆中持有 · 一律留到 Phase 4 才开始判读**。允许的 chat 输出只有:`[3. 诊断指标采集: ...]` narration 行 + task list 状态切换 + Bash 调用 + 必要的错误提示。如果 Read 完两份 collect 文件后想说"我看到 cache_used=94% 接近阈值" —— **立刻停**,这是 Phase 4 的事。
 
 ⚠️ **强制约束**:Phase 3 的 SSH 采集命令**必须来自 Phase 2.3 Read 拿到的单 case 完整字段里的 `collection_method_quote`** · 不允许 LLM 凭印象 / 经验 / 通用 ops 知识自己拍命令。具体:
 
@@ -1030,7 +1030,7 @@ Read(file_path="/Users/<yourlogin>/.perf-kp-sql/runs/<TS>/collect-os.txt")
 Read(file_path="/Users/<yourlogin>/.perf-kp-sql/runs/<TS>/collect-mongo.txt")
 ```
 
-⚠️ **Read 完后立即进 Phase 4 · 不许在 chat 出任何分析**:Phase 3 头部"采集只采不诊断"约束在 3.A.5 同样生效。Read 拿到 metric 文本只是**预读**,所有 metric→value 解析、案例阈值对比、根因初判**全部留到 Phase 4 阶段 1 案例直判**。3.A.5 之后下一个 chat 文本应该是 Phase 4 的 narration `[4. 多源综合诊断 · 案例库 + NotebookLM 联网知识库]` · 不是任何观察 / 描述 / 推断陈述。
+⚠️ **Read 完后立即进 Phase 4 · 不许在 chat 出任何分析**:Phase 3 头部"采集只采不诊断"约束在 3.A.5 同样生效。Read 拿到 metric 文本只是**预读**,所有 metric→value 解析、案例阈值对比、根因初判**全部留到 Phase 4 阶段 1 案例直判**。3.A.5 之后下一个 chat 文本应该是 Phase 4 的 narration `[4. 多源综合诊断: 案例库 + NotebookLM 联网知识库]` · 不是任何观察 / 描述 / 推断陈述。
 
 ### 3.B · nothing 模式(Phase 2 命中 0 · 用户现象描述模糊)
 
@@ -1412,7 +1412,7 @@ cache used=94.7%<br>接近阈值 95% [OBS+案例]
 
 ## 火焰图分析(若 Phase 3.A.3 采到)
 
-(此处插入 capture-flamegraph.mjs 输出的 Top-N 文本块 [LLM] · 用 markdown 缩进代码块或 ~~~ 围栏避免跟外层 \`\`\`markdown 围栏冲突 [LLM])
+(此处插入 capture-flamegraph.mjs 输出的 Top-N 文本块 [LLM], 用 markdown 缩进代码块或 ~~~ 围栏避免跟外层 \`\`\`markdown 围栏冲突 [LLM])
 
 ## 现场观测
 
