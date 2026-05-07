@@ -962,6 +962,35 @@ async function opAddDomain(domain, urlsFile) {
 
 // ── main ─────────────────────────────────────────────────────────────
 
+if (process.argv.slice(2).some((a) => a === "--help" || a === "-h")) {
+  process.stdout.write(
+    [
+      "Usage: notebooklm.mjs --op <op> [options]",
+      "",
+      "Ops:",
+      "  check                          检查 NLM CLI 安装 + 鉴权状态",
+      "  refresh-auth                   触发 NLM-relogin(rookiepy + 浏览器兜底)",
+      "  setup [--urls-file <path>]     首次注册 NLM domain",
+      "  query --domain <d> --query <q> [--json]      单条查询(d=os/mongo/kunpeng/auto)",
+      "  query-batch --from-diagnose <p> | --from-bp-list <p> [--hw-arch <a>] [--json]",
+      "                                  批量 BP 巡检(query-batch)",
+      "  add-domain --domain <d> --urls-file <path>   注册新 domain",
+      "",
+      "Options:",
+      "  --json                         结构化 JSON stdout",
+      "  --domain <d>                   os | mongo | kunpeng | auto",
+      "  --query <q>                    查询字面值",
+      "  --from-diagnose <path>         诊断 batch JSON 数组",
+      "  --from-bp-list <path>          BP 巡检 list JSON 数组",
+      "  --hw-arch <arch>               kunpeng | x86_64",
+      "  --urls-file <path>             setup / add-domain 的 urls.txt",
+      "  -h, --help                     显示本帮助",
+      "",
+    ].join("\n"),
+  );
+  process.exit(0);
+}
+
 const { values } = parseArgs({
   options: {
     op: { type: "string" },
