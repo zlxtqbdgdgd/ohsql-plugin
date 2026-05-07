@@ -1357,9 +1357,7 @@ cache used=94.7%<br>接近阈值 95% [OBS+案例]
 
 (此处插入 capture-flamegraph.mjs 输出的 Top-N 文本块 [LLM] · 用 markdown 缩进代码块或 ~~~ 围栏避免跟外层 \`\`\`markdown 围栏冲突 [LLM])
 
-## 现场观测(无权威来源 · 仅供参考 · 可选段 · 仅 案例 和 NLM 都无背书的根因才进这里)
-
-> 以下根因基于现场指标观测,但 案例 和 NotebookLM 均无对应权威文档背书,请独立验证后再采取行动:
+## 现场观测
 
 - **stress_test.cpu_burn 集合上 4 个并发 \$where JS 跑三角函数烧 CPU** [OBS]:db.currentOp 抓到 4 个 active query [OBS],planSummary=COLLSCAN [OBS],runtime 52-500s [OBS],客户端 127.0.0.1 [OBS]
   - 建议措施:`db.currentOp({active:true,ns:"stress_test.cpu_burn"}).inprog.forEach(op => db.adminCommand({killOp:1, op:op.opid}))` 立即止损 [LLM],排查发起方 [LLM],改写为可索引查询(凭经验,非权威) [LLM]
@@ -1414,14 +1412,13 @@ cache used=94.7%<br>接近阈值 95% [OBS+案例]
 - 该根因从主诊断表里**删掉**
 - 加到报告末尾的独立段:
   ```markdown
-  ## 现场观测(无权威来源 · 仅供参考)
-
-  > 以下根因基于现场指标观测 · 但 案例 和 NotebookLM 均无对应权威文档背书 · 请独立验证后再采取行动:
+  ## 现场观测
 
   - **<根因描述>**:<判定依据>
     - 建议措施:<可选 · LLM 凭经验给 · 标"凭经验 · 非权威">
     - 现场证据:<具体的 SSH/Bash 命令输出片段>
   ```
+  (该段语义"无权威来源,仅供参考"由其位置 + 与 `## 诊断结果` 主表的对比已自然表达,标题不再重复)
 - **绝对禁止**:把这种根因混进 `## 诊断结果` 主表 · 即使标 `(无案例引用)` · 也不许进主表
 
 **自检规则**(写 5.2 markdown 表前 LLM 必须自检):
