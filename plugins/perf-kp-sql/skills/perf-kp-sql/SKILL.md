@@ -897,6 +897,8 @@ mark task 2 (诊断案例匹配) completed → mark task 3 (诊断指标采集) 
 
 **目标**: 从命中 case 提采集命令 · SSH 批量采集指标 → 落盘 collect 文件。
 
+⚠️ **采集只采不诊断**(0.50.0 起硬约束):Phase 3 全程**只做采集**。chat 通道**完全静默任何分析性陈述** —— 不许打 metric 数值、不许打案例匹配状态、不许打阈值对比、不许打因果推断、不许打"是否是根因 / 看起来正常 / 已排除"等判断词汇。**采集到的所有事实在 Phase 3 内部记忆中持有 · 一律留到 Phase 4 才开始判读**。允许的 chat 输出只有:`[3. 诊断指标采集 · ...]` narration 行 + task list 状态切换 + Bash 调用 + 必要的错误提示。如果 Read 完两份 collect 文件后想说"我看到 cache_used=94% 接近阈值" —— **立刻停**,这是 Phase 4 的事。
+
 ⚠️ **强制约束**:Phase 3 的 SSH 采集命令**必须来自 Phase 2.3 Read 拿到的单 case 完整字段里的 `collection_method_quote`** · 不允许 LLM 凭印象 / 经验 / 通用 ops 知识自己拍命令。具体:
 
 - ❌ LLM 自己写 `top -b -n 1 -H -p $(pgrep mongod)` / `vmstat 1 5` / `mongostat --eval ...` 等通用命令 · 即使看起来"更快更全"
@@ -978,12 +980,14 @@ MongoDB 层完成 → task 3 子项 `MongoDB 层` 标 `✔`。
 
 > **每条 cmd 文件用完后**:同一 `cmd-<TS>.txt` 路径直接覆写复用即可 · 它是临时文件 · 不进 run 目录归档。
 
-3.A.5 · LLM Read 两个采集文件 → 解析 metric → value 映射 (in-memory):
+3.A.5 · LLM Read 两个采集文件 → 解析 metric → value 映射 (in-memory · 静默):
 
 ```
 Read(file_path="/Users/<yourlogin>/.perf-kp-sql/runs/<TS>/collect-os.txt")
 Read(file_path="/Users/<yourlogin>/.perf-kp-sql/runs/<TS>/collect-mongo.txt")
 ```
+
+⚠️ **Read 完后立即进 Phase 4 · 不许在 chat 出任何分析**:Phase 3 头部"采集只采不诊断"约束在 3.A.5 同样生效。Read 拿到 metric 文本只是**预读**,所有 metric→value 解析、案例阈值对比、根因初判**全部留到 Phase 4 阶段 1 案例直判**。3.A.5 之后下一个 chat 文本应该是 Phase 4 的 narration `[4. 多源综合诊断 · 案例库 + NotebookLM 联网知识库]` · 不是任何观察 / 描述 / 推断陈述。
 
 ### 3.B · nothing 模式(Phase 2 命中 0 · 用户现象描述模糊)
 
@@ -1319,28 +1323,23 @@ cache used=94.7%<br>接近阈值 95% [OBS+案例]
 
 #### 报告骨架
 
-> **开场白段强制**:报告**最顶部**(标题 `# perf-kp-sql · 性能诊断报告` 之前)**必须**字面复制 chat 通道的开场白文本(详见文档顶部 `# 开场白` 段) · 用 `~~~` 围栏包裹避免跟外层 markdown 内容冲突。这一段不进 lint 检查(`stripChatTags` / `lintReport` 会把 ## 之前的内容当 metadata 跳过) · 但**不许省略**。
+> **报告头部不写 ~~~ 围栏开场白**(0.50.0 起):chat 通道的 skill 加载开场白只在 chat 出现 · 不再进 report.md。报告从一级标题 `# perf-kp-sql 性能诊断报告` 开始。
 
 ```markdown
-~~~
-[perf-kp-sql · 鲲鹏 + MongoDB 性能诊断]
-
-我是一个鲲鹏场景下泛数据库性能诊断 skill,基于 202 条诊断案例 + NotebookLM 联网知识库,会通过以下流程定位性能瓶颈与根因:
-
-  1. 环境信息采集
-  2. 诊断案例匹配
-  3. 诊断指标采集
-  4. 多源综合诊断
-  5. 报告生成
-
-中途会问你:SSH 凭据、问题现象。
-~~~
-
-# perf-kp-sql · 性能诊断报告
+# perf-kp-sql 性能诊断报告
 
 - 诊断时间:<本地时间>
-- 目标主机:<ip> · <user> · port=<port> · engine=<engine>
-- 环境:<os_distro> <kernel> · <arch> · <cpu_model> · <mongod_version> · <deploy_form>
+- 目标主机
+  - IP:<ip>
+  - 用户:<user>
+  - 端口:<port>
+  - 引擎:<engine>
+- 环境
+  - OS:<os_distro> <kernel>
+  - 架构:<arch>
+  - CPU:<cpu_model>
+  - DB:<mongod_version>
+  - 部署:<deploy_form>
 
 ## 来源标记 (debug)
 
@@ -1365,35 +1364,34 @@ cache used=94.7%<br>接近阈值 95% [OBS+案例]
 
 ## 现场观测(无权威来源 · 仅供参考 · 可选段 · 仅 案例 和 NLM 都无背书的根因才进这里)
 
-> 以下根因基于现场指标观测 · 但 案例 和 NotebookLM 均无对应权威文档背书 · 请独立验证后再采取行动:
+> 以下根因基于现场指标观测,但 案例 和 NotebookLM 均无对应权威文档背书,请独立验证后再采取行动:
 
-- **stress_test.cpu_burn 集合上 4 个并发 \$where JS 跑三角函数烧 CPU** [OBS]:db.currentOp 抓到 4 个 active query [OBS] · planSummary=COLLSCAN [OBS] · runtime 52-500s [OBS] · 客户端 127.0.0.1 [OBS]
-  - 建议措施:`db.currentOp({active:true,ns:"stress_test.cpu_burn"}).inprog.forEach(op => db.adminCommand({killOp:1, op:op.opid}))` 立即止损 [LLM] · 排查发起方 [LLM] · 改写为可索引查询(凭经验·非权威) [LLM]
+- **stress_test.cpu_burn 集合上 4 个并发 \$where JS 跑三角函数烧 CPU** [OBS]:db.currentOp 抓到 4 个 active query [OBS],planSummary=COLLSCAN [OBS],runtime 52-500s [OBS],客户端 127.0.0.1 [OBS]
+  - 建议措施:`db.currentOp({active:true,ns:"stress_test.cpu_burn"}).inprog.forEach(op => db.adminCommand({killOp:1, op:op.opid}))` 立即止损 [LLM],排查发起方 [LLM],改写为可索引查询(凭经验,非权威) [LLM]
   - 现场证据:`<贴 currentOp 输出片段>` [OBS]
 
 ## 参考
 
-[参考1] WiredTiger Tuning — source.wiredtiger.com [CASE]
-        https://source.wiredtiger.com/mongodb-6.0/tune_cache.html
-[参考2] vm.swappiness 内核参数 — kernel.org [NLM]
-        https://www.kernel.org/doc/Documentation/sysctl/vm.txt
+[参考1] [WiredTiger Tuning](https://source.wiredtiger.com/mongodb-6.0/tune_cache.html) — source.wiredtiger.com [CASE]
+
+[参考2] [vm.swappiness 内核参数](https://www.kernel.org/doc/Documentation/sysctl/vm.txt) — kernel.org [NLM]
 ```
 
-**`## 参考` 段格式规范**:
+**`## 参考` 段格式规范**(0.50.0 起 markdown link 单行 + 段间空行):
 
-每条引用两行:
-- 第 1 行:`[参考N] <标题> — <domain> [<来源标签>]`
-- 第 2 行:`        <完整 URL>`(8 空格缩进)
+每条引用单行:
+- 形如:`[参考N] [<标题>](<完整 URL>) — <domain> [<来源标签>]`
+- **条与条之间必须空一行**(md 段落分隔 · 否则多条引用渲染时会合并成一段)
 
 **来源标签**(与正文 5 标签系统对齐 · 一律方括号):
 - `[CASE]` — 来自 CASES.md case 的 `source_url` 字段
 - `[NLM]` — 来自 NotebookLM 返回的 `references[].source_id`
 
 **标题提取**:
-- 案例 来源:用 case 的 `source_heading` 字段 · 没有时用 `title` 字段
-- NLM 来源:用 NLM 返回的 `references[].title` 字段 · 没有时从 URL 路径推断短标题
+- 案例 来源:用 case 的 `source_heading` 字段,没有时用 `title` 字段
+- NLM 来源:用 NLM 返回的 `references[].title` 字段,没有时从 URL 路径推断短标题
 
-**domain 提取**:从 URL 取 hostname · 去 `www.` 前缀(例 `mongodb.com` · `kernel.org` · `cnblogs.com/huaweicloud`)
+**domain 提取**:从 URL 取 hostname,去 `www.` 前缀(例 `mongodb.com` / `kernel.org` / `cnblogs.com/huaweicloud`)
 
 ### `[参考N]` URL 强制溯源约束(绝对红线 · LLM 历史多次违反)
 
@@ -1444,6 +1442,23 @@ cache used=94.7%<br>接近阈值 95% [OBS+案例]
 - 独立"现场观测"段明确告知"这是观察 · 不是诊断结论 · 请验证" → 用户能区别对待
 
 **违反后果**:用户拿报告点 [参考N] 角标 → 404 / 错文档 → 用户失去信任 / 工具失去权威性。这跟跳过 案例 写命令是同一种 bug:LLM 偏见 vs 案例库硬路径。
+
+### `## 已排除的案例` / `## 排除清单` / 类似语义段落 · 一律禁止(0.50.0 起)
+
+**绝对禁止**在 report.md 中出现以下任何形式的"已排除"独立段落:
+- ❌ `## 已排除的案例(指标正常 · 非根因)` / `## 已排除清单` / `## 排除项` / `## 不是根因的候选` 任何同义变体
+- ❌ 即使每条都标 `[OBS]` / `[CASE]` / `[NLM]` 角标 · **段落本身不许出现**
+- ❌ "WT 缓存驱逐 [IDX]:bytes in cache=63% · 远低于 95% eviction_trigger,状态正常" 这种把 Phase 2 候选筛掉过程暴露给用户的内容
+
+**理由**:
+- 用户拿报告是为了**看根因 + 看建议**,不是看 LLM 内部筛了多少候选
+- "已排除"段把 Phase 2 候选 case 列表暴露给用户 = SKILL.md 用户可见消息禁用元词清单第一条违反
+- 实测 LLM 写这段时常用 `·` 串接多个观察 fact,既冗长又跟用户决策无关
+
+**正确处理**:
+- 命中但确认不是根因的 case → 内部记忆持有 · **不进报告任何段落**
+- 现场抓到但 案例/NLM 都无背书的现象 → 走 `## 现场观测(无权威来源)` 段(已有规范 · 见上节)
+- 这两类的差别:`已排除` 是 Phase 2 路由筛掉的候选 case · `现场观测` 是 Phase 3 采集到 / Phase 4 判读后无权威背书的现象。前者**永远不写报告**,后者**只写到现场观测段不写主表**。
 
 ### 5.3 · 落盘(0.44.0 单目录归档)
 

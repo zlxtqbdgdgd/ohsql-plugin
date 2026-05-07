@@ -8,33 +8,11 @@
 - MongoDB Atlas Performance Advisor 给 Index + Schema + 样本查询,按 Impact 排序
 - Percona PMM Advisor 按 Configuration/Performance/Query/Security 分 4 类
 
-我们对这三家的取交集再扩展:**开场白 → metadata → Top → Full → 验证命令 → 引用 → Artifacts**。
+我们对这三家的取交集再扩展:**metadata → Top → Full → 验证命令 → 引用 → Artifacts**(0.50.0 起 chat 通道才打开场白 · md 报告不打)。
 
 ---
 
-## 报告结构(8 段 · 0.44.0 起多了 0. 开场白)
-
-### 0. 开场白(0.44.0 加 · 必须字面打 · 不许省)
-
-报告**最顶部**(Metadata card 之前)字面打 SKILL.md `# 开场白` 段的 5 步流程预告 · 用 `~~~` 围栏包裹避免跟外层 markdown 内容冲突。这一段不进 lint 检查 · 但**不许省略**。
-
-```
-~~~
-[perf-kp-sql · 鲲鹏 + MongoDB 性能诊断]
-
-我是一个鲲鹏场景下泛数据库性能诊断 skill,基于 202 条诊断案例 + NotebookLM 联网知识库,会通过以下流程定位性能瓶颈与根因:
-
-  1. 环境信息采集
-  2. 诊断案例匹配
-  3. 诊断指标采集
-  4. 多源综合诊断
-  5. 报告生成
-
-中途会问你:SSH 凭据、问题现象。
-~~~
-```
-
-**为什么字面打两遍**(chat 通道 + md 报告头部):用户看 chat 时以为 skill 在干啥,看 md 报告时也能马上知道这是个什么报告。两个通道目标用户不同 · 都不能省。
+## 报告结构(7 段 · 0.50.0 起删除 §0 开场白 · 保留 chat 通道开场白)
 
 ### 1. Metadata card
 
@@ -220,9 +198,21 @@ spec § 3.7 MVL 最小闭环 · 当前仅展示命令占位 · runner 实装排 
 - 旧 `~/.perf-kp-sql/tmp/perf-kp-sql-os-<TS>.txt` / `perf-kp-sql-mongo-db-<TS>.txt` → 新 `~/.perf-kp-sql/runs/<TS>/collect-os.txt` / `collect-mongo.txt`
 - SSH command-file 临时文件仍走 `~/.perf-kp-sql/tmp/perf-kp-sql-cmd-<TS>.txt`(用完即弃 · 不属于 run 产物)
 
-### 7. 参考(v0.3.8)
+### 7. 参考(0.50.0 起 markdown link 单行 · 段间空行)
 
-**LLM 直接写此段** · 扫 Top Issues 里的 `[参考N]` 角标 + 参考资料汇总表第 N 行 · 在本段生成 `[参考N] <url>` 列表 · `scripts/format-chat.mjs --chat <report.md>` 在 chat 输出前会做格式 lint。
+**LLM 直接写此段** · 扫 Top Issues 里的 `[参考N]` 角标 + 参考资料汇总表第 N 行 · 在本段生成 markdown link 形态的引用列表 · `scripts/format-chat.mjs --chat <report.md>` 在 chat 输出前会做格式 lint。
+
+格式:
+
+```markdown
+## 参考
+
+[参考1] [<标题>](<完整 URL>) — <domain> [<来源标签>]
+
+[参考2] [<标题>](<完整 URL>) — <domain> [<来源标签>]
+```
+
+每条引用单行(标题嵌进 markdown link · URL 可点),**条与条之间必须空一行**(否则 md 渲染会合并成一段连续文字)。来源标签限 `[CASE]` / `[NLM]`。
 
 **LLM 的责任**:只在 Top Issues 的 Why/机制/代价/例外 句末挂 `[参考N]` 即可 · N 对应"参考资料汇总"表里**行号**(1-based · tier 分组内顺序)。
 
