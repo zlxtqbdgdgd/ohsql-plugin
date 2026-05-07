@@ -77,13 +77,13 @@ NLM 返回的内容跟 案例 等价可信(Google 检索系统 · references 是
 skill 一被触发(参数解析 / 历史复用 / 收凭据 之前) · LLM **必须**立即向用户打屏以下文本(字面 · 不许重写措辞 · 不许加 emoji · 不许合并行) · 让用户立刻知道接下来会经历什么:
 
 ```
-perf-kp-sql 是一个鲲鹏场景下泛数据库性能诊断 skill，基于 202 条案例 + NotebookLM 联网知识库，主要流程如下:
+perf-kp-sql 基于 202 条案例 + NotebookLM 联网知识库，在鲲鹏场景下进行泛数据库性能诊断，主要流程如下：
 
-  1. 环境信息采集
-  2. 诊断案例匹配
-  3. 诊断指标采集
-  4. 多源综合诊断
-  5. 报告生成
+1. 环境信息采集
+2. 诊断案例匹配
+3. 诊断指标采集
+4. 多源综合诊断
+5. 报告生成
 ```
 
 **输出位置**:chat 通道 · Phase 0 启动后**立刻打屏**(在历史复用 / 收凭据 / banner 之前 · 是 skill 触发后用户看到的第一段 LLM 输出)。
@@ -447,11 +447,11 @@ Bash(command="node <PLUGIN_ROOT>/scripts/history.mjs --op load --max 5")
 hosts **非空** 时,prose 模板:
 
 ```
-请选择历史连接或新建:
-
-  1. 192.168.1.10, admin, port=22, MongoDB 7.0.31, Kunpeng-920 ARM, 单机, 上次 2 小时前
-  2. 10.20.30.40, ec2-user, port=22, MongoDB 6.0.13, x86_64, 副本集, 上次 3 天前
-  N. 新连接, 手动输入参数
+请选择历史连接或新建：
+历史连接：
+    1. 192.168.1.10, admin, port=22, MongoDB 7.0.31, Kunpeng-920 ARM, 单机, 上次使用：2 小时前
+    2. 10.20.30.40, ec2-user, port=22, MongoDB 6.0.13, x86_64, 副本集, 上次使用：3 天前
+新连接：请手动输入参数
 ```
 
 每条把 `env` 摘要(`MongoDB <version>, <cpu_model> <arch>, <deploy_form>`)接在 host/user/port 后面 · 帮用户识别多台机器。`env` 字段缺失(老 hosts.json 没缓存过)→ 跳过这一段 · 只显示 host/user/port。
@@ -460,8 +460,7 @@ hosts **空** 时,prose 模板:
 
 ```
 暂无历史连接。
-
-  1. 新连接, 手动输入参数
+新连接：请手动输入参数
 ```
 
 Stop here and wait for the user's selection in the next turn。
