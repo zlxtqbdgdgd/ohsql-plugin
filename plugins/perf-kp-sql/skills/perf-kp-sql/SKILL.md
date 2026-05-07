@@ -447,21 +447,21 @@ Bash(command="node <PLUGIN_ROOT>/scripts/history.mjs --op load --max 5")
 hosts **非空** 时,prose 模板:
 
 ```
-请选择最近使用过的连接 · 或新建:
+请选择历史连接或新建:
 
-  1. 192.168.1.10 · admin · port=22 · MongoDB 7.0.31 · Kunpeng-920 ARM · 单机 · 上次 2 小时前
-  2. 10.20.30.40 · ec2-user · port=22 · MongoDB 6.0.13 · x86_64 · 副本集 · 上次 3 天前
-  N. 新连接 · 手动输入参数
+  1. 192.168.1.10, admin, port=22, MongoDB 7.0.31, Kunpeng-920 ARM, 单机, 上次 2 小时前
+  2. 10.20.30.40, ec2-user, port=22, MongoDB 6.0.13, x86_64, 副本集, 上次 3 天前
+  N. 新连接, 手动输入参数
 ```
 
-每条把 `env` 摘要(`MongoDB <version> · <cpu_model> <arch> · <deploy_form>`)接在 host/user/port 后面 · 帮用户识别多台机器。`env` 字段缺失(老 hosts.json 没缓存过)→ 跳过这一段 · 只显示 host/user/port。
+每条把 `env` 摘要(`MongoDB <version>, <cpu_model> <arch>, <deploy_form>`)接在 host/user/port 后面 · 帮用户识别多台机器。`env` 字段缺失(老 hosts.json 没缓存过)→ 跳过这一段 · 只显示 host/user/port。
 
 hosts **空** 时,prose 模板:
 
 ```
 暂无历史连接。
 
-  1. 新连接 · 手动输入参数
+  1. 新连接, 手动输入参数
 ```
 
 Stop here and wait for the user's selection in the next turn。
