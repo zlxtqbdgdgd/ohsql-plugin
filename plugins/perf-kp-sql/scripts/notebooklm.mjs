@@ -377,31 +377,56 @@ async function opSetup(urlsFile) {
 
   // Step 9: 安装/升级 pip packages (notebooklm-py + rookiepy · 不再装 Playwright)
   console.error("→ 安装/升级 notebooklm-py + rookiepy...");
-  const pipArgs = ["install", "-U", "notebooklm-py", "rookiepy"];
+  const baseArgs = ["install", "-U", "notebooklm-py", "rookiepy"];
   const pipCandidates = detectedEnv?.pip
     ? [detectedEnv.pip, "pip3", "pip"]
     : ["pip3", "pip"];
-  let pipOk = false;
-  for (const cmd of pipCandidates) {
-    const r = spawnSync(cmd, pipArgs, {
+
+  // PEP 668 (macOS Homebrew Python 3.11+ / Debian 12+) 把 system-wide pip 装包封死
+  // 策略:每个 pip 候选先试普通装,看到 externally-managed-environment 错才加 --break-system-packages 再试
+  function tryPipInstall(cmd, extraArgs = []) {
+    const r = spawnSync(cmd, [...baseArgs, ...extraArgs], {
       encoding: "utf8",
       timeout: 180_000,
       stdio: ["pipe", "pipe", "pipe"],
     });
+    return r;
+  }
+
+  let pipOk = false;
+  let usedFallback = false;
+  for (const cmd of pipCandidates) {
+    let r = tryPipInstall(cmd);
     if (r.status === 0) {
       pipOk = true;
       console.error(`  ✓ 用 ${cmd} 装齐`);
       break;
     }
+    const stderr = r.stderr ?? "";
+    // PEP 668 命中 → 重试加 --break-system-packages
+    if (/externally-managed-environment/i.test(stderr)) {
+      console.error(`  ${cmd} 命中 PEP 668 · 重试加 --break-system-packages`);
+      r = tryPipInstall(cmd, ["--break-system-packages"]);
+      if (r.status === 0) {
+        pipOk = true;
+        usedFallback = true;
+        console.error(`  ✓ 用 ${cmd} --break-system-packages 装齐`);
+        break;
+      }
+    }
     console.error(`${cmd} install 失败: ${(r.stderr ?? "").slice(0, 300)}`);
   }
   if (!pipOk) {
+    const hint = detectedEnv?.pip
+      ? `${detectedEnv.pip} install -U --break-system-packages notebooklm-py rookiepy`
+      : "pip install -U --break-system-packages notebooklm-py rookiepy";
     return out({
       ok: false,
-      error: detectedEnv?.pip
-        ? `pip install 失败 · 请手动跑:${detectedEnv.pip} install -U notebooklm-py rookiepy`
-        : "pip install notebooklm-py rookiepy 失败 · 请手动跑:pip install -U notebooklm-py rookiepy",
+      error: `pip install notebooklm-py rookiepy 失败 · 请手动跑:${hint}`,
     });
+  }
+  if (usedFallback) {
+    console.error("  注:走的 PEP 668 兜底路径(--break-system-packages)。系统级 site-packages 里多两个包是预期的。");
   }
 
   // Step 10: cookie extraction via rookiepy (auto-detect browser)
