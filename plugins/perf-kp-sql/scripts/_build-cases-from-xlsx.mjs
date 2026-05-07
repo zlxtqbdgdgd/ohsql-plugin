@@ -330,7 +330,7 @@ const casesDir = join(outDir, "cases");
 const bpDir = join(outDir, "best-practice");
 
 // 只清 cases/ 与 best-practice/ 两个子目录(若存在)
-// 不清 outDir 顶层(避免误删兄弟文件 collect-cmds.json / notebooklm-urls.json)
+// 不清 outDir 顶层(避免误删兄弟文件 notebooklm-urls.json 等)
 if (existsSync(casesDir)) rmSync(casesDir, { recursive: true, force: true });
 if (existsSync(bpDir)) rmSync(bpDir, { recursive: true, force: true });
 
