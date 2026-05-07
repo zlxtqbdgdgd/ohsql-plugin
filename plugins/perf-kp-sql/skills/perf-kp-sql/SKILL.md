@@ -449,11 +449,11 @@ hosts **非空** 时,prose 模板:
 ```
 请选择历史连接或新建：
 
-  历史连接：
+  - 历史连接：
       1. 192.168.1.10, admin, port=22, MongoDB 7.0.31, Kunpeng-920 ARM, 单机, 上次使用：2 小时前
       2. 10.20.30.40, ec2-user, port=22, MongoDB 6.0.13, x86_64, 副本集, 上次使用：3 天前
 
-  新连接：请手动输入参数
+  - 新连接：请手动输入参数
 ```
 
 每条把 `env` 摘要(`MongoDB <version>, <cpu_model> <arch>, <deploy_form>`)接在 host/user/port 后面 · 帮用户识别多台机器。`env` 字段缺失(老 hosts.json 没缓存过)→ 跳过这一段 · 只显示 host/user/port。
@@ -463,7 +463,7 @@ hosts **空** 时,prose 模板:
 ```
 暂无历史连接。
 
-  新连接：请手动输入参数
+  - 新连接：请手动输入参数
 ```
 
 Stop here and wait for the user's selection in the next turn。
