@@ -127,9 +127,11 @@ function renderTable(headerCells, dataRows) {
 const content = readFileSync(reportPath, "utf8");
 const lines = content.split("\n");
 
-// 按 ## 标题切段
-function extractSection(heading) {
-  const startIdx = lines.findIndex(l => l.trim() === heading);
+// 按 ## 标题切段(exact / prefix 两种匹配)
+function findSectionStart(matcher) {
+  return lines.findIndex(l => matcher(l.trim()));
+}
+function sliceSection(startIdx) {
   if (startIdx < 0) return null;
   let endIdx = lines.length;
   for (let i = startIdx + 1; i < lines.length; i++) {
@@ -137,11 +139,18 @@ function extractSection(heading) {
   }
   return { start: startIdx, end: endIdx, lines: lines.slice(startIdx, endIdx) };
 }
+function extractSection(heading) {
+  return sliceSection(findSectionStart(t => t === heading));
+}
+function extractSectionByPrefix(prefix) {
+  return sliceSection(findSectionStart(t => t.startsWith(prefix)));
+}
 
 const diagSection = extractSection("## 诊断结果");
 const flameSection = extractSection("## 火焰图分析");
 const refSection = extractSection("## 参考");
-const observeSection = extractSection("## 现场观测(无权威来源 · 仅供参考 · 可选段 · 仅 KB 和 NLM 都无背书的根因才进这里)");
+// 现场观测段头实际写法多变(2 / 4 个条件版本都见过) · 用 prefix 匹配避免漏接
+const observeSection = extractSectionByPrefix("## 现场观测");
 
 if (!diagSection) {
   console.error("⚠ 未找到 ## 诊断结果");
