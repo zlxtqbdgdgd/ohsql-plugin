@@ -1,18 +1,27 @@
 #!/usr/bin/env node
 /**
- * notebooklm.mjs — NotebookLM 增强层 CLI 入口
+ * notebooklm.mjs — perf-kp-sql NotebookLM 集成 adapter
  *
- * 单入口 · 5 个 op:
- *   --op check        检查状态 (CLI 是否安装 / 认证 / notebooks)
- *   --op setup        初始化 (pip install → cookie 提取 → 创建 notebooks → 添加 URL)
- *   --op query        单条查询
- *   --op query-batch  批量查询 (诊断结果 → 深入分析)
- *   --op add-domain   注册新领域
+ * 不造轮子 · 全部能力来自上游 jacob-bd/notebooklm-mcp-cli (4.2K star · CDP 标准做法)
+ * adapter 只做:参数透传 + JSON 解析 + domain 路由 + 配置文件读写 + 失败降级
  *
- * JSON-in / JSON-out 契约 · 与 ssh.mjs 同模式。
+ * 单入口 · 7 个 op:
+ *   --op check        检查状态 (nlm 装 / 鉴权 / notebooks)
+ *   --op refresh-auth 凭据失效时触发重登 (spawn nlm login · 隔离 Chrome 弹窗)
+ *   --op setup        uv tool install + nlm login + 建 notebooks + 加 sources
+ *   --op disable      用户跳过 NLM · 写 skipped 标记 · 0 依赖
+ *   --op query        单条查询 (auto domain 路由)
+ *   --op query-batch  批量查询 (chunk 5)
+ *   --op add-domain   注册新 domain
+ *
+ * 关键事实(adapter 必须遵守):
+ *   - nlm 错误走 stdout(不是 stderr)· exit 1/2 区分 · 必须先判 exit code
+ *   - nlm login --check exit 0 = 有效 / exit 2 = 失效
+ *   - nlm source add 无 --json · 解析 stdout regex `Source ID: <id>` 兜底
+ *   - spawn 加 NO_COLOR=1 + TERM=dumb 防 ANSI
  */
 
-import { spawnSync, execSync, spawn } from "node:child_process";
+import { spawnSync, spawn } from "node:child_process";
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { resolve, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -25,6 +34,9 @@ const PLUGIN_ROOT = resolve(__dirname, "..");
 const CONFIG_DIR = join(homedir(), ".perf-kp-sql");
 const CONFIG_PATH = join(CONFIG_DIR, "notebooklm.json");
 const URLS_PATH = join(PLUGIN_ROOT, "data", "notebooklm-urls.json");
+
+// 防 nlm rich Console ANSI 颜色
+const NLM_SPAWN_ENV = { ...process.env, NO_COLOR: "1", TERM: "dumb" };
 
 // ── helpers ──────────────────────────────────────────────────────────
 
@@ -46,6 +58,17 @@ function loadConfig() {
   }
 }
 
+function saveConfig(cfg) {
+  mkdirSync(CONFIG_DIR, { recursive: true });
+  writeFileSync(CONFIG_PATH, JSON.stringify(cfg, null, 2));
+}
+
+function loadUrlsJson(urlsFile) {
+  const p = urlsFile ?? URLS_PATH;
+  if (!existsSync(p)) fatal(`notebooklm-urls.json not found: ${p}`);
+  return JSON.parse(readFileSync(p, "utf8"));
+}
+
 /** Resolve NLM source_id UUIDs → actual source URLs using config mapping */
 function resolveSourceIds(references, cfg) {
   if (!references || !Array.isArray(references) || !cfg?.notebooks) return references;
@@ -62,22 +85,14 @@ function resolveSourceIds(references, cfg) {
   });
 }
 
-function saveConfig(cfg) {
-  mkdirSync(CONFIG_DIR, { recursive: true });
-  writeFileSync(CONFIG_PATH, JSON.stringify(cfg, null, 2));
-}
-
-function loadUrlsJson(urlsFile) {
-  const p = urlsFile ?? URLS_PATH;
-  if (!existsSync(p)) fatal(`notebooklm-urls.json not found: ${p}`);
-  return JSON.parse(readFileSync(p, "utf8"));
-}
+// ── nlm CLI 调用层 ──────────────────────────────────────────────────
 
 function isCliInstalled() {
   try {
-    const r = spawnSync("notebooklm", ["--version"], {
+    const r = spawnSync("nlm", ["--version"], {
       encoding: "utf8",
       timeout: 10_000,
+      env: NLM_SPAWN_ENV,
     });
     return r.status === 0;
   } catch {
@@ -86,69 +101,43 @@ function isCliInstalled() {
 }
 
 function nlmExec(args, { timeoutMs = 60_000 } = {}) {
-  const r = spawnSync("notebooklm", args, {
+  const r = spawnSync("nlm", args, {
     encoding: "utf8",
     timeout: timeoutMs,
+    env: NLM_SPAWN_ENV,
   });
   return { status: r.status, stdout: (r.stdout ?? "").trim(), stderr: (r.stderr ?? "").trim() };
 }
 
+/**
+ * spawn nlm 子命令 + JSON 解析
+ * 注意:nlm 错误走 stdout · 必须先判 exit code · 失败时不 JSON.parse
+ */
 function nlmJson(args, opts) {
   const r = nlmExec([...args, "--json"], opts);
-  if (r.status !== 0) return { ok: false, raw: r };
+  if (r.status !== 0) {
+    return { ok: false, raw: r };
+  }
   try {
     return { ok: true, data: JSON.parse(r.stdout), raw: r };
   } catch {
+    // exit 0 但 stdout 非 JSON · 尝试取末尾 JSON 片段(rich 多行包了 JSON 的情况)
+    const lastBrace = r.stdout.lastIndexOf("{");
+    const firstBracket = r.stdout.indexOf("[");
+    const start = lastBrace !== -1 ? lastBrace : firstBracket;
+    if (start !== -1) {
+      try {
+        return { ok: true, data: JSON.parse(r.stdout.slice(start)), raw: r };
+      } catch {}
+    }
     return { ok: false, raw: r };
   }
-}
-
-// 鉴权失败识别 — stdout JSON error 字段 / stderr 关键字 任一命中即算认证类失败
-// 命中后立即返回原结果 → 让上层走 NLM-relogin 流程 · 不做 retry
-const AUTH_STDOUT_RE = /auth_expired|unauthorized|cookie_invalid|cookie expired|认证未通过/i;
-const AUTH_STDERR_RE = /401|403|Authentication failed|认证未通过|cookie/i;
-
-function isAuthFailure(r) {
-  if (!r || r.ok) return false;
-  const stdout = r.raw?.stdout ?? "";
-  const stderr = r.raw?.stderr ?? "";
-  // stdout JSON 含 error 字段
-  if (stdout) {
-    try {
-      const parsed = JSON.parse(stdout);
-      const err = parsed?.error;
-      if (typeof err === "string" && AUTH_STDOUT_RE.test(err)) return true;
-      // 也允许 error 是 object · 取其 code / message
-      if (err && typeof err === "object") {
-        const blob = JSON.stringify(err);
-        if (AUTH_STDOUT_RE.test(blob)) return true;
-      }
-    } catch {
-      // 非 JSON · 直接对原文字符串扫
-      if (AUTH_STDOUT_RE.test(stdout)) return true;
-    }
-  }
-  if (stderr && AUTH_STDERR_RE.test(stderr)) return true;
-  return false;
-}
-
-// nlmJson(["ask", ...]) 的 retry 包装 · 透明地完成第一次失败后的 1 次 retry
-// LLM 只 call 一次 · 内部失败时(非鉴权)等 2s 再打一次 · 只有两次都挂才返回失败
-// 返回结果对象里加 attempts: 1 | 2 字段 · 方便上层 / 报告诊断
-function nlmAskWithRetry(args, opts) {
-  const first = nlmJson(args, opts);
-  if (first.ok) return { ...first, attempts: 1 };
-  if (isAuthFailure(first)) return { ...first, attempts: 1 };
-  // 非鉴权失败 · 等 2s 再打一次
-  spawnSync("sleep", ["2"]);
-  const second = nlmJson(args, opts);
-  return { ...second, attempts: 2 };
 }
 
 /** async spawn — 返回 Promise<{status, stdout, stderr}> */
 function nlmExecAsync(args, { timeoutMs = 60_000 } = {}) {
   return new Promise((resolve) => {
-    const child = spawn("notebooklm", args, { timeout: timeoutMs });
+    const child = spawn("nlm", args, { timeout: timeoutMs, env: NLM_SPAWN_ENV });
     let stdout = "", stderr = "";
     child.stdout?.on("data", (d) => (stdout += d));
     child.stderr?.on("data", (d) => (stderr += d));
@@ -157,18 +146,50 @@ function nlmExecAsync(args, { timeoutMs = 60_000 } = {}) {
   });
 }
 
-/** async spawn + JSON parse */
 async function nlmJsonAsync(args, opts) {
   const r = await nlmExecAsync([...args, "--json"], opts);
   if (r.status !== 0) return { ok: false, raw: r };
   try {
     return { ok: true, data: JSON.parse(r.stdout), raw: r };
   } catch {
+    const lastBrace = r.stdout.lastIndexOf("{");
+    const firstBracket = r.stdout.indexOf("[");
+    const start = lastBrace !== -1 ? lastBrace : firstBracket;
+    if (start !== -1) {
+      try {
+        return { ok: true, data: JSON.parse(r.stdout.slice(start)), raw: r };
+      } catch {}
+    }
     return { ok: false, raw: r };
   }
 }
 
-/** 并发执行，限制并发度 */
+// 鉴权失败识别 — nlm 错误模式
+//   exit 2 = login --check 凭据失效
+//   exit 1 + stdout 含 "Profile not found" / "Authentication failed" / "Error: ..." = 鉴权失败
+const AUTH_RE = /Profile.*not found|Authentication failed|✗ Authentication|auth_expired|unauthorized|cookie_invalid|cookie expired|认证未通过|401|403/i;
+
+function isAuthFailure(r) {
+  if (!r || r.ok) return false;
+  if (r.raw?.status === 2) return true;
+  const stdout = r.raw?.stdout ?? "";
+  const stderr = r.raw?.stderr ?? "";
+  if (stdout && AUTH_RE.test(stdout)) return true;
+  if (stderr && AUTH_RE.test(stderr)) return true;
+  return false;
+}
+
+// nlm query 重试包装 · 非鉴权失败时等 2s 再打一次
+function nlmAskWithRetry(args, opts) {
+  const first = nlmJson(args, opts);
+  if (first.ok) return { ...first, attempts: 1 };
+  if (isAuthFailure(first)) return { ...first, attempts: 1 };
+  spawnSync("sleep", ["2"]);
+  const second = nlmJson(args, opts);
+  return { ...second, attempts: 2 };
+}
+
+/** 并发执行 · 限制并发度 */
 async function concurrentBatch(items, concurrency, fn) {
   const results = [];
   for (let i = 0; i < items.length; i += concurrency) {
@@ -179,103 +200,79 @@ async function concurrentBatch(items, concurrency, fn) {
   return results;
 }
 
+/** 验证 nlm 当前 profile 凭据是否有效 · 用 `nlm login --check` exit 0/2 */
 function checkAuth() {
-  // 两层验证:
-  // 1. 本地 cookie 文件 sanity (auth check --test) — 文件存在 / 格式合法 / cookie 域 OK
-  // 2. 真打一次 API 验证 Google 侧 session 也 OK (list 命令)
-  // 因为 auth check --test 只验本地 · Google 侧 cookie 过期时它仍会通过 · 但 API 调用 401。
-  const localR = nlmExec(["auth", "check", "--test"], { timeoutMs: 15_000 });
-  if (localR.status !== 0) return false;
-
-  // 真 API 调用验证 (list 是无副作用的轻量 API · stdout 为 401 表明 Google 侧过期)
-  const apiR = nlmJson(["list"], { timeoutMs: 30_000 });
-  if (!apiR.ok) {
-    // list --json 失败 · 可能是 401 / 网络 / 其他
-    return false;
-  }
-  // list 返回错误对象({error: true, ...}) · 也算认证失败
-  if (apiR.data?.error === true) return false;
-  return true;
+  const r = nlmExec(["login", "--check"], { timeoutMs: 30_000 });
+  return r.status === 0;
 }
-
-// ── refreshCookies: rookiepy 从浏览器重提 cookie ─────────────────────
 
 /**
- * 用 rookiepy 从本机浏览器重新提取 Google cookie → 写入 ~/.notebooklm/storage_state.json
- * @returns {{ ok: boolean, cookie_count?: number, browser?: string, error?: string }}
+ * 检测系统是否装了 Chromium 系浏览器(nlm CDP 必需)
+ * @returns {{ ok: boolean, found: string[], suggestion?: string }}
  */
-function refreshCookies() {
-  const cookieScript = `
-import rookiepy, json, os, sys
+function detectChromiumBrowser() {
+  const platform = process.platform;
+  const found = [];
 
-domains = ['.google.com', 'notebooklm.google.com', 'accounts.google.com']
-browsers = [
-    ("any_browser", rookiepy.load),
-    ("chrome",      lambda **kw: rookiepy.chrome(**kw)),
-    ("edge",        lambda **kw: rookiepy.edge(**kw)),
-    ("brave",       lambda **kw: rookiepy.brave(**kw)),
-    ("chromium",    lambda **kw: rookiepy.chromium(**kw)),
-    ("firefox",     lambda **kw: rookiepy.firefox(**kw)),
-    ("safari",      lambda **kw: rookiepy.safari(**kw)),
-    ("vivaldi",     lambda **kw: rookiepy.vivaldi(**kw)),
-    ("opera",       lambda **kw: rookiepy.opera(**kw)),
-    ("arc",         lambda **kw: rookiepy.arc(**kw)),
-    ("librewolf",   lambda **kw: rookiepy.librewolf(**kw)),
-]
-cookies = []
-used = "none"
-for name, fn in browsers:
-    try:
-        cookies = fn(domains=domains)
-        if cookies:
-            used = name
-            break
-    except Exception:
-        continue
-
-if not cookies:
-    print(json.dumps({"ok": False, "error": "no_cookies", "browser": "none"}))
-    sys.exit(0)
-
-storage_state = {
-    'cookies': [
-        {
-            'name': c['name'], 'value': c['value'], 'domain': c['domain'],
-            'path': c.get('path', '/'), 'expires': c.get('expires', -1),
-            'httpOnly': c.get('httpOnly', False), 'secure': c.get('secure', False),
-            'sameSite': 'None' if c.get('secure') else 'Lax',
-        }
-        for c in cookies
-    ],
-    'origins': []
-}
-path = os.path.expanduser('~/.notebooklm/storage_state.json')
-os.makedirs(os.path.dirname(path), exist_ok=True)
-with open(path, 'w') as f:
-    json.dump(storage_state, f)
-os.chmod(path, 0o600)
-print(json.dumps({"ok": True, "cookie_count": len(cookies), "browser": used}))
-`;
-  const py = spawnSync("python3", ["-c", cookieScript], {
-    encoding: "utf8",
-    timeout: 30_000,
-  });
-  try {
-    return JSON.parse(py.stdout);
-  } catch {
-    return { ok: false, error: "rookiepy_spawn_failed", detail: (py.stderr ?? "").slice(0, 300) };
+  if (platform === "darwin") {
+    const apps = [
+      ["Google Chrome", "/Applications/Google Chrome.app"],
+      ["Microsoft Edge", "/Applications/Microsoft Edge.app"],
+      ["Brave Browser", "/Applications/Brave Browser.app"],
+      ["Arc", "/Applications/Arc.app"],
+      ["Vivaldi", "/Applications/Vivaldi.app"],
+      ["Opera", "/Applications/Opera.app"],
+      ["Chromium", "/Applications/Chromium.app"],
+    ];
+    for (const [name, path] of apps) {
+      if (existsSync(path)) found.push(name);
+    }
+  } else if (platform === "linux") {
+    const cmds = ["google-chrome", "chromium", "chromium-browser", "brave-browser", "microsoft-edge", "vivaldi", "opera"];
+    for (const cmd of cmds) {
+      const r = spawnSync("which", [cmd], { encoding: "utf8", timeout: 3_000 });
+      if (r.status === 0 && r.stdout?.trim()) found.push(cmd);
+    }
+  } else if (platform === "win32") {
+    const candidates = [
+      ["Chrome", "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"],
+      ["Chrome (x86)", "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe"],
+      ["Edge", "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe"],
+      ["Brave", "C:\\Program Files\\BraveSoftware\\Brave-Browser\\Application\\brave.exe"],
+    ];
+    for (const [name, path] of candidates) {
+      if (existsSync(path)) found.push(name);
+    }
   }
+
+  return {
+    ok: found.length > 0,
+    found,
+    suggestion: found.length === 0
+      ? "请装 Chrome / Edge / Brave 任一(免费下载 · 不影响日常用 Firefox / Safari)"
+      : undefined,
+  };
 }
 
 // ── op: check ────────────────────────────────────────────────────────
 
 function opCheck() {
+  const cfg = loadConfig();
+  if (cfg?.skipped) {
+    return out({
+      installed: false,
+      authenticated: false,
+      skipped: true,
+      skipped_at: cfg.skipped_at ?? null,
+      reason: cfg.skip_reason ?? "用户在 setup 时主动选择跳过",
+      notebooks: {},
+    });
+  }
   const installed = isCliInstalled();
   if (!installed) {
     return out({ installed: false, authenticated: false, notebooks: {} });
   }
   const authenticated = checkAuth();
-  const cfg = loadConfig();
   const notebooks = {};
   if (cfg?.notebooks) {
     for (const [domain, nb] of Object.entries(cfg.notebooks)) {
@@ -289,170 +286,205 @@ function opCheck() {
   out({ installed, authenticated, notebooks });
 }
 
+// ── op: disable ──────────────────────────────────────────────────────
+
+function opDisable(reason) {
+  const cfg = loadConfig() || { notebooks: {}, version: "0.49.1", created_at: new Date().toISOString().slice(0, 10) };
+  cfg.skipped = true;
+  cfg.skipped_at = new Date().toISOString();
+  if (reason) cfg.skip_reason = reason;
+  saveConfig(cfg);
+  console.error("→ NotebookLM 已标记跳过 · 后续诊断走仅案例(不装 notebooklm-mcp-cli · 0 依赖)");
+  console.error("  下次想启用 · 跑 /perf-kp-sql-setup 选启用即可");
+  out({ ok: true, skipped: true, message: "NotebookLM 已禁用 · 诊断走仅案例" });
+}
+
 // ── op: refresh-auth ─────────────────────────────────────────────────
 
 /**
- * --op refresh-auth: cookie 过期时的恢复流程
- *
- * 1. rookiepy 重提 cookie
- * 2. 验 auth
- * 3. 成功 → 返回 ok
- * 4. 失败 → 打开系统浏览器让用户登录 · 返回 need_browser_login
+ * 凭据失效时的恢复流程 · 完全 spawn 上游 nlm · 不造轮子
+ *   1. nlm login --check
+ *   2. 失效 → spawn nlm login(隔离 Chrome 弹窗 · CDP 自动 detect 完成)
  */
 function opRefreshAuth() {
-  console.error("→ 尝试从浏览器重新提取 cookie...");
-  const r1 = refreshCookies();
-
-  if (r1.ok) {
-    console.error(`  从 ${r1.browser} 提取到 ${r1.cookie_count} 条 cookie`);
-    const authOk = checkAuth();
-    if (authOk) {
-      return out({ ok: true, method: "rookiepy_auto", browser: r1.browser });
-    }
-    console.error("  cookie 已提取但 Google 侧 session 过期");
-  } else {
-    console.error(`  cookie 提取失败: ${r1.error}`);
+  console.error("→ 验证当前凭据...");
+  if (checkAuth()) {
+    return out({ ok: true, method: "still_valid", message: "凭据仍有效 · 无需重登" });
   }
 
-  // rookiepy 搞不定 → 需要用户去浏览器登录
-  const url = "https://notebooklm.google.com/";
-  const platform = process.platform;
-  const openCmd = platform === "darwin" ? "open"
-    : platform === "win32" ? "start"
-    : "xdg-open";
-  const openR = spawnSync(openCmd, [url], { timeout: 5_000, stdio: "ignore" });
-  const browserOpened = openR.status === 0;
+  // 检测 Chromium 系浏览器
+  const browser = detectChromiumBrowser();
+  if (!browser.ok) {
+    return out({
+      ok: false,
+      need_chromium_browser: true,
+      message: "客户机器无 Chromium 系浏览器 · 无法用 nlm CDP 登录",
+      suggestion: browser.suggestion,
+      next_steps: [
+        "装 Chrome / Edge / Brave 任一(免费 · 不影响日常浏览器)",
+        "或:跑 notebooklm.mjs --op disable 跳过 NLM · 走仅案例",
+      ],
+    });
+  }
+
+  console.error("→ 凭据失效 · 启动 nlm login(隔离 Chrome 自动弹出 · 客户登录 1 次 · CDP 自动 detect 完成 · 无 Terminal ENTER)...");
+  console.error("  ⚠️ 启动前请先关闭所有 Chrome 实例(macOS Cmd+Q · Win 任务管理器 chrome.exe) · Chromium 单进程模型限制");
+
+  const loginR = spawnSync("nlm", ["login"], {
+    encoding: "utf8",
+    timeout: 300_000,
+    stdio: ["ignore", "pipe", "pipe"],
+    env: NLM_SPAWN_ENV,
+  });
+
+  if (loginR.status === 0 && checkAuth()) {
+    return out({ ok: true, method: "nlm_login", chromium: browser.found });
+  }
 
   out({
     ok: false,
-    need_browser_login: true,
-    browser_opened: browserOpened,
-    url,
-    message: browserOpened
-      ? "已打开浏览器 · 请登录 Google 账号 · 完成后告诉我"
-      : `请手动打开 ${url} 登录 Google 账号 · 完成后告诉我`,
-    supported_browsers: "Chrome / Edge / Firefox / Safari / Brave / Arc / Vivaldi / Opera",
+    need_user_action: true,
+    error: "nlm login 失败",
+    stdout: (loginR.stdout ?? "").slice(0, 500),
+    stderr: (loginR.stderr ?? "").slice(0, 500),
+    next_steps: [
+      "1. 确认日常 Chrome 全关 · 重跑 notebooklm.mjs --op refresh-auth",
+      "2. 或:跑 /perf-kp-sql-setup 重新走完整 setup",
+      "3. 仍失败:上游 issue tracker https://github.com/jacob-bd/notebooklm-mcp-cli/issues",
+    ],
   });
 }
 
 // ── op: setup ────────────────────────────────────────────────────────
 
-// 检测 notebooklm CLI 实际用的 Python 解释器(可能在 venv 里)· 返回该 Python
-// 对应的 pip / playwright 命令。这样如果 notebooklm 装在 venv 里 · 我们用 venv
-// 的 pip 装 Playwright · 不会装到系统全局而 venv 里仍缺。
-function detectNotebooklmPython() {
-  // which notebooklm
-  const which = spawnSync("which", ["notebooklm"], { encoding: "utf8", timeout: 5_000 });
-  if (which.status !== 0 || !which.stdout?.trim()) return null;
-  const cliPath = which.stdout.trim();
-  try {
-    const firstLine = readFileSync(cliPath, "utf8").split("\n")[0];
-    const m = firstLine.match(/^#!\s*(\S+)/);
-    if (!m) return null;
-    const pythonPath = m[1];
-    // 跳过 /usr/bin/env python · 那种没指定具体 venv
-    if (pythonPath.includes("/env") || !pythonPath.match(/python/)) return null;
-    if (!existsSync(pythonPath)) return null;
-    // venv/bin/python → venv/bin/pip + venv/bin/playwright
-    const binDir = dirname(pythonPath);
-    const pipPath = pythonPath.replace(/python[0-9.]*$/, "pip");
-    const pwPath = `${binDir}/playwright`;
-    return {
-      python: pythonPath,
-      pip: existsSync(pipPath) ? pipPath : null,
-      playwright: existsSync(pwPath) ? pwPath : `${binDir}/playwright`, // 装完才会有
-    };
-  } catch {
-    return null;
-  }
-}
-
 async function opSetup(urlsFile) {
-  // 检测 notebooklm CLI 的 venv Python(如果有)
-  const detectedEnv = detectNotebooklmPython();
-  if (detectedEnv) {
-    console.error(`→ 检测到 notebooklm CLI 在 venv:${detectedEnv.python}`);
-    console.error(`  使用 ${detectedEnv.pip ?? "fallback pip3"} 装包`);
+  // 不造轮子:全部 spawn 上游 jacob-bd/notebooklm-mcp-cli (4.2K star CDP 标准)
+  //   1. 检测 uv
+  //   2. 检测 Chromium 系浏览器(nlm CDP 必需)
+  //   3. uv tool install notebooklm-mcp-cli(幂等)
+  //   4. nlm login --check (exit 0=skip · exit 2=登录)
+  //   5. spawn nlm login(隔离 Chrome 弹 · CDP detect 完成 · 无 Terminal ENTER)
+  //   6. nlm notebook list/create + nlm source add --wait
+
+  // 用户重跑 setup → 取消之前的 skipped 标记
+  const prevCfg = loadConfig();
+  if (prevCfg?.skipped) {
+    delete prevCfg.skipped;
+    delete prevCfg.skipped_at;
+    delete prevCfg.skip_reason;
+    saveConfig(prevCfg);
+    console.error("→ 检测到之前 NotebookLM 已禁用 · 切换为启用");
   }
 
-  // Step 9: 安装/升级 pip packages (notebooklm-py + rookiepy · 不再装 Playwright)
-  console.error("→ 安装/升级 notebooklm-py + rookiepy...");
-  const baseArgs = ["install", "-U", "notebooklm-py", "rookiepy"];
-  const pipCandidates = detectedEnv?.pip
-    ? [detectedEnv.pip, "pip3", "pip"]
-    : ["pip3", "pip"];
-
-  // PEP 668 (macOS Homebrew Python 3.11+ / Debian 12+) 把 system-wide pip 装包封死
-  // 策略:每个 pip 候选先试普通装,看到 externally-managed-environment 错才加 --break-system-packages 再试
-  function tryPipInstall(cmd, extraArgs = []) {
-    const r = spawnSync(cmd, [...baseArgs, ...extraArgs], {
-      encoding: "utf8",
-      timeout: 180_000,
-      stdio: ["pipe", "pipe", "pipe"],
-    });
-    return r;
-  }
-
-  let pipOk = false;
-  let usedFallback = false;
-  for (const cmd of pipCandidates) {
-    let r = tryPipInstall(cmd);
-    if (r.status === 0) {
-      pipOk = true;
-      console.error(`  ✓ 用 ${cmd} 装齐`);
-      break;
-    }
-    const stderr = r.stderr ?? "";
-    // PEP 668 命中 → 重试加 --break-system-packages
-    if (/externally-managed-environment/i.test(stderr)) {
-      console.error(`  ${cmd} 命中 PEP 668 · 重试加 --break-system-packages`);
-      r = tryPipInstall(cmd, ["--break-system-packages"]);
-      if (r.status === 0) {
-        pipOk = true;
-        usedFallback = true;
-        console.error(`  ✓ 用 ${cmd} --break-system-packages 装齐`);
-        break;
-      }
-    }
-    console.error(`${cmd} install 失败: ${(r.stderr ?? "").slice(0, 300)}`);
-  }
-  if (!pipOk) {
-    const hint = detectedEnv?.pip
-      ? `${detectedEnv.pip} install -U --break-system-packages notebooklm-py rookiepy`
-      : "pip install -U --break-system-packages notebooklm-py rookiepy";
+  // Step 1: 检测 uv
+  const uvCheck = spawnSync("uv", ["--version"], { encoding: "utf8", timeout: 5_000 });
+  if (uvCheck.status !== 0) {
     return out({
       ok: false,
-      error: `pip install notebooklm-py rookiepy 失败 · 请手动跑:${hint}`,
+      error: "uv 未安装 · 请先装 uv 后重跑 setup",
+      next_steps: [
+        "macOS / Linux: curl -LsSf https://astral.sh/uv/install.sh | sh",
+        "或 Homebrew: brew install uv",
+        "或 pipx: pipx install uv",
+        "装好 uv 后重跑 /perf-kp-sql-setup",
+      ],
     });
   }
-  if (usedFallback) {
-    console.error("  注:走的 PEP 668 兜底路径(--break-system-packages)。系统级 site-packages 里多两个包是预期的。");
+  console.error(`  ✓ uv: ${uvCheck.stdout.trim()}`);
+
+  // Step 2: 检测 Chromium 系浏览器
+  const browser = detectChromiumBrowser();
+  if (!browser.ok) {
+    return out({
+      ok: false,
+      need_chromium_browser: true,
+      error: "客户机器无 Chromium 系浏览器(nlm CDP 必需)",
+      suggestion: browser.suggestion,
+      next_steps: [
+        "装 Chrome / Edge / Brave 任一(免费 · 不影响日常用 Firefox / Safari)",
+        "  - Chrome: https://www.google.com/chrome/",
+        "  - Edge: https://www.microsoft.com/edge",
+        "  - Brave: https://brave.com/",
+        "或:跑 /perf-kp-sql-setup 选 2(跳过 NLM)走仅案例",
+      ],
+    });
+  }
+  console.error(`  ✓ Chromium 系浏览器: ${browser.found.join(", ")}`);
+
+  // Step 3: uv tool install notebooklm-mcp-cli(幂等)
+  console.error("→ 装 / 升级 notebooklm-mcp-cli(uv tool install)...");
+  const uvR = spawnSync("uv", ["tool", "install", "notebooklm-mcp-cli", "--upgrade"], {
+    encoding: "utf8",
+    timeout: 300_000,
+    stdio: ["pipe", "pipe", "pipe"],
+  });
+  if (uvR.status !== 0) {
+    return out({
+      ok: false,
+      error: "uv tool install notebooklm-mcp-cli 失败",
+      stderr: (uvR.stderr ?? "").slice(0, 500),
+      next_steps: [`手动跑: uv tool install notebooklm-mcp-cli --upgrade`],
+    });
+  }
+  console.error("  ✓ notebooklm-mcp-cli 装齐");
+
+  // Step 4: nlm 验证(exit 0 = 在 PATH)
+  if (!isCliInstalled()) {
+    return out({
+      ok: false,
+      error: "uv tool install 后 nlm 仍不在 PATH",
+      next_steps: [
+        "确认 ~/.local/bin 在 PATH(echo $PATH | tr ':' '\\n' | grep -F '.local/bin')",
+        "或跑 uv tool update-shell 自动加 PATH",
+      ],
+    });
   }
 
-  // Step 10: cookie extraction via rookiepy (auto-detect browser)
-  console.error("→ 提取浏览器 cookie (rookiepy · 自动探测)...");
-  const cookieResult = refreshCookies();
-  if (!cookieResult.ok) {
-    console.error(`cookie 提取失败: ${cookieResult.error}`);
-    console.error("请确保已在任意浏览器中登录 https://notebooklm.google.com/");
+  // Step 5: nlm login --check
+  console.error("→ 验证 nlm 凭据...");
+  if (checkAuth()) {
+    console.error("  ✓ 现有凭据有效 · 跳过登录 · 直接创建 notebooks");
   } else {
-    console.error(`→ 从 ${cookieResult.browser} 提取到 ${cookieResult.cookie_count} 条 cookie`);
+    console.error("→ 凭据失效或首次登录 · 启动 nlm login(隔离 Chrome 弹出 · 客户登录 1 次 · CDP 自动 detect)...");
+    console.error("  ⚠️ 启动前请先关闭所有 Chrome 实例(Cmd+Q) · Chromium 单进程模型 · 只这一次");
+
+    const loginR = spawnSync("nlm", ["login"], {
+      encoding: "utf8",
+      timeout: 300_000,
+      stdio: ["ignore", "pipe", "pipe"],
+      env: NLM_SPAWN_ENV,
+    });
+
+    if (loginR.status !== 0 || !checkAuth()) {
+      return out({
+        ok: false,
+        need_user_login: true,
+        error: "nlm login 失败 · 客户没在 5 min 内完成登录 / Chrome 进程冲突 / EDR 拦截 / 网络受限",
+        stdout: (loginR.stdout ?? "").slice(0, 500),
+        stderr: (loginR.stderr ?? "").slice(0, 500),
+        next_steps: [
+          "1. 确认所有 Chrome 实例已关(macOS Cmd+Q · Win 任务管理器结束 chrome.exe)",
+          "2. 重跑 /perf-kp-sql-setup",
+          "3. 仍失败 → 选项 A:跑 notebooklm.mjs --op disable 跳过 NLM · 选项 B:上游 issue tracker https://github.com/jacob-bd/notebooklm-mcp-cli/issues",
+        ],
+      });
+    }
+    console.error("  ✓ nlm login 成功 · cookie 落盘 · 后续诊断 0 客户操作");
   }
 
-  // Step 10b: verify auth
-  console.error("→ 验证认证...");
-  const authOk = checkAuth();
-  if (!authOk) {
-    console.error("⚠️ 认证未通过。请在 Chrome 中登录 NotebookLM 后重试。");
-  }
-
-  // Step 11: create notebooks + add URLs
+  // Step 6: 创建 notebooks + 添加 URLs
   console.error("→ 创建 Notebooks 并添加 URL...");
   const urlsData = loadUrlsJson(urlsFile);
-  const cfg = loadConfig() || { notebooks: {}, version: "0.25.0", created_at: new Date().toISOString().slice(0, 10) };
+  const cfg = loadConfig() || { notebooks: {}, version: "0.49.1", created_at: new Date().toISOString().slice(0, 10) };
   cfg.notebooks = cfg.notebooks || {};
 
   const results = {};
+
+  // 拉一次 notebook list 复用避免重复创建
+  const listR = nlmJson(["notebook", "list"]);
+  const allNotebooks = listR.ok
+    ? (listR.data?.notebooks ?? (Array.isArray(listR.data) ? listR.data : []))
+    : [];
 
   for (const domainDef of urlsData.domains) {
     const { domain, notebook_name } = domainDef;
@@ -461,46 +493,35 @@ async function opSetup(urlsFile) {
 
     let notebookId = cfg.notebooks[domain]?.id;
 
-    // check if notebook still exists
-    if (notebookId) {
-      const listR = nlmJson(["list"]);
-      if (listR.ok) {
-        const nbs = listR.data?.notebooks ?? (Array.isArray(listR.data) ? listR.data : []);
-        const found = nbs.some((nb) => nb.id === notebookId || nb.notebook_id === notebookId);
-        if (!found) {
-          console.error(`    notebook ${notebookId} 已不存在,重新创建`);
-          notebookId = null;
-        }
+    // 验证 config 里的 id 是否还存在
+    if (notebookId && !allNotebooks.some((nb) => nb.id === notebookId || nb.notebook_id === notebookId)) {
+      console.error(`    notebook ${notebookId} 已不存在 · 重新创建`);
+      notebookId = null;
+    }
+
+    // 同名复用
+    if (!notebookId) {
+      const existing = allNotebooks.find((nb) => nb.title === notebook_name);
+      if (existing) {
+        notebookId = existing.id ?? existing.notebook_id;
+        console.error(`    复用已有 notebook: ${notebookId}`);
       }
     }
 
-    // create notebook if needed — 先查同名，避免重复创建
+    // 创建
     if (!notebookId) {
-      const listR = nlmJson(["list"]);
-      if (listR.ok) {
-        const nbs = listR.data?.notebooks ?? (Array.isArray(listR.data) ? listR.data : []);
-        const existing = nbs.find((nb) => nb.title === notebook_name && nb.is_owner !== false);
-        if (existing) {
-          notebookId = existing.id;
-          console.error(`    复用已有 notebook: ${notebookId}`);
-        }
-      }
-    }
-    if (!notebookId) {
-      const createR = nlmJson(["create", notebook_name]);
-      if (!createR.ok) {
-        console.error(`    创建 notebook '${notebook_name}' 失败: ${createR.raw.stderr}`);
+      const createR = nlmExec(["notebook", "create", notebook_name], { timeoutMs: 60_000 });
+      if (createR.status !== 0) {
+        console.error(`    创建 notebook '${notebook_name}' 失败: ${(createR.stdout || createR.stderr).slice(0, 200)}`);
         results[domain] = { ok: false, error: "创建失败" };
         continue;
       }
-      notebookId = createR.data?.notebook?.id ?? createR.data?.id ?? createR.data?.notebook_id;
-      if (!notebookId) {
-        const fallbackList = nlmJson(["list"]);
-        if (fallbackList.ok) {
-          const nbs = fallbackList.data?.notebooks ?? (Array.isArray(fallbackList.data) ? fallbackList.data : []);
-          const match = nbs.find((nb) => nb.title === notebook_name);
-          if (match) notebookId = match.id;
-        }
+      // create 输出可能不是纯 JSON · 走 list 兜底拿 id
+      const fallbackList = nlmJson(["notebook", "list"]);
+      if (fallbackList.ok) {
+        const nbs = fallbackList.data?.notebooks ?? (Array.isArray(fallbackList.data) ? fallbackList.data : []);
+        const match = nbs.find((nb) => nb.title === notebook_name);
+        if (match) notebookId = match.id ?? match.notebook_id;
       }
       if (!notebookId) {
         console.error(`    无法获取 notebook id`);
@@ -509,57 +530,89 @@ async function opSetup(urlsFile) {
       }
     }
 
-    // use this notebook
-    nlmExec(["use", notebookId]);
+    // 增量同步 source · 去重时合并 (a) 本地 cfg 已记录 + (b) 远端 notebook 已存在
+    // 复用同名 notebook 时(862c4191-...)· 远端可能有上次 setup 加的 source · 本地 cfg 清后并不知道 · 必须查远端
+    const remoteSrcR = nlmJson(["source", "list", notebookId]);
+    const remoteSrcs = remoteSrcR.ok
+      ? (Array.isArray(remoteSrcR.data) ? remoteSrcR.data : (remoteSrcR.data?.sources ?? []))
+      : [];
+    const remoteUrlToId = new Map();
+    for (const s of remoteSrcs) {
+      const u = s.url ?? s.source_url;
+      const id = s.id ?? s.source_id;
+      if (u && id) remoteUrlToId.set(u, id);
+    }
+    if (remoteUrlToId.size > 0) {
+      console.error(`    远端 notebook 已有 ${remoteUrlToId.size} 个 source · 跳过重复添加`);
+    }
 
-    // determine which URLs need adding (incremental sync)
-    const existingUrls = new Set((cfg.notebooks[domain]?.urls ?? []).map((u) => u.url));
-    const toAdd = urls.filter((u) => !existingUrls.has(u.url));
+    const cfgUrls = cfg.notebooks[domain]?.urls ?? [];
+    const cfgUrlSet = new Set(cfgUrls.map((u) => u.url));
+    const allExistingUrls = new Set([...cfgUrlSet, ...remoteUrlToId.keys()]);
     const plannedUrlSet = new Set(urls.map((u) => u.url));
-    const toRemove = (cfg.notebooks[domain]?.urls ?? []).filter((u) => !plannedUrlSet.has(u.url));
+    const toAdd = urls.filter((u) => !allExistingUrls.has(u.url));
+    const toRemove = cfgUrls.filter((u) => !plannedUrlSet.has(u.url));
 
-    // remove deleted URLs
+    // 删除多余 source
     for (const entry of toRemove) {
       if (entry.source_id) {
         console.error(`    删除已移除的 URL source: ${entry.source_id}`);
-        nlmExec(["source", "delete", entry.source_id]);
+        nlmExec(["source", "delete", entry.source_id], { timeoutMs: 30_000 });
       }
     }
 
-    // add new URLs (concurrent, batch of 5)
-    const addedUrls = [...(cfg.notebooks[domain]?.urls ?? []).filter((u) => plannedUrlSet.has(u.url))];
+    // 添加新 source(并发 5 · --wait 自带等 source 处理完成)· 远端已有的合并进 cfg(下次 setup 0 overhead)
+    const addedUrls = [];
+    for (const u of urls) {
+      if (cfgUrlSet.has(u.url)) {
+        const cfgEntry = cfgUrls.find((x) => x.url === u.url);
+        addedUrls.push({ url: u.url, source_id: cfgEntry?.source_id ?? remoteUrlToId.get(u.url) ?? null });
+      } else if (remoteUrlToId.has(u.url)) {
+        addedUrls.push({ url: u.url, source_id: remoteUrlToId.get(u.url) });
+      }
+    }
     if (toAdd.length > 0) {
-      console.error(`    并发添加 ${toAdd.length} 个 URL (每批 5 个)...`);
+      console.error(`    并发添加 ${toAdd.length} 个 URL (每批 5 个 · --wait)...`);
       const addResults = await concurrentBatch(toAdd, 5, async (urlEntry) => {
-        const r = await nlmJsonAsync(["source", "add", urlEntry.url]);
-        if (r.ok) {
-          const sourceId = r.data?.source?.id ?? r.data?.id ?? r.data?.source_id ?? null;
-          return { url: urlEntry.url, ok: true, source_id: sourceId };
+        const r = await nlmExecAsync(
+          ["source", "add", notebookId, "--url", urlEntry.url, "--wait"],
+          { timeoutMs: 180_000 }
+        );
+        if (r.status !== 0) {
+          console.error(`    添加 URL 失败: ${urlEntry.url} — ${(r.stdout || r.stderr).slice(0, 200)}`);
+          return { url: urlEntry.url, ok: false, source_id: null };
         }
-        console.error(`    添加 URL 失败: ${urlEntry.url} — ${r.raw.stderr}`);
-        return { url: urlEntry.url, ok: false, source_id: null };
+        // 解析 stdout `Source ID: <id>` 拿 id(无 --json · 上游设计)
+        const idMatch = r.stdout.match(/Source ID:\s*([\w-]+)/);
+        return { url: urlEntry.url, ok: true, source_id: idMatch?.[1] ?? null };
       });
       for (const ar of addResults) {
         if (ar.ok) addedUrls.push({ url: ar.url, source_id: ar.source_id });
       }
     }
 
-    cfg.notebooks[domain] = {
-      id: notebookId,
-      source_count: addedUrls.length,
-      urls: addedUrls,
-    };
-    results[domain] = { ok: true, notebook_id: notebookId, source_count: addedUrls.length };
-  }
-
-  // Step 12: wait for sources to be ready
-  console.error("→ 等待 source 就绪...");
-  for (const [domain, nb] of Object.entries(cfg.notebooks)) {
-    for (const u of nb.urls ?? []) {
-      if (u.source_id) {
-        nlmExec(["source", "wait", u.source_id, "--timeout", "120"], { timeoutMs: 130_000 });
-      }
+    // 用 nlm source list 兜底拿全 source(含真实 id) · 容错 source add stdout 解析失败
+    const srcListR = nlmJson(["source", "list", notebookId]);
+    if (srcListR.ok) {
+      const srcs = Array.isArray(srcListR.data) ? srcListR.data : (srcListR.data?.sources ?? []);
+      const refreshedUrls = addedUrls.map((u) => {
+        if (u.source_id) return u;
+        const found = srcs.find((s) => s.url === u.url || s.title === u.title);
+        return { ...u, source_id: found?.id ?? found?.source_id ?? null };
+      });
+      cfg.notebooks[domain] = {
+        id: notebookId,
+        source_count: refreshedUrls.length,
+        urls: refreshedUrls,
+      };
+    } else {
+      cfg.notebooks[domain] = {
+        id: notebookId,
+        source_count: addedUrls.length,
+        urls: addedUrls,
+      };
     }
+    results[domain] = { ok: true, notebook_id: notebookId, source_count: cfg.notebooks[domain].source_count };
   }
 
   cfg.auth_checked_at = new Date().toISOString();
@@ -576,38 +629,38 @@ const KEYWORD_ROUTES = {
   kunpeng: [/鲲鹏/i, /kunpeng/i, /\bARM\b/i, /aarch64/i, /\bNUMA\b/i, /ampere/i, /核绑定/i, /affinity/i],
 };
 
-function resolveAutoDomainn(query, cfg) {
+function resolveAutoDomain(query, cfg) {
   const matched = [];
   for (const [domain, patterns] of Object.entries(KEYWORD_ROUTES)) {
     if (!cfg.notebooks?.[domain]) continue;
     if (patterns.some((re) => re.test(query))) matched.push(domain);
   }
-  // fallback: query all notebooks
   if (matched.length === 0) return Object.keys(cfg.notebooks ?? {});
   return matched;
 }
 
 function opQuery(domain, query) {
   if (!domain || !query) fatal("--domain and --query required");
-  if (!isCliInstalled()) fatal("notebooklm CLI 未安装");
+  if (!isCliInstalled()) fatal("nlm 未安装 · 请先跑 /perf-kp-sql-setup");
 
   const cfg = loadConfig();
 
-  // auto domain routing
   if (domain === "auto") {
-    const targets = resolveAutoDomainn(query, cfg);
+    const targets = resolveAutoDomain(query, cfg);
     const allResults = [];
     for (const d of targets) {
       const nb = cfg.notebooks?.[d];
       if (!nb?.id) continue;
-      nlmExec(["use", nb.id]);
-      const r = nlmAskWithRetry(["ask", query], { timeoutMs: 60_000 });
+      const r = nlmAskWithRetry(
+        ["notebook", "query", nb.id, query, "--timeout", "120"],
+        { timeoutMs: 130_000 }
+      );
       if (r.ok) {
         allResults.push({
           domain: d,
           notebook_id: nb.id,
           answer: r.data?.answer ?? r.data?.response ?? "",
-          references: resolveSourceIds(r.data?.references ?? r.data?.citations ?? [], cfg),
+          references: resolveSourceIds(r.data?.references ?? r.data?.citations ?? r.data?.sources_used ?? [], cfg),
           attempts: r.attempts,
         });
       } else {
@@ -615,26 +668,26 @@ function opQuery(domain, query) {
           domain: d,
           notebook_id: nb.id,
           ok: false,
-          error: r.raw?.stderr || r.raw?.stdout || "查询失败",
+          error: ((r.raw?.stdout || r.raw?.stderr || "查询失败")).slice(0, 300),
           attempts: r.attempts,
         });
       }
-      // throttle between notebooks
       if (targets.length > 1) spawnSync("sleep", ["2"]);
     }
     return out({ ok: true, results: allResults });
   }
 
-  if (!cfg?.notebooks?.[domain]) fatal(`领域 '${domain}' 未配置,请先运行 --op setup`);
-
+  if (!cfg?.notebooks?.[domain]) fatal(`领域 '${domain}' 未配置 · 请先运行 --op setup`);
   const notebookId = cfg.notebooks[domain].id;
-  nlmExec(["use", notebookId]);
 
-  const r = nlmAskWithRetry(["ask", query], { timeoutMs: 60_000 });
+  const r = nlmAskWithRetry(
+    ["notebook", "query", notebookId, query, "--timeout", "120"],
+    { timeoutMs: 130_000 }
+  );
   if (!r.ok) {
     return out({
       ok: false,
-      error: `查询失败: ${r.raw.stderr || r.raw.stdout}`,
+      error: `查询失败: ${((r.raw?.stdout || r.raw?.stderr || "")).slice(0, 300)}`,
       domain,
       notebook_id: notebookId,
       attempts: r.attempts,
@@ -644,7 +697,7 @@ function opQuery(domain, query) {
   out({
     ok: true,
     answer: r.data?.answer ?? r.data?.response ?? "",
-    references: resolveSourceIds(r.data?.references ?? r.data?.citations ?? [], cfg),
+    references: resolveSourceIds(r.data?.references ?? r.data?.citations ?? r.data?.sources_used ?? [], cfg),
     domain,
     notebook_id: notebookId,
     attempts: r.attempts,
@@ -666,12 +719,10 @@ function routeToNotebooks(checkResult, hwArch, cfg) {
     if (cfg.notebooks?.[engine]) notebooks.push(engine);
   }
 
-  // cross_domain tag
   if (checkResult.data?.tags?.includes?.("cross_domain")) {
     if (cfg.notebooks?.os && !notebooks.includes("os")) notebooks.push("os");
   }
 
-  // scope=arch → kunpeng
   if (checkResult.scope === "arch" && hwArch === "kunpeng") {
     if (cfg.notebooks?.kunpeng && !notebooks.includes("kunpeng")) notebooks.push("kunpeng");
   }
@@ -686,7 +737,6 @@ function buildQueryPrompt(cr) {
   return `${paramName} 当前值为 ${currentVal}，${reason}。\n请从以下角度分析：\n1. 该参数的作用机制\n2. 默认值与推荐值范围\n3. 当前值的风险点\n4. 生产环境最佳实践与调优建议`;
 }
 
-// M4 · best-practice 巡检 prompt(对齐设计书 §4 · NLM 刷新最新推荐)
 function buildBpPrompt(bp) {
   const paramName = bp.param_name || bp.case_id;
   const current = bp.current_value != null ? String(bp.current_value) : "未获取";
@@ -695,25 +745,19 @@ function buildBpPrompt(bp) {
   return `参数 ${paramName} · 当前值 ${current} · 案例推荐值 ${caseRec}\n场景: ${scenario}\n请回答:\n1. 该参数的最新官方推荐值(若与案例不一致请明确指出)\n2. 推荐理由 + 适用场景\n3. 当前值的风险评估`;
 }
 
-// M4 · best-practice scope → notebook 路由
 function routeBpToNotebooks(bp, hwArch, cfg) {
   const scope = bp.scope || "";
   const notebooks = [];
-
-  // OS 层(linux-*)→ os notebook
   if (/^linux-/.test(scope)) {
     if (cfg.notebooks?.os) notebooks.push("os");
   }
-  // 鲲鹏 / ARM / BIOS → kunpeng notebook(若 hwArch=kunpeng)
   if (scope === "arch" || scope === "bios-firmware") {
     if (hwArch === "kunpeng" && cfg.notebooks?.kunpeng) notebooks.push("kunpeng");
     else if (cfg.notebooks?.os && !notebooks.includes("os")) notebooks.push("os");
   }
-  // 引擎 / mongo 配置 / 应用层 → mongo notebook
   if (/^storage-engine-/.test(scope) || /^mongodb-/.test(scope) || scope === "app-query-layer") {
     if (cfg.notebooks?.mongo) notebooks.push("mongo");
   }
-  // fallback: 第一个可用 notebook
   if (notebooks.length === 0) {
     const firstAvail = Object.keys(cfg.notebooks ?? {})[0];
     if (firstAvail) notebooks.push(firstAvail);
@@ -721,23 +765,20 @@ function routeBpToNotebooks(bp, hwArch, cfg) {
   return notebooks;
 }
 
-// M4 · 通用 batch · 接 fromDiagnose | fromBpList · chunk size 5 控制单 ask 长度
 function opQueryBatch({ fromDiagnose, fromBpList, hwArch }) {
   if (!fromDiagnose && !fromBpList) fatal("--from-diagnose 或 --from-bp-list 必须提供其一");
   if (fromDiagnose && fromBpList) fatal("--from-diagnose 和 --from-bp-list 不能同时给");
-  if (!isCliInstalled()) fatal("notebooklm CLI 未安装");
+  if (!isCliInstalled()) fatal("nlm 未安装 · 请先跑 /perf-kp-sql-setup");
 
   const cfg = loadConfig();
   if (!cfg?.notebooks || Object.keys(cfg.notebooks).length === 0) {
-    fatal("NotebookLM 未配置,请先运行 --op setup");
+    fatal("NotebookLM 未配置 · 请先运行 --op setup");
   }
 
-  // 统一 items 列表 [{ case_id, prompt, route: [domain, ...] }]
   let items = [];
 
   if (fromDiagnose) {
     const diagData = JSON.parse(readFileSync(resolve(fromDiagnose), "utf8"));
-    // 只对 critical/warning 问题项跑 NotebookLM · 排除 path D (FTS) 和 info/ok
     const checks = (diagData.matched ?? []).filter(
       (r) => r.path !== "D" && (r.severity === "critical" || r.severity === "warning")
     );
@@ -760,8 +801,7 @@ function opQueryBatch({ fromDiagnose, fromBpList, hwArch }) {
     return out({ ok: true, results: [], reason: "无项目进入 NotebookLM batch · 跳过" });
   }
 
-  // group by notebook
-  const grouped = {}; // notebook_domain -> [{ case_id, prompt }]
+  const grouped = {};
   for (const item of items) {
     for (const t of item.route) {
       if (!grouped[t]) grouped[t] = [];
@@ -769,7 +809,6 @@ function opQueryBatch({ fromDiagnose, fromBpList, hwArch }) {
     }
   }
 
-  // chunk + batch query · CHUNK_SIZE=5 防 prompt 超 NLM 输入限
   const CHUNK_SIZE = 5;
   const results = [];
 
@@ -777,19 +816,20 @@ function opQueryBatch({ fromDiagnose, fromBpList, hwArch }) {
     const nb = cfg.notebooks[domain];
     if (!nb?.id) continue;
 
-    nlmExec(["use", nb.id]);
-
     for (let i = 0; i < domainItems.length; i += CHUNK_SIZE) {
       const chunk = domainItems.slice(i, i + CHUNK_SIZE);
       const mergedPrompt = chunk
         .map((item, j) => `【问题 ${j + 1}】${item.prompt}`)
         .join("\n\n");
 
-      const r = nlmAskWithRetry(["ask", mergedPrompt], { timeoutMs: 90_000 });
+      const r = nlmAskWithRetry(
+        ["notebook", "query", nb.id, mergedPrompt, "--timeout", "120"],
+        { timeoutMs: 130_000 }
+      );
 
       if (r.ok) {
         const answer = r.data?.answer ?? r.data?.response ?? "";
-        const references = resolveSourceIds(r.data?.references ?? r.data?.citations ?? [], cfg);
+        const references = resolveSourceIds(r.data?.references ?? r.data?.citations ?? r.data?.sources_used ?? [], cfg);
         for (const item of chunk) {
           results.push({
             case_id: item.case_id,
@@ -801,7 +841,8 @@ function opQueryBatch({ fromDiagnose, fromBpList, hwArch }) {
           });
         }
       } else {
-        console.error(`查询 ${domain} chunk[${i}-${i + chunk.length - 1}] 失败: ${r.raw.stderr}`);
+        const errBlob = (r.raw?.stdout || r.raw?.stderr || "查询失败").slice(0, 200);
+        console.error(`查询 ${domain} chunk[${i}-${i + chunk.length - 1}] 失败: ${errBlob}`);
         for (const item of chunk) {
           results.push({
             case_id: item.case_id,
@@ -809,19 +850,17 @@ function opQueryBatch({ fromDiagnose, fromBpList, hwArch }) {
             references: [],
             domain,
             notebook_id: nb.id,
-            error: r.raw.stderr || "查询失败",
+            error: errBlob,
             attempts: r.attempts,
           });
         }
       }
 
-      // throttle between chunks (2s within same notebook)
       if (i + CHUNK_SIZE < domainItems.length) {
         spawnSync("sleep", ["2"]);
       }
     }
 
-    // throttle between notebooks (2s)
     if (Object.keys(grouped).length > 1) {
       spawnSync("sleep", ["2"]);
     }
@@ -834,75 +873,94 @@ function opQueryBatch({ fromDiagnose, fromBpList, hwArch }) {
 
 async function opAddDomain(domain, urlsFile) {
   if (!domain) fatal("--domain required");
-  if (!isCliInstalled()) fatal("notebooklm CLI 未安装");
+  if (!isCliInstalled()) fatal("nlm 未安装 · 请先跑 /perf-kp-sql-setup");
 
   const urlsData = loadUrlsJson(urlsFile);
   const domainDef = urlsData.domains.find((d) => d.domain === domain);
   if (!domainDef) fatal(`领域 '${domain}' 在 urls.json 中不存在`);
 
-  const cfg = loadConfig() || { notebooks: {}, version: "0.25.0", created_at: new Date().toISOString().slice(0, 10) };
+  const cfg = loadConfig() || { notebooks: {}, version: "0.49.1", created_at: new Date().toISOString().slice(0, 10) };
   cfg.notebooks = cfg.notebooks || {};
 
   const { notebook_name } = domainDef;
   const urls = domainDef.urls || [];
   let notebookId = cfg.notebooks[domain]?.id;
 
-  // check existence — 先查 config id 是否有效，再查同名
-  if (notebookId) {
-    const listR = nlmJson(["list"]);
-    if (listR.ok) {
-      const nbs = listR.data?.notebooks ?? (Array.isArray(listR.data) ? listR.data : []);
-      if (!nbs.some((nb) => nb.id === notebookId || nb.notebook_id === notebookId)) {
-        notebookId = null;
-      }
-    }
+  // 拉 notebook list 复用
+  const listR = nlmJson(["notebook", "list"]);
+  const allNotebooks = listR.ok
+    ? (listR.data?.notebooks ?? (Array.isArray(listR.data) ? listR.data : []))
+    : [];
+
+  if (notebookId && !allNotebooks.some((nb) => nb.id === notebookId || nb.notebook_id === notebookId)) {
+    notebookId = null;
   }
   if (!notebookId) {
-    // 查同名 notebook，避免重复创建
-    const listR = nlmJson(["list"]);
-    if (listR.ok) {
-      const nbs = listR.data?.notebooks ?? (Array.isArray(listR.data) ? listR.data : []);
-      const existing = nbs.find((nb) => nb.title === notebook_name && nb.is_owner !== false);
-      if (existing) notebookId = existing.id;
-    }
+    const existing = allNotebooks.find((nb) => nb.title === notebook_name);
+    if (existing) notebookId = existing.id ?? existing.notebook_id;
   }
   if (!notebookId) {
-    const createR = nlmJson(["create", notebook_name]);
-    if (!createR.ok) fatal(`创建 notebook '${notebook_name}' 失败: ${createR.raw.stderr}`);
-    notebookId = createR.data?.notebook?.id ?? createR.data?.id ?? createR.data?.notebook_id;
-    if (!notebookId) {
-      const fallbackList = nlmJson(["list"]);
-      if (fallbackList.ok) {
-        const nbs = fallbackList.data?.notebooks ?? (Array.isArray(fallbackList.data) ? fallbackList.data : []);
-        const match = nbs.find((nb) => nb.title === notebook_name);
-        if (match) notebookId = match.id;
-      }
+    const createR = nlmExec(["notebook", "create", notebook_name], { timeoutMs: 60_000 });
+    if (createR.status !== 0) fatal(`创建 notebook '${notebook_name}' 失败: ${(createR.stdout || createR.stderr).slice(0, 200)}`);
+    const fallbackList = nlmJson(["notebook", "list"]);
+    if (fallbackList.ok) {
+      const nbs = fallbackList.data?.notebooks ?? (Array.isArray(fallbackList.data) ? fallbackList.data : []);
+      const match = nbs.find((nb) => nb.title === notebook_name);
+      if (match) notebookId = match.id ?? match.notebook_id;
     }
     if (!notebookId) fatal("无法获取 notebook id");
   }
 
-  nlmExec(["use", notebookId]);
-
-  // incremental sync
-  const existingUrls = new Set((cfg.notebooks[domain]?.urls ?? []).map((u) => u.url));
-  const plannedUrlSet = new Set(urls.map((u) => u.url));
-  const toRemove = (cfg.notebooks[domain]?.urls ?? []).filter((u) => !plannedUrlSet.has(u.url));
-  const toAdd = urls.filter((u) => !existingUrls.has(u.url));
-
-  for (const entry of toRemove) {
-    if (entry.source_id) nlmExec(["source", "delete", entry.source_id]);
+  // 增量同步 · 合并 (a) 本地 cfg + (b) 远端 notebook 已有 source · 不重复加
+  const remoteSrcR = nlmJson(["source", "list", notebookId]);
+  const remoteSrcs = remoteSrcR.ok
+    ? (Array.isArray(remoteSrcR.data) ? remoteSrcR.data : (remoteSrcR.data?.sources ?? []))
+    : [];
+  const remoteUrlToId = new Map();
+  for (const s of remoteSrcs) {
+    const u = s.url ?? s.source_url;
+    const id = s.id ?? s.source_id;
+    if (u && id) remoteUrlToId.set(u, id);
+  }
+  if (remoteUrlToId.size > 0) {
+    console.error(`  远端 notebook 已有 ${remoteUrlToId.size} 个 source · 跳过重复添加`);
   }
 
-  const addedUrls = [...(cfg.notebooks[domain]?.urls ?? []).filter((u) => plannedUrlSet.has(u.url))];
+  const cfgUrls = cfg.notebooks[domain]?.urls ?? [];
+  const cfgUrlSet = new Set(cfgUrls.map((u) => u.url));
+  const allExistingUrls = new Set([...cfgUrlSet, ...remoteUrlToId.keys()]);
+  const plannedUrlSet = new Set(urls.map((u) => u.url));
+  const toRemove = cfgUrls.filter((u) => !plannedUrlSet.has(u.url));
+  const toAdd = urls.filter((u) => !allExistingUrls.has(u.url));
+
+  for (const entry of toRemove) {
+    if (entry.source_id) nlmExec(["source", "delete", entry.source_id], { timeoutMs: 30_000 });
+  }
+
+  // 远端已有的合并进 addedUrls(下次 setup 0 overhead)
+  const addedUrls = [];
+  for (const u of urls) {
+    if (cfgUrlSet.has(u.url)) {
+      const cfgEntry = cfgUrls.find((x) => x.url === u.url);
+      addedUrls.push({ url: u.url, source_id: cfgEntry?.source_id ?? remoteUrlToId.get(u.url) ?? null });
+    } else if (remoteUrlToId.has(u.url)) {
+      addedUrls.push({ url: u.url, source_id: remoteUrlToId.get(u.url) });
+    }
+  }
   const urlResults = [];
 
   if (toAdd.length > 0) {
-    console.error(`  并发添加 ${toAdd.length} 个 URL (每批 5 个)...`);
+    console.error(`  并发添加 ${toAdd.length} 个 URL (每批 5 个 · --wait)...`);
     const addResults = await concurrentBatch(toAdd, 5, async (urlEntry) => {
-      const r = await nlmJsonAsync(["source", "add", urlEntry.url]);
-      const sourceId = r.ok ? (r.data?.source?.id ?? r.data?.id ?? r.data?.source_id ?? null) : null;
-      const status = r.ok ? "PENDING" : "FAILED";
-      return { url: urlEntry.url, source_id: sourceId, status, ok: r.ok };
+      const r = await nlmExecAsync(
+        ["source", "add", notebookId, "--url", urlEntry.url, "--wait"],
+        { timeoutMs: 180_000 }
+      );
+      const ok = r.status === 0;
+      const idMatch = r.stdout.match(/Source ID:\s*([\w-]+)/);
+      const sourceId = ok ? (idMatch?.[1] ?? null) : null;
+      const status = ok ? "PENDING" : "FAILED";
+      return { url: urlEntry.url, source_id: sourceId, status, ok };
     });
     for (const ar of addResults) {
       addedUrls.push({ url: ar.url, source_id: ar.source_id });
@@ -910,20 +968,16 @@ async function opAddDomain(domain, urlsFile) {
     }
   }
 
-  // wait for sources
-  for (const u of addedUrls) {
-    if (u.source_id) {
-      nlmExec(["source", "wait", u.source_id, "--timeout", "120"], { timeoutMs: 130_000 });
-    }
-  }
-
-  // verify source status
-  const sourceListR = nlmJson(["source", "list"]);
+  // source list 兜底
+  const sourceListR = nlmJson(["source", "list", notebookId]);
   if (sourceListR.ok) {
-    const sources = Array.isArray(sourceListR.data) ? sourceListR.data : sourceListR.data?.sources ?? [];
+    const sources = Array.isArray(sourceListR.data) ? sourceListR.data : (sourceListR.data?.sources ?? []);
     for (const ur of urlResults) {
-      const src = sources.find((s) => s.id === ur.source_id || s.source_id === ur.source_id);
-      ur.status = src?.status ?? "UNKNOWN";
+      const src = sources.find((s) => s.id === ur.source_id || s.source_id === ur.source_id || s.url === ur.url);
+      if (src) {
+        ur.status = src.status ?? "READY";
+        if (!ur.source_id) ur.source_id = src.id ?? src.source_id;
+      }
     }
   }
 
@@ -941,6 +995,39 @@ async function opAddDomain(domain, urlsFile) {
 
 // ── main ─────────────────────────────────────────────────────────────
 
+if (process.argv.slice(2).some((a) => a === "--help" || a === "-h")) {
+  process.stdout.write(
+    [
+      "Usage: notebooklm.mjs --op <op> [options]",
+      "",
+      "perf-kp-sql NotebookLM 集成 adapter — 全部能力 spawn 上游 jacob-bd/notebooklm-mcp-cli",
+      "",
+      "Ops:",
+      "  check                          检查 nlm 装/鉴权状态",
+      "  refresh-auth                   触发重登(spawn nlm login · 隔离 Chrome 弹窗)",
+      "  setup [--urls-file <path>]     uv tool install + nlm login + 创建 notebooks + 加 URL",
+      "  disable [--reason <text>]      用户跳过 NLM · 0 依赖 · 走仅案例",
+      "  query --domain <d> --query <q> [--json]      单条查询(d=os/mongo/kunpeng/auto)",
+      "  query-batch --from-diagnose <p> | --from-bp-list <p> [--hw-arch <a>] [--json]",
+      "                                  批量查询",
+      "  add-domain --domain <d> --urls-file <path>   注册新 domain",
+      "",
+      "Options:",
+      "  --json                         结构化 JSON stdout",
+      "  --domain <d>                   os | mongo | kunpeng | auto",
+      "  --query <q>                    查询字面值",
+      "  --from-diagnose <path>         诊断 batch JSON",
+      "  --from-bp-list <path>          BP 巡检 JSON 数组",
+      "  --hw-arch <arch>               kunpeng | x86_64",
+      "  --urls-file <path>             URL 列表",
+      "  --reason <text>                disable 时的原因",
+      "  -h, --help                     显示本帮助",
+      "",
+    ].join("\n"),
+  );
+  process.exit(0);
+}
+
 const { values } = parseArgs({
   options: {
     op: { type: "string" },
@@ -951,6 +1038,7 @@ const { values } = parseArgs({
     "from-bp-list": { type: "string" },
     "hw-arch": { type: "string" },
     "urls-file": { type: "string" },
+    reason: { type: "string" },
   },
 });
 
@@ -966,6 +1054,9 @@ const { values } = parseArgs({
       case "setup":
         await opSetup(values["urls-file"]);
         break;
+      case "disable":
+        opDisable(values.reason);
+        break;
       case "query":
         opQuery(values.domain, values.query);
         break;
@@ -980,7 +1071,7 @@ const { values } = parseArgs({
         await opAddDomain(values.domain, values["urls-file"]);
         break;
       default:
-        fatal(`未知 op: ${values.op}。支持: check | setup | query | query-batch | add-domain`);
+        fatal(`未知 op: ${values.op}。支持: check | refresh-auth | setup | disable | query | query-batch | add-domain`);
     }
   } catch (e) {
     out({ ok: false, error: e instanceof Error ? e.message : String(e) });
