@@ -4,7 +4,7 @@ import { fileURLToPath as __fileURLToPath } from "url";
 import { dirname as __pathDirname } from "path";
 const require = createRequire(import.meta.url);
 
-// plugins/perf-kp-sql/src/cli-ssh.ts
+// src/cli-ssh.ts
 import { spawn } from "node:child_process";
 import { createWriteStream, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
@@ -12,7 +12,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { createHash } from "node:crypto";
 
-// plugins/perf-kp-sql/src/shared/utils.ts
+// src/shared/utils.ts
 function parseOsIntoMetrics(osStdout) {
   const out = {};
   parseOsBatch(osStdout, out);
@@ -150,7 +150,7 @@ function parseIntOr(s, fallback) {
   return fallback;
 }
 
-// plugins/perf-kp-sql/src/cli-ssh.ts
+// src/cli-ssh.ts
 function parseArgs(args) {
   const out = {};
   for (let i = 0; i < args.length; i++) {
@@ -199,14 +199,18 @@ function buildSshBaseArgs(opts) {
     "-o",
     "StrictHostKeyChecking=accept-new",
     "-o",
-    "ServerAliveInterval=15",
-    "-o",
-    "ControlMaster=auto",
-    "-o",
-    `ControlPath=${opts.controlPath}`,
-    "-o",
-    `ControlPersist=${CONTROL_PERSIST_SEC}`
+    "ServerAliveInterval=15"
   ];
+  if (process.platform !== "win32") {
+    args.push(
+      "-o",
+      "ControlMaster=auto",
+      "-o",
+      `ControlPath=${opts.controlPath}`,
+      "-o",
+      `ControlPersist=${CONTROL_PERSIST_SEC}`
+    );
+  }
   if (opts.usePassword) {
     args.push("-o", "PreferredAuthentications=password,keyboard-interactive");
     args.push("-o", "PubkeyAuthentication=no");
@@ -239,6 +243,14 @@ function planSshSpawn(args, sshArgs) {
     detached: true,
     cleanup
   };
+}
+function filterPqWarning(stderr) {
+  if (!stderr) return stderr;
+  const lines = stderr.split(/\r?\n/);
+  const filtered = lines.filter(
+    (line) => !/post-quantum key exchange|store now.*decrypt later|openssh\.com\/pq\.html/i.test(line)
+  );
+  return filtered.join("\n").replace(/^(\*\* WARNING:\s*)+/gm, "").trim();
 }
 function execOutput(r) {
   process.stdout.write(JSON.stringify(r) + "\n");
@@ -375,10 +387,11 @@ function runSshExec(plan, timeoutMs, outputFile) {
           resolve(final);
         }
       };
+      const cleanStderr = filterPqWarning(stderr);
       if (timedOut) {
         finishWithStream({
           stdout: writeStream ? "" : stdout,
-          stderr,
+          stderr: cleanStderr,
           exitCode: code,
           err: `\u547D\u4EE4\u8D85\u65F6 (${timeoutMs}ms)`
         });
@@ -386,13 +399,13 @@ function runSshExec(plan, timeoutMs, outputFile) {
       }
       const exitCode = code;
       if (exitCode === 255) {
-        const stderrHint = stderr.trim();
+        const stderrHint = cleanStderr.trim();
         const stdoutHint = (writeStream ? "" : stdout).trim();
         const source = stderrHint || stdoutHint;
         const hint = source ? source.split("\n").slice(-3).join(" | ") : "(no output)";
         finishWithStream({
           stdout: writeStream ? "" : stdout,
-          stderr,
+          stderr: cleanStderr,
           exitCode,
           err: `SSH connection failed (255): ${hint}`
         });
@@ -402,7 +415,7 @@ function runSshExec(plan, timeoutMs, outputFile) {
         if (writeStreamErr) {
           finishWithStream({
             stdout: "",
-            stderr,
+            stderr: cleanStderr,
             exitCode,
             err: `\u5199\u76D8\u5931\u8D25 ${outputFile}: ${writeStreamErr.message}`
           });
@@ -410,14 +423,14 @@ function runSshExec(plan, timeoutMs, outputFile) {
         }
         finishWithStream({
           stdout: `<wrote ${bytesWritten} bytes to ${outputFile}>`,
-          stderr,
+          stderr: cleanStderr,
           exitCode,
           bytesWritten,
           outputFile
         });
         return;
       }
-      finishWithStream({ stdout, stderr, exitCode });
+      finishWithStream({ stdout, stderr: cleanStderr, exitCode });
     });
   });
 }
@@ -551,10 +564,11 @@ async function runSessionClose(argv) {
     });
     proc.on("close", (code) => {
       clearTimeout(timer);
-      if (code === 0 || /No such file or directory|Control socket connect|not connected/i.test(stderr)) {
+      const cleanStderr = filterPqWarning(stderr);
+      if (code === 0 || /No such file or directory|Control socket connect|not connected/i.test(cleanStderr)) {
         finish({ ok: true });
       } else {
-        finish({ ok: true, err: `ssh -O exit exit=${code}: ${stderr.trim() || "(no stderr)"}` });
+        finish({ ok: true, err: `ssh -O exit exit=${code}: ${cleanStderr.trim() || "(no stderr)"}` });
       }
     });
   });
