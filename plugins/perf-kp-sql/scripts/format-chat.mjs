@@ -201,10 +201,13 @@ if (observeSection) {
   for (const l of observeSection.lines) output.push(l);
 }
 
-// 参考 URL 列表
+// 参考 URL 列表（每个 [参考N] 紧贴显示，去掉 markdown 习惯的段间空行）
 if (refSection) {
   output.push("");
-  for (const l of refSection.lines) output.push(l);
+  for (const l of refSection.lines) {
+    if (l.trim() === "") continue;
+    output.push(l);
+  }
 }
 
 process.stdout.write(output.join("\n"));

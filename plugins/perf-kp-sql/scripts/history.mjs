@@ -4,7 +4,7 @@ import { fileURLToPath as __fileURLToPath } from "url";
 import { dirname as __pathDirname } from "path";
 const require = createRequire(import.meta.url);
 
-// plugins/perf-kp-sql/src/cli-history.ts
+// src/cli-history.ts
 import { homedir } from "node:os";
 import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";

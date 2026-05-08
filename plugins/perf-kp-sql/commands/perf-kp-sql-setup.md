@@ -7,4 +7,4 @@ Invoke the `perf-kp-sql-setup` skill to walk the user through environment verifi
 
 Use the `Skill` tool with skill name `perf-kp-sql-setup` (no plugin namespace prefix needed when invoked from this command).
 
-The skill itself drives the flow — do not pre-empt it.
+The skill itself drives the flow, do not pre-empt it.

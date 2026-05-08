@@ -178,13 +178,20 @@ export function buildSshBaseArgs(opts: {
     "StrictHostKeyChecking=accept-new",
     "-o",
     "ServerAliveInterval=15",
-    "-o",
-    "ControlMaster=auto",
-    "-o",
-    `ControlPath=${opts.controlPath}`,
-    "-o",
-    `ControlPersist=${CONTROL_PERSIST_SEC}`,
   ];
+  // ControlMaster on Windows (Git Bash / Cygwin) hands a Windows-style socket
+  // path to the ssh client, AF_UNIX emulation collides → mux master crashes
+  // with "Connection reset by peer". Skip muxing on win32; each call re-auths.
+  if (process.platform !== "win32") {
+    args.push(
+      "-o",
+      "ControlMaster=auto",
+      "-o",
+      `ControlPath=${opts.controlPath}`,
+      "-o",
+      `ControlPersist=${CONTROL_PERSIST_SEC}`,
+    );
+  }
   if (opts.usePassword) {
     // ASKPASS 模式: 禁 pubkey(避免本机默认 key 抢先 fail 后才降级)
     // 不开 BatchMode(BatchMode 会禁 password prompt → askpass 也不触发)
@@ -227,6 +234,19 @@ function planSshSpawn(args: ExecArgs, sshArgs: string[]): SshSpawnPlan {
 // ============================================================================
 // SECTION: exec
 // ============================================================================
+
+/**
+ * 吃掉 OpenSSH 9.x 起对非 PQ KEX 的无害告警 · 避免污染 stderr 让上层误判失败。
+ * 命中行直接丢 · 残留前导 "** WARNING:" 也清掉。
+ */
+function filterPqWarning(stderr: string): string {
+  if (!stderr) return stderr;
+  const lines = stderr.split(/\r?\n/);
+  const filtered = lines.filter(
+    (line) => !/post-quantum key exchange|store now.*decrypt later|openssh\.com\/pq\.html/i.test(line),
+  );
+  return filtered.join("\n").replace(/^(\*\* WARNING:\s*)+/gm, "").trim();
+}
 
 function execOutput(r: ExecResult): never {
   process.stdout.write(JSON.stringify(r) + "\n");
@@ -380,10 +400,11 @@ function runSshExec(plan: SshSpawnPlan, timeoutMs: number, outputFile?: string):
           resolve(final);
         }
       };
+      const cleanStderr = filterPqWarning(stderr);
       if (timedOut) {
         finishWithStream({
           stdout: writeStream ? "" : stdout,
-          stderr,
+          stderr: cleanStderr,
           exitCode: code,
           err: `命令超时 (${timeoutMs}ms)`,
         });
@@ -393,13 +414,13 @@ function runSshExec(plan: SshSpawnPlan, timeoutMs: number, outputFile?: string):
       // ssh 退出码 255 = ssh 通道层错误 (auth / 网络 / DNS) → 升级 err
       if (exitCode === 255) {
         // 部分本地 ssh wrapper 把 stderr pty-合并到 stdout · 优先 stderr · 没就回退 stdout
-        const stderrHint = stderr.trim();
+        const stderrHint = cleanStderr.trim();
         const stdoutHint = (writeStream ? "" : stdout).trim();
         const source = stderrHint || stdoutHint;
         const hint = source ? source.split("\n").slice(-3).join(" | ") : "(no output)";
         finishWithStream({
           stdout: writeStream ? "" : stdout,
-          stderr,
+          stderr: cleanStderr,
           exitCode,
           err: `SSH connection failed (255): ${hint}`,
         });
@@ -409,7 +430,7 @@ function runSshExec(plan: SshSpawnPlan, timeoutMs: number, outputFile?: string):
         if (writeStreamErr) {
           finishWithStream({
             stdout: "",
-            stderr,
+            stderr: cleanStderr,
             exitCode,
             err: `写盘失败 ${outputFile}: ${writeStreamErr.message}`,
           });
@@ -417,14 +438,14 @@ function runSshExec(plan: SshSpawnPlan, timeoutMs: number, outputFile?: string):
         }
         finishWithStream({
           stdout: `<wrote ${bytesWritten} bytes to ${outputFile}>`,
-          stderr,
+          stderr: cleanStderr,
           exitCode,
           bytesWritten,
           outputFile,
         });
         return;
       }
-      finishWithStream({ stdout, stderr, exitCode });
+      finishWithStream({ stdout, stderr: cleanStderr, exitCode });
     });
   });
 }
@@ -585,11 +606,12 @@ async function runSessionClose(argv: Record<string, string | boolean>): Promise<
     });
     proc.on("close", (code) => {
       clearTimeout(timer);
+      const cleanStderr = filterPqWarning(stderr);
       // 找不到 socket / 已退出都算 ok · master 反正没了
-      if (code === 0 || /No such file or directory|Control socket connect|not connected/i.test(stderr)) {
+      if (code === 0 || /No such file or directory|Control socket connect|not connected/i.test(cleanStderr)) {
         finish({ ok: true });
       } else {
-        finish({ ok: true, err: `ssh -O exit exit=${code}: ${stderr.trim() || "(no stderr)"}` });
+        finish({ ok: true, err: `ssh -O exit exit=${code}: ${cleanStderr.trim() || "(no stderr)"}` });
       }
     });
   });
