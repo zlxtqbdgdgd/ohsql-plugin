@@ -445,26 +445,27 @@ Bash(command="node <PLUGIN_ROOT>/scripts/history.mjs --op load --max 5")
 
 **展示选单**(无论 hosts 是否为空都展示 · 让用户每次明确选择):
 
-hosts **非空** 时,prose 模板(N 处替换为实际历史条数 +1，例如 3 条历史则用 4):
+hosts **非空** 时,prose 模板:
 
 ```
 请选择历史连接或新建：
 
-  1. 192.168.1.10，admin，port=22，MongoDB 7.0.31，Kunpeng-920 ARM，单机，上次 2 小时前
-  2. 10.20.30.40，ec2-user，port=22，MongoDB 6.0.13，x86_64，副本集，上次 3 天前
-  3. 新连接，手动输入参数
+  - 历史连接：
+
+      1. 192.168.1.10，admin，port=22，MongoDB 7.0.31，Kunpeng-920 ARM，单机，上次使用：2 小时前
+      2. 10.20.30.40，ec2-user，port=22，MongoDB 6.0.13，x86_64，副本集，上次使用：3 天前
+
+  - 新连接：请手动输入参数
 ```
 
-每条把 `env` 摘要(`MongoDB <version>, <cpu_model> <arch>, <deploy_form>`)接在 host/user/port 后面 · 帮用户识别多台机器。`env` 字段缺失(老 hosts.json 没缓存过)→ 跳过这一段 · 只显示 host/user/port。最后一行的"新连接"序号 = 历史条数 + 1（不要写字面 N，用户看不懂）。
+每条把 `env` 摘要(`MongoDB <version>, <cpu_model> <arch>, <deploy_form>`)接在 host/user/port 后面 · 帮用户识别多台机器。`env` 字段缺失(老 hosts.json 没缓存过)→ 跳过这一段 · 只显示 host/user/port。"历史连接"和"新连接"两段视觉对仗 · 用 `-` bullet 段头 + 4 空格深缩进列表项,跟外层 prompt 拉开层级。
 
-hosts **空** 时,prose 模板（不写"暂无历史连接"作为序号项，避免被误读为选项 1）:
+hosts **空** 时,prose 模板:
 
 ```
 暂无历史连接。
 
-  1. 新连接，手动输入参数
-
-请回复 1。
+  - 新连接：请手动输入参数
 ```
 
 Stop here and wait for the user's selection in the next turn。
