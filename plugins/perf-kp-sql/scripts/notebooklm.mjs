@@ -303,17 +303,13 @@ async function concurrentBatch(items, concurrency, fn) {
   return results;
 }
 
-/** 验证 nlm 当前 profile 凭据是否有效 · 用 `nlm login --check` exit 0/2 */
+/** 验证 nlm 当前 profile 凭据是否有效 · 用 `nlm login --check` exit 0/2
+ *  ⚠️ 仅在 runPreflight 里用 · 不要在 opAddDomain 等热路径调 · 这条命令对
+ *  Tun 模式 / 代理偶发 SSL EOF 特别敏感 · 会触发 false negative
+ */
 function checkAuth() {
   const r = nlmExec(["login", "--check"], { timeoutMs: 30_000 });
   return r.status === 0;
-}
-
-/** checkAuth 偶发 false negative · 失败给一次 retry(等 1s)再判 · 跨平台 setTimeout */
-async function checkAuthWithRetry() {
-  if (checkAuth()) return true;
-  await new Promise((resolve) => setTimeout(resolve, 1000));
-  return checkAuth();
 }
 
 /**
@@ -1036,14 +1032,13 @@ function opQueryBatch({ fromDiagnose, fromBpList, hwArch }) {
 async function opAddDomain(domain, urlsFile) {
   if (!domain) fatal("--domain required");
 
-  // SKILL Step 7.2 期待"某域 ok=false 不阻塞其它域" · 鉴权失效 / 单域 nlm 失败
+  // SKILL Step 7.2 期待"某域 ok=false 不阻塞其它域" · 单域 nlm 失败
   // 都走 out({ok:false}); return,不能 fatal 让进程 exit 1 中断 SKILL agent
+  // 不在这早期调 nlm login --check · 这条命令对网络抖动特别敏感(Tun 模式 / 代理)
+  // 偶发 SSL EOF 导致 false negative · 让 cookie 失效信号通过后续 nlm list/create
+  // 自然失败传出来更准
   if (!isCliInstalled()) {
     out({ ok: false, domain, error: "nlm 未安装，请先跑 /perf-kp-sql-setup" });
-    return;
-  }
-  if (!(await checkAuthWithRetry())) {
-    out({ ok: false, domain, error: "nlm 凭据失效，请重跑 /perf-kp-sql-setup 完成登录" });
     return;
   }
 
