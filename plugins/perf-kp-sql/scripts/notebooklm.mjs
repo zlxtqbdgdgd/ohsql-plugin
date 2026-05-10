@@ -5,14 +5,16 @@
  * 不造轮子 · 全部能力来自上游 jacob-bd/notebooklm-mcp-cli (4.2K star · CDP 标准做法)
  * adapter 只做:参数透传 + JSON 解析 + domain 路由 + 配置文件读写 + 失败降级
  *
- * 单入口 · 7 个 op:
- *   --op check        检查状态 (nlm 装 / 鉴权 / notebooks)
- *   --op refresh-auth 凭据失效时触发重登 (spawn nlm login · 隔离 Chrome 弹窗)
- *   --op setup        uv tool install + nlm login + 建 notebooks + 加 sources
- *   --op disable      用户跳过 NLM · 写 skipped 标记 · 0 依赖
- *   --op query        单条查询 (auto domain 路由)
- *   --op query-batch  批量查询 (chunk 5)
- *   --op add-domain   注册新 domain
+ * 单入口 · 9 个 op:
+ *   --op check           检查状态 (nlm 装 / 鉴权 / notebooks)
+ *   --op refresh-auth    凭据失效时触发重登 (spawn nlm login · 隔离 Chrome 弹窗)
+ *   --op setup           uv tool install + nlm login + 建 notebooks + 加 sources
+ *   --op setup-preflight 只跑装环境 + 登录(uv / Chrome / nlm CLI / login) · 让 SKILL 逐域调 add-domain
+ *   --op urls-summary    输出各域 URL 数 · 让 SKILL agent 不用自己 parse JSON
+ *   --op disable         用户跳过 NLM · 写 skipped 标记 · 0 依赖
+ *   --op query           单条查询 (auto domain 路由)
+ *   --op query-batch     批量查询 (chunk 5)
+ *   --op add-domain      注册新 domain
  *
  * 关键事实(adapter 必须遵守):
  *   - nlm 错误走 stdout(不是 stderr)· exit 1/2 区分 · 必须先判 exit code
@@ -307,6 +309,13 @@ function checkAuth() {
   return r.status === 0;
 }
 
+/** checkAuth 偶发 false negative · 失败给一次 retry(等 1s)再判 · 跨平台 setTimeout */
+async function checkAuthWithRetry() {
+  if (checkAuth()) return true;
+  await new Promise((resolve) => setTimeout(resolve, 1000));
+  return checkAuth();
+}
+
 /**
  * 检测系统是否装了 Chromium 系浏览器(nlm CDP 必需)
  * @returns {{ ok: boolean, found: string[], suggestion?: string }}
@@ -457,23 +466,30 @@ function opRefreshAuth() {
 
 // ── op: setup ────────────────────────────────────────────────────────
 
-async function opSetup(urlsFile) {
-  // 不造轮子:全部 spawn 上游 jacob-bd/notebooklm-mcp-cli (4.2K star CDP 标准)
-  //   1. 检测 uv
-  //   2. 检测 Chromium 系浏览器(nlm CDP 必需)
-  //   3. uv tool install notebooklm-mcp-cli(幂等)
-  //   4. nlm login --check (exit 0=skip · exit 2=登录)
-  //   5. spawn nlm login(隔离 Chrome 弹 · CDP detect 完成 · 无 Terminal ENTER)
-  //   6. nlm notebook list/create + nlm source add --wait
+// runPreflight: opSetup / opSetupPreflight 共用 —— uv / Chrome / nlm 装与登录
+// 返回 { ok, uv_version, browser, logged_in, just_logged_in, was_disabled,
+//        error?, next_steps?, need_chromium_browser?, suggestion?,
+//        need_user_login?, stdout?, stderr? }
+// 失败路径只 set 自己那条用到的字段(error / next_steps 总有 · 其它字段按 case 加),
+// 成功才把 result.ok 翻到 true。was_disabled 只是 hint,真正撤销 skipped 标记延迟到
+// ok=true 才写 config(失败不留下半成品状态)。
+async function runPreflight() {
+  const result = {
+    ok: false,
+    uv_version: null,
+    browser: null,
+    logged_in: false,
+    just_logged_in: false,
+    was_disabled: false,
+  };
 
-  // 用户重跑 setup → 取消之前的 skipped 标记
+  // 检测之前是否 disable · 仅记 hint,延迟到 ok=true 才写 config(失败不动状态)
   const prevCfg = loadConfig();
+  let prevSkipped = false;
   if (prevCfg?.skipped) {
-    delete prevCfg.skipped;
-    delete prevCfg.skipped_at;
-    delete prevCfg.skip_reason;
-    saveConfig(prevCfg);
-    console.error("检测到之前 NotebookLM 已禁用，切换为启用");
+    prevSkipped = true;
+    result.was_disabled = true;
+    console.error("检测到之前 NotebookLM 已禁用，本次 setup 完成后切换为启用");
   }
 
   // Step 1: 检测 uv · 没装则自动装(国内镜像优先 · 跨平台 · 无需国际网络)
@@ -482,53 +498,49 @@ async function opSetup(urlsFile) {
     console.error("uv 未装，自动装（国内镜像优先，跨平台）...");
     const installed = autoInstallUv();
     if (!installed) {
-      return out({
-        ok: false,
-        error: "uv 自动装失败，请手工装后重跑 setup",
-        next_steps: [
-          "国内推荐（跨平台，国内可用）：pip install --user uv -i https://pypi.tuna.tsinghua.edu.cn/simple",
-          "Windows：winget install --id=astral-sh.uv -e",
-          "macOS：brew install uv",
-          "macOS/Linux（需国际网络）：curl -LsSf https://astral.sh/uv/install.sh | sh",
-          "装好后请确认 ~/.local/bin 在 PATH（macOS/Linux 加到 ~/.zshrc 或 ~/.bashrc，Windows 重启 shell）",
-          "重跑 /perf-kp-sql-setup",
-        ],
-      });
+      result.error = "uv 自动装失败，请手工装后重跑 setup";
+      result.next_steps = [
+        "国内推荐（跨平台，国内可用）：pip install --user uv -i https://pypi.tuna.tsinghua.edu.cn/simple",
+        "Windows：winget install --id=astral-sh.uv -e",
+        "macOS：brew install uv",
+        "macOS/Linux（需国际网络）：curl -LsSf https://astral.sh/uv/install.sh | sh",
+        "装好后请确认 ~/.local/bin 在 PATH（macOS/Linux 加到 ~/.zshrc 或 ~/.bashrc，Windows 重启 shell）",
+        "重跑 /perf-kp-sql-setup",
+      ];
+      return result;
     }
     // retry · enhanced PATH 找新装的 uv
     uvCheck = spawnSync("uv", ["--version"], { encoding: "utf8", timeout: 5_000, env: NLM_SPAWN_ENV });
     if (uvCheck.status !== 0) {
-      return out({
-        ok: false,
-        error: "uv 已装但 PATH 找不到，请重启 shell 后重跑 setup",
-        next_steps: [
-          "可能位置：~/.local/bin/uv（macOS/Linux）或 %APPDATA%\\Python\\Scripts\\uv.exe（Windows）",
-          "macOS/Linux：export PATH=\"$HOME/.local/bin:$PATH\" && hash -r",
-          "Windows：重启 PowerShell/cmd 或注销重登",
-          "重跑 /perf-kp-sql-setup",
-        ],
-      });
+      result.error = "uv 已装但 PATH 找不到，请重启 shell 后重跑 setup";
+      result.next_steps = [
+        "可能位置：~/.local/bin/uv（macOS/Linux）或 %APPDATA%\\Python\\Scripts\\uv.exe（Windows）",
+        "macOS/Linux：export PATH=\"$HOME/.local/bin:$PATH\" && hash -r",
+        "Windows：重启 PowerShell/cmd 或注销重登",
+        "重跑 /perf-kp-sql-setup",
+      ];
+      return result;
     }
   }
-  console.error(`  uv ${uvCheck.stdout.trim()}`);
+  result.uv_version = uvCheck.stdout.trim();
+  console.error(`  uv ${result.uv_version}`);
 
   // Step 2: 检测 Chromium 系浏览器
   const browser = detectChromiumBrowser();
   if (!browser.ok) {
-    return out({
-      ok: false,
-      need_chromium_browser: true,
-      error: "未检测到 Chromium 系浏览器（登录必需）",
-      suggestion: browser.suggestion,
-      next_steps: [
-        "装 Chrome/Edge/Brave 等任一（免费，不影响日常使用 Firefox/Safari）",
-        "  Chrome: https://www.google.com/chrome/",
-        "  Edge: https://www.microsoft.com/edge",
-        "  Brave: https://brave.com/",
-        "或跑 /perf-kp-sql-setup 选 2（跳过 NLM）仅走案例",
-      ],
-    });
+    result.error = "未检测到 Chromium 系浏览器（登录必需）";
+    result.need_chromium_browser = true;
+    result.suggestion = browser.suggestion;
+    result.next_steps = [
+      "装 Chrome/Edge/Brave 等任一（免费，不影响日常使用 Firefox/Safari）",
+      "  Chrome: https://www.google.com/chrome/",
+      "  Edge: https://www.microsoft.com/edge",
+      "  Brave: https://brave.com/",
+      "或跑 /perf-kp-sql-setup 选 2（跳过 NLM）仅走案例",
+    ];
+    return result;
   }
+  result.browser = browser.found;
   console.error(`  Chromium 系浏览器：${browser.found.join("，")}`);
 
   // Step 3: uv tool install notebooklm-mcp-cli(幂等)
@@ -539,31 +551,28 @@ async function opSetup(urlsFile) {
     stdio: ["pipe", "pipe", "pipe"],
   });
   if (uvR.status !== 0) {
-    return out({
-      ok: false,
-      error: "uv tool install notebooklm-mcp-cli 失败",
-      stderr: (uvR.stderr ?? "").slice(0, 500),
-      next_steps: [`手动跑：uv tool install notebooklm-mcp-cli --upgrade`],
-    });
+    result.error = "uv tool install notebooklm-mcp-cli 失败";
+    result.stderr = (uvR.stderr ?? "").slice(0, 500);
+    result.next_steps = [`手动跑：uv tool install notebooklm-mcp-cli --upgrade`];
+    return result;
   }
   console.error("  notebooklm-mcp-cli 装齐");
 
   // Step 4: nlm 验证(exit 0 = 在 PATH)
   if (!isCliInstalled()) {
-    return out({
-      ok: false,
-      error: "已装但 nlm 不在 PATH",
-      next_steps: [
-        "确认 ~/.local/bin 在 PATH（echo $PATH | tr ':' '\\n' | grep -F '.local/bin'）",
-        "或跑 uv tool update-shell 自动加 PATH",
-      ],
-    });
+    result.error = "已装但 nlm 不在 PATH";
+    result.next_steps = [
+      "确认 ~/.local/bin 在 PATH（echo $PATH | tr ':' '\\n' | grep -F '.local/bin'）",
+      "或跑 uv tool update-shell 自动加 PATH",
+    ];
+    return result;
   }
 
   // Step 5: nlm login --check
   console.error("验证凭据...");
   if (checkAuth()) {
-    console.error("  现有凭据有效，跳过登录，直接创建 notebooks");
+    console.error("  现有凭据有效，跳过登录");
+    result.logged_in = true;
   } else {
     console.error("凭据失效或首次登录，启动登录（隔离 Chrome 弹出，登录 1 次即可）...");
 
@@ -575,19 +584,54 @@ async function opSetup(urlsFile) {
     });
 
     if (loginR.status !== 0 || !checkAuth()) {
-      return out({
-        ok: false,
-        need_user_login: true,
-        error: "登录失败，可能原因：5 分钟内未完成登录，EDR 拦截 CDP，或网络无法访问 google.com",
-        stdout: (loginR.stdout ?? "").slice(0, 500),
-        stderr: (loginR.stderr ?? "").slice(0, 500),
-        next_steps: [
-          "1. 重跑 /perf-kp-sql-setup",
-          "2. 仍失败可跑 notebooklm.mjs --op disable 跳过 NLM，仅走案例",
-        ],
-      });
+      result.error = "登录失败，可能原因：5 分钟内未完成登录，EDR 拦截 CDP，或网络无法访问 google.com";
+      result.need_user_login = true;
+      result.stdout = (loginR.stdout ?? "").slice(0, 500);
+      result.stderr = (loginR.stderr ?? "").slice(0, 500);
+      result.next_steps = [
+        "1. 重跑 /perf-kp-sql-setup",
+        "2. 仍失败可跑 notebooklm.mjs --op disable 跳过 NLM，仅走案例",
+      ];
+      return result;
     }
     console.error("  登录成功，cookie 已落盘，后续诊断无需再次操作");
+    result.logged_in = true;
+    result.just_logged_in = true;
+  }
+
+  // preflight 全部通过 · 此时才把之前的 skipped 标记从 config 删掉
+  // 失败路径不会到这,config 里 skipped 仍保留,用户下次重跑还能看到状态
+  if (prevSkipped) {
+    const cfg = loadConfig() || {};
+    delete cfg.skipped;
+    delete cfg.skipped_at;
+    delete cfg.skip_reason;
+    saveConfig(cfg);
+  }
+
+  result.ok = true;
+  return result;
+}
+
+async function opSetupPreflight() {
+  const r = await runPreflight();
+  out(r);
+  if (!r.ok) {
+    // 用 exitCode 代替 process.exit(1) · 让 Node 在事件循环空时自然退出
+    // pipe 场景 stdout buffer 自然 flush · 不会截断 JSON
+    process.exitCode = 1;
+  }
+}
+
+async function opSetup(urlsFile) {
+  // 不造轮子:全部 spawn 上游 jacob-bd/notebooklm-mcp-cli (4.2K star CDP 标准)
+  //   1-5: runPreflight (uv / Chrome / nlm 装与登录)
+  //   6: nlm notebook list/create + nlm source add --wait
+
+  const pre = await runPreflight();
+  if (!pre.ok) {
+    // spread 在前 · 强制 ok:false override · 不依赖 pre.ok 真值
+    return out({ ...pre, ok: false });
   }
 
   // Step 6: 创建 notebooks + 添加 URLs
@@ -991,11 +1035,24 @@ function opQueryBatch({ fromDiagnose, fromBpList, hwArch }) {
 
 async function opAddDomain(domain, urlsFile) {
   if (!domain) fatal("--domain required");
-  if (!isCliInstalled()) fatal("nlm 未安装，请先跑 /perf-kp-sql-setup");
+
+  // SKILL Step 7.2 期待"某域 ok=false 不阻塞其它域" · 鉴权失效 / 单域 nlm 失败
+  // 都走 out({ok:false}); return,不能 fatal 让进程 exit 1 中断 SKILL agent
+  if (!isCliInstalled()) {
+    out({ ok: false, domain, error: "nlm 未安装，请先跑 /perf-kp-sql-setup" });
+    return;
+  }
+  if (!(await checkAuthWithRetry())) {
+    out({ ok: false, domain, error: "nlm 凭据失效，请重跑 /perf-kp-sql-setup 完成登录" });
+    return;
+  }
 
   const urlsData = loadUrlsJson(urlsFile);
   const domainDef = urlsData.domains.find((d) => d.domain === domain);
-  if (!domainDef) fatal(`领域 '${domain}' 在 urls.json 中不存在`);
+  if (!domainDef) {
+    out({ ok: false, domain, error: `领域 '${domain}' 在 urls.json 中不存在` });
+    return;
+  }
 
   const cfg = loadConfig() || { notebooks: {}, version: "0.49.1", created_at: new Date().toISOString().slice(0, 10) };
   cfg.notebooks = cfg.notebooks || {};
@@ -1019,14 +1076,20 @@ async function opAddDomain(domain, urlsFile) {
   }
   if (!notebookId) {
     const createR = nlmExec(["notebook", "create", notebook_name], { timeoutMs: 60_000 });
-    if (createR.status !== 0) fatal(`创建 notebook '${notebook_name}' 失败：${(createR.stdout || createR.stderr).slice(0, 200)}`);
+    if (createR.status !== 0) {
+      out({ ok: false, domain, error: `创建 notebook '${notebook_name}' 失败：${(createR.stdout || createR.stderr).slice(0, 200)}` });
+      return;
+    }
     const fallbackList = nlmJson(["notebook", "list"]);
     if (fallbackList.ok) {
       const nbs = fallbackList.data?.notebooks ?? (Array.isArray(fallbackList.data) ? fallbackList.data : []);
       const match = nbs.find((nb) => nb.title === notebook_name);
       if (match) notebookId = match.id ?? match.notebook_id;
     }
-    if (!notebookId) fatal("无法获取 notebook id");
+    if (!notebookId) {
+      out({ ok: false, domain, error: `无法获取 notebook '${notebook_name}' 的 id（创建后查不到）` });
+      return;
+    }
   }
 
   // 增量同步 · 合并 (a) 本地 cfg + (b) 远端 notebook 已有 source · 不重复加
@@ -1077,11 +1140,14 @@ async function opAddDomain(domain, urlsFile) {
       const ok = r.status === 0;
       const idMatch = r.stdout.match(/Source ID:\s*([\w-]+)/);
       const sourceId = ok ? (idMatch?.[1] ?? null) : null;
-      const status = ok ? "PENDING" : "FAILED";
+      // `nlm source add --wait` 已等后端处理完 · ok=true 即视为 READY
+      // (后续 source list 兜底如果拿到真实 status 会再覆盖)
+      const status = ok ? "READY" : "FAILED";
       return { url: urlEntry.url, source_id: sourceId, status, ok };
     });
     for (const ar of addResults) {
-      addedUrls.push({ url: ar.url, source_id: ar.source_id });
+      // 失败的 URL 不能进 addedUrls(写到 cfg 后下次 setup 会被当"已存在"跳过 · 永远加不进去)
+      if (ar.ok) addedUrls.push({ url: ar.url, source_id: ar.source_id });
       urlResults.push({ url: ar.url, source_id: ar.source_id, status: ar.status });
     }
   }
@@ -1102,13 +1168,42 @@ async function opAddDomain(domain, urlsFile) {
   cfg.notebooks[domain] = { id: notebookId, source_count: addedUrls.length, urls: addedUrls };
   saveConfig(cfg);
 
+  // total_count = 累计落地 URL 数(含远端已有 + 本次新加)
+  // added_count = 本次新加成功提交的数(= ready + pending · 不含 FAILED)
+  // ready_count = 后端确认就绪 · pending_count = 提交了但后端还在处理
+  // failed_count = 本次新加失败数 · source_count 保留为 total_count 别名,向后兼容
+  const readyCount = urlResults.filter((r) => r.status === "READY").length;
+  const pendingCount = urlResults.filter((r) => r.status === "PENDING").length;
+  const failedCount = urlResults.filter((r) => r.status === "FAILED").length;
+  const addedCount = readyCount + pendingCount;
+
   out({
     ok: true,
     domain,
     notebook_id: notebookId,
+    total_count: addedUrls.length,
+    added_count: addedCount,
+    ready_count: readyCount,
+    pending_count: pendingCount,
+    failed_count: failedCount,
     source_count: addedUrls.length,
     urls: urlResults,
   });
+}
+
+// ── op: urls-summary ─────────────────────────────────────────────────
+// 让 SKILL agent 不用自己 parse JSON · 一次拿到各域 URL 数
+// 输出 { ok: true, domains: [{ domain, notebook_name, url_count }, ...], total }
+
+function opUrlsSummary(urlsFile) {
+  const urlsData = loadUrlsJson(urlsFile);
+  const domains = (urlsData.domains || []).map((d) => ({
+    domain: d.domain,
+    notebook_name: d.notebook_name,
+    url_count: (d.urls || []).length,
+  }));
+  const total = domains.reduce((s, d) => s + d.url_count, 0);
+  out({ ok: true, domains, total });
 }
 
 // ── main ─────────────────────────────────────────────────────────────
@@ -1124,6 +1219,8 @@ if (process.argv.slice(2).some((a) => a === "--help" || a === "-h")) {
       "  check                          检查装好/鉴权状态",
       "  refresh-auth                   触发重登（隔离 Chrome 弹窗）",
       "  setup [--urls-file <path>]     装环境 + 登录 + 创建 notebooks + 加 URL",
+      "  setup-preflight                只跑装环境 + 登录（uv / Chrome / nlm CLI / login），让上层逐域调 add-domain",
+      "  urls-summary [--urls-file <p>] 输出各域 URL 数（让 SKILL agent 不用自己 parse JSON）",
       "  disable [--reason <text>]      跳过 NLM，仅走案例",
       "  query --domain <d> --query <q> [--json]      单条查询（d=os/mongo/kunpeng/auto）",
       "  query-batch --from-diagnose <p> | --from-bp-list <p> [--hw-arch <a>] [--json]",
@@ -1172,6 +1269,12 @@ const { values } = parseArgs({
       case "setup":
         await opSetup(values["urls-file"]);
         break;
+      case "setup-preflight":
+        await opSetupPreflight();
+        break;
+      case "urls-summary":
+        opUrlsSummary(values["urls-file"]);
+        break;
       case "disable":
         opDisable(values.reason);
         break;
@@ -1189,7 +1292,7 @@ const { values } = parseArgs({
         await opAddDomain(values.domain, values["urls-file"]);
         break;
       default:
-        fatal(`未知 op：${values.op}。支持：check | refresh-auth | setup | disable | query | query-batch | add-domain`);
+        fatal(`未知 op：${values.op}。支持：check | refresh-auth | setup | setup-preflight | urls-summary | disable | query | query-batch | add-domain`);
     }
   } catch (e) {
     out({ ok: false, error: e instanceof Error ? e.message : String(e) });
