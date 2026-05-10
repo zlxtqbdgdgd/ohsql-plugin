@@ -1,8 +1,11 @@
 // format-chat.mjs
-// 零依赖 · 直接读 .md 报告 · 提取诊断表/火焰图/参考 · box-drawing 渲染 · 代码块输出
-// 不再依赖 md-to-html.mjs 或 -chat.md 中间文件
+// 零依赖 · 直接读 .md 报告 · 提取综合描述 / 诊断表 / 辅助信息 · box-drawing 渲染 · 代码块输出
 //
 // Usage: node scripts/format-chat.mjs --report <report.md> [--cols N]
+//
+// 支持两种 .md 报告结构:
+//   - 新版(8 列):综合描述 / 诊断结果(8 列表 + 表后 [参考N]) / 辅助信息(火焰图 + 现场观测)
+//   - 旧版(6 列):来源标记 + 诊断结果(6 列表 → 4 列合并) + 火焰图 + 现场观测 + 参考
 
 import { readFileSync, existsSync } from "node:fs";
 
@@ -74,32 +77,8 @@ function parseCells(line) {
   return line.replace(/^\|/, "").replace(/\|$/, "").split("|").map(c => c.trim());
 }
 
-// ── 6 列 → 4 列合并 ─────────────────────────────────────
-const COL = { ROOT_CAUSE: 0, EVIDENCE: 1, ACTION: 2, RISK: 3, CONFIDENCE: 4, REF: 5 };
-
-function mergeToRow(cells6) {
-  const c = cells6.map(cleanCell);
-  let risk = c[COL.RISK];
-  if (c[COL.CONFIDENCE]) risk += `/${c[COL.CONFIDENCE]}`;
-  if (c[COL.REF]) risk += ` ${c[COL.REF]}`;
-  return [c[COL.ROOT_CAUSE], c[COL.EVIDENCE], c[COL.ACTION], risk];
-}
-
-// ── box-drawing 表格渲染 ─────────────────────────────────
-function renderTable(headerCells, dataRows) {
-  const header = ["确认的根因", "判定依据", "建议措施", "风险等级"];
-  const rows = dataRows.map(cells =>
-    cells.length === 6 ? mergeToRow(cells) : cells.map(cleanCell)
-  );
-
-  const avail = Math.max(cols - 15, 40);
-  const colWidths = [
-    Math.floor(avail * 0.28),
-    Math.floor(avail * 0.28),
-    Math.floor(avail * 0.28),
-    Math.floor(avail * 0.16),
-  ];
-
+// ── 通用 box-drawing 渲染 ────────────────────────────────
+function renderBox(header, rows, colWidths) {
   function wrapRow(cells) {
     const wrapped = cells.map((c, i) => wrapText(c, colWidths[i]));
     const maxLines = Math.max(...wrapped.map(w => w.length));
@@ -123,11 +102,56 @@ function renderTable(headerCells, dataRows) {
   return parts.join("\n");
 }
 
+// ── 8 列(新版)渲染 ───────────────────────────────────────
+function render8Cols(dataRows) {
+  const header = ["根因", "风险", "判断依据", "命中案例", "建议措施", "NotebookLM", "置信", "参考"];
+  const rows = dataRows.map(cells => cells.map(cleanCell));
+
+  const avail = Math.max(cols - 18, 70);
+  const colWidths = [
+    Math.floor(avail * 0.16),
+    Math.floor(avail * 0.06),
+    Math.floor(avail * 0.14),
+    Math.floor(avail * 0.14),
+    Math.floor(avail * 0.18),
+    Math.floor(avail * 0.18),
+    Math.floor(avail * 0.06),
+    Math.floor(avail * 0.08),
+  ];
+
+  return renderBox(header, rows, colWidths);
+}
+
+// ── 6 列(旧版)渲染 · 合并为 4 列 ─────────────────────────
+const COL6 = { ROOT_CAUSE: 0, EVIDENCE: 1, ACTION: 2, RISK: 3, CONFIDENCE: 4, REF: 5 };
+
+function mergeRow6To4(cells6) {
+  const c = cells6.map(cleanCell);
+  let risk = c[COL6.RISK];
+  if (c[COL6.CONFIDENCE]) risk += `/${c[COL6.CONFIDENCE]}`;
+  if (c[COL6.REF]) risk += ` ${c[COL6.REF]}`;
+  return [c[COL6.ROOT_CAUSE], c[COL6.EVIDENCE], c[COL6.ACTION], risk];
+}
+
+function render6Cols(dataRows) {
+  const header = ["确认的根因", "判定依据", "建议措施", "风险等级"];
+  const rows = dataRows.map(cells => mergeRow6To4(cells));
+
+  const avail = Math.max(cols - 15, 40);
+  const colWidths = [
+    Math.floor(avail * 0.28),
+    Math.floor(avail * 0.28),
+    Math.floor(avail * 0.28),
+    Math.floor(avail * 0.16),
+  ];
+
+  return renderBox(header, rows, colWidths);
+}
+
 // ── 从 .md 提取各段 ─────────────────────────────────────
 const content = readFileSync(reportPath, "utf8");
 const lines = content.split("\n");
 
-// 按 ## 标题切段(exact / prefix 两种匹配)
 function findSectionStart(matcher) {
   return lines.findIndex(l => matcher(l.trim()));
 }
@@ -146,10 +170,12 @@ function extractSectionByPrefix(prefix) {
   return sliceSection(findSectionStart(t => t.startsWith(prefix)));
 }
 
+const summarySection = extractSection("## 综合描述");
 const diagSection = extractSection("## 诊断结果");
+const auxSection = extractSection("## 辅助信息");
+// 兼容旧版独立段
 const flameSection = extractSection("## 火焰图分析");
 const refSection = extractSection("## 参考");
-// 现场观测段头实际写法多变(2 / 4 个条件版本都见过) · 用 prefix 匹配避免漏接
 const observeSection = extractSectionByPrefix("## 现场观测");
 
 if (!diagSection) {
@@ -158,7 +184,7 @@ if (!diagSection) {
   process.exit(2);
 }
 
-// 解析诊断表
+// 解析诊断表 + 提取表后链接列表
 let tableStart = -1, sepLine = -1;
 for (let j = 0; j < diagSection.lines.length; j++) {
   const t = diagSection.lines[j].trim();
@@ -174,7 +200,16 @@ const headerCells = parseCells(diagSection.lines[tableStart]);
 const dataRows = [];
 for (let i = sepLine + 1; i < tableEnd; i++) dataRows.push(parseCells(diagSection.lines[i]));
 
-const renderedTable = renderTable(headerCells, dataRows);
+const colCount = dataRows.length > 0 ? dataRows[0].length : headerCells.length;
+const renderedTable = colCount === 8 ? render8Cols(dataRows) : render6Cols(dataRows);
+
+// 表后链接列表(诊断结果段内 · 表 end 之后的非空行)
+const refLinks = [];
+for (let i = tableEnd; i < diagSection.lines.length; i++) {
+  const l = diagSection.lines[i];
+  if (l.trim() === "") continue;
+  refLinks.push(l);
+}
 
 // ── 组装 chat 输出 ───────────────────────────────────────
 const output = [];
@@ -183,25 +218,40 @@ output.push("✓ 报告已生成");
 output.push("");
 output.push(`📄 ${reportPath}`);
 output.push("");
+
+// 综合描述段(若有)透传
+if (summarySection) {
+  for (const l of summarySection.lines) output.push(l);
+  output.push("");
+}
+
 output.push("## 诊断结果");
 output.push("");
 output.push("```");
 output.push(renderedTable);
 output.push("```");
 
-// 火焰图段原样透传
-if (flameSection) {
+// 表后 [参考N] 链接列表(新版)
+if (refLinks.length > 0) {
+  output.push("");
+  for (const l of refLinks) output.push(l);
+}
+
+// 辅助信息段(新版)透传
+if (auxSection) {
+  output.push("");
+  for (const l of auxSection.lines) output.push(l);
+}
+
+// 兼容旧版独立段
+if (!auxSection && flameSection) {
   output.push("");
   for (const l of flameSection.lines) output.push(l);
 }
-
-// 现场观测段原样透传（如果有）
-if (observeSection) {
+if (!auxSection && observeSection) {
   output.push("");
   for (const l of observeSection.lines) output.push(l);
 }
-
-// 参考 URL 列表（每个 [参考N] 紧贴显示，去掉 markdown 习惯的段间空行）
 if (refSection) {
   output.push("");
   for (const l of refSection.lines) {
