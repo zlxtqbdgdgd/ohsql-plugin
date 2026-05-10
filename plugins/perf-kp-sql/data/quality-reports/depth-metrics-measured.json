@@ -1,7 +1,7 @@
 {
   "generated_at": "2026-05-03T18:16:09.604Z",
   "scanned_reports": 11,
-  "reports_dir": "/Users/david/.perf-kp-sql/reports",
+  "reports_dir": "~/.perf-kp-sql/reports",
   "metrics": {
     "citation_density": {
       "measured": 0,
