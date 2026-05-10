@@ -630,7 +630,7 @@ LLM 解析 ###标记### 切段 · 抽以下字段(in-memory 记):
 |---|---|
 | os_kernel | `uname -a` |
 | os_distro | `/etc/os-release` PRETTY_NAME |
-| arch | `uname -m`(x86_64 / aarch64)|
+| arch | `uname -a` 输出最后一段 `<arch> GNU/Linux` 里的 arch(x86_64 / aarch64) |
 | cpu_vendor | `lscpu` Vendor ID(HiSilicon = 鲲鹏)|
 | cpu_model | `lscpu` Model name |
 | cpu_count | `lscpu` CPU(s): |
@@ -755,11 +755,14 @@ Bash(command="node <PLUGIN_ROOT>/scripts/notebooklm.mjs --op check --json", time
 
 | `--op check` stdout JSON | 处理 |
 |---|---|
-| `{"installed": true, "authenticated": true, "notebooks": {<非空>}}` | ✅ **静默**,把 task 1 子项 `NotebookLM 知识库连通性` 标 `✔`(update task content),**不打 chat 文字**("NLM 增强已就绪 / N 篇文档" 一律不许),进 Phase 1 |
-| `{"installed": false, ...}` (`notebooklm --version` 不通) | 🟡 软告警:"NLM 未安装，主诊断流程不影响，但案例未覆盖现象将无法用 NLM 兜底。可跑 `/perf-kp-sql-setup` 安装，或现在跳过。" 进 Phase 1 (skip-NLM 模式) |
+| `{"installed": true, "authenticated": true, "notebooks": {<domain>: {id, source_count, status}, ...}}` | ✅ **静默**,把 task 1 子项 `NotebookLM 知识库连通性` 标 `✔`(update task content),**不打 chat 文字**("NLM 增强已就绪 / N 篇文档" 一律不许),进 Phase 1 |
+| `{"installed": false, "authenticated": false, "skipped": true, "reason": "..."}`(用户之前 `--op disable` 主动关掉)| ⚪ **完全静默**进 Phase 1 (skip-NLM 模式)· **不打软告警**(用户已经知情)· 报告生成时正常按 仅案例 单源出 |
+| `{"installed": false, ...}`(`nlm --version` 不通 · CLI 没装或不在 PATH · 无 `skipped` 字段)| 🟡 软告警:"NLM 未安装，主诊断流程不影响，但案例未覆盖现象将无法用 NLM 兜底。可跑 `/perf-kp-sql-setup` 安装，或现在跳过。" 进 Phase 1 (skip-NLM 模式) |
 | `{"installed": true, "authenticated": false, ...}` (cookie 过期) | 🔴 触发"NLM 重登录流程"(详见下方 #NLM-relogin),等用户登录后重 check,再进 Phase 1 |
 | `{"installed": true, "authenticated": true, "notebooks": {}}` (notebook 没注册) | 🟡 软告警:"NLM CLI 已装但未注册 notebook，跑 `/perf-kp-sql-setup` 创建。" 进 Phase 1 (skip-NLM 模式) |
 | Bash spawn 失败 / 超时 / stdout 不是合法 JSON | 🟡 软告警 + skip-NLM 模式 + 进 Phase 1 |
+
+> ⚠️ `skipped: true` 跟 `installed: false` 看起来都包含 `installed: false` · **判定优先级**:先看有没有 `skipped` 字段 · 有就走 `skipped` 行(用户主动关 · 软告警是噪音)· 没有再按 `installed` 字段判。
 
 #### NLM-relogin · 鉴权失败恢复流程(可被 Phase 0.10 / Phase 4.* / Phase 6 调用)
 
@@ -1212,6 +1215,8 @@ Bash(command="node <PLUGIN_ROOT>/scripts/notebooklm.mjs --op query \
        --query \"<查询字面>\" \
        --json", timeout=300000)
 ```
+
+> **响应结构提醒**:`--domain auto` 命中多 notebook 时返回 `{ok, results: [{domain, notebook_id, answer, references, attempts}, ...]}`(每个匹配的 notebook 一条);`--domain <single>`(`os` / `mongo` / `kunpeng`)返回 `{ok, answer, references, domain, notebook_id, attempts}`(顶层无 `results`)。**两种 envelope LLM 都要会读**:阶段 3 综合判定时 · auto → flatMap `results[].references[].source_id` 收 URL · single → 直接 `references[].source_id` 收。
 
 #### 阶段 3 · 综合判定
 
