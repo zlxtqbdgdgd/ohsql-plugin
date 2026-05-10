@@ -159,7 +159,7 @@ const reportPath = resolve(import.meta.dirname || ".", "../data/quality-reports/
 const report = {
   generated_at: new Date().toISOString(),
   scanned_reports: results.length,
-  reports_dir: REPORTS_DIR,
+  reports_dir: "~/.perf-kp-sql/reports",
   metrics: {
     citation_density: { measured: avgCD, target: 0.95, llm_estimate_v1: 0.60 },
     mechanism_depth: { measured: avgMD, target: 0.90, llm_estimate_v1: 0.50 },

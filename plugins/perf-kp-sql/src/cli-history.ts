@@ -18,10 +18,12 @@
  *   - 写回(parent dir 自动创建)· chmod 0600
  *   - stdout 一行 JSON {ok:true, total:N}
  *
- * 路径解析(按优先级 · 第一个非空者获胜):
- *   1. $PERF_KP_SQL_HOME             · 目录形式 · 推荐 agent-neutral 名(v0.6.0+)· 文件 = $PERF_KP_SQL_HOME/hosts.json
- *   2. $OHSQL_PERF_KP_SQL_HISTORY    · 文件路径形式 · legacy 名(保留向后兼容)
- *   3. ~/.ohsql/perf-kp-sql/hosts.json · 默认(目录命名是历史 · 跟 ohsql 同源 · 不强依赖任何 agent)
+ * 路径解析:
+ *   1. $PERF_KP_SQL_HOME 设了 · 文件 = $PERF_KP_SQL_HOME/hosts.json
+ *   2. 否则 · ~/.perf-kp-sql/hosts.json (默认 · harness-neutral · 跟 notebooklm.json 同根)
+ *
+ * 多 harness 约束:user runtime data 不接 ${CLAUDE_PLUGIN_DATA} / ${CODEX_PLUGIN_DATA}
+ *   等 harness-specific env var · 否则同一用户在不同 harness 下 hosts.json 分裂。
  *
  * v0.5.1 · 用户授权存凭据(passwords / mongo auth) · hosts.json chmod 0600 ·
  *          load 输出包含全部凭据字段 · LLM 不再走 prose Q&A 单点问。
@@ -78,10 +80,9 @@ export type CredentialFields = Pick<HostEntry, "password" | "privateKeyPath" | "
 const MAX_ENTRIES = 5;
 
 export function historyPath(): string {
-  // v0.6.0 · agent-neutral env var first (directory form), legacy file-path env var second, default last.
   const home = process.env.PERF_KP_SQL_HOME;
   if (home) return join(home, "hosts.json");
-  return process.env.OHSQL_PERF_KP_SQL_HISTORY ?? join(homedir(), ".ohsql", "perf-kp-sql", "hosts.json");
+  return join(homedir(), ".perf-kp-sql", "hosts.json");
 }
 
 export async function loadHistory(path: string): Promise<HistoryFile> {

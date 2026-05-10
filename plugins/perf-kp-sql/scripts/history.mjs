@@ -12,7 +12,7 @@ var MAX_ENTRIES = 5;
 function historyPath() {
   const home = process.env.PERF_KP_SQL_HOME;
   if (home) return join(home, "hosts.json");
-  return process.env.OHSQL_PERF_KP_SQL_HISTORY ?? join(homedir(), ".ohsql", "perf-kp-sql", "hosts.json");
+  return join(homedir(), ".perf-kp-sql", "hosts.json");
 }
 async function loadHistory(path) {
   try {

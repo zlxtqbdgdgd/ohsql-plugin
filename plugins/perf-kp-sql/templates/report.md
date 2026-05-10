@@ -189,14 +189,12 @@ spec § 3.7 MVL 最小闭环 · 当前仅展示命令占位 · runner 实装排 
 - MongoDB 层采集: `~/.perf-kp-sql/runs/<TS>/collect-mongo.txt`
 - 诊断报告(本文件): `~/.perf-kp-sql/runs/<TS>/report.md`
 - 火焰图(若 Phase 3.A.3 执行): `~/.perf-kp-sql/runs/<TS>/flame.svg`
-- FixExperiment 模板(若存在 · 暂未启用): `~/.perf-kp-sql/experiments/<TS>/*.json`
 ```
 
-**0.44.0 路径变更**(单目录归档):
-- 旧 `~/.perf-kp-sql/reports/perf-kp-sql-<engine>-<TS>.md` → 新 `~/.perf-kp-sql/runs/<TS>/report.md`
-- 旧 `~/.perf-kp-sql/flame/<TS>.svg` → 新 `~/.perf-kp-sql/runs/<TS>/flame.svg`
-- 旧 `~/.perf-kp-sql/tmp/perf-kp-sql-os-<TS>.txt` / `perf-kp-sql-mongo-db-<TS>.txt` → 新 `~/.perf-kp-sql/runs/<TS>/collect-os.txt` / `collect-mongo.txt`
-- SSH command-file 临时文件仍走 `~/.perf-kp-sql/tmp/perf-kp-sql-cmd-<TS>.txt`(用完即弃 · 不属于 run 产物)
+**辅助路径**(不属于 run 归档):
+- SSH command-file 等暂存 `/tmp/perf-kp-sql-*-<TS>.{txt,json}` — OS 自动清
+- NLM 配置 `~/.perf-kp-sql/notebooklm.json` — 持久 · 跨 run 复用
+- 连接历史 `~/.perf-kp-sql/hosts.json` — mode 0600 · 凭据 opt-in
 
 ### 7. 参考(0.50.0 起 markdown link 单行 · 段间空行)
 
