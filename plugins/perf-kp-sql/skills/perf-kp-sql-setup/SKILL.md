@@ -188,7 +188,7 @@ setup 脚本内部自动完成(全部 spawn `nlm` 子命令,adapter 不造轮子
 `nlm source add --wait` 自带等 source 处理完成(默认 600s),adapter 不再单独写等待轮询。
 
 完成后检查 setup 输出的 JSON:
-- `ok: true` → 显示成功 banner:
+- `ok: true` → 显示成功 banner。`<n_mongo>` / `<n_kunpeng>` / `<n_os>` 从 setup --json 输出取每个 notebook 的文档数;`<total>` 由 LLM 渲染时计算 = `<n_mongo> + <n_kunpeng> + <n_os>`(字面尖括号占位符 · 不要原样输出给用户):
 
 ```
 ✅ perf-kp-sql setup complete
@@ -198,11 +198,11 @@ Phase 1 — 必装项
    data/cases/ + data/best-practice/       🟢
 
 Phase 2 — NotebookLM 增强
-   ohsql-mongo-kb     🟢  N 篇文档
-   ohsql-kunpeng-kb   🟢  N 篇文档
-   ohsql-os-kb        🟢  N 篇文档
+已经基于 <total> 篇官方文档帮你创建 mongodb/kunpeng/os 三个领域 notebook 知识库用于后续诊断。
 
-uv 已就位（<version>），Chrome 已识别；后续 /perf-kp-sql 诊断时 NLM 二次确认无需再次操作。
+   ohsql-mongo-kb     🟢  <n_mongo> 篇文档
+   ohsql-kunpeng-kb   🟢  <n_kunpeng> 篇文档
+   ohsql-os-kb        🟢  <n_os> 篇文档
 
 随时可重跑 /perf-kp-sql-setup 重新校验或切换 NLM 启用状态。
 ```
