@@ -22,9 +22,7 @@ const targets = [
   { in: "src/cli-history.ts", out: "scripts/history.mjs" },
 ];
 
-const external = [
-  "js-yaml",
-];
+const external = [];
 
 for (const t of targets) {
   await build({
