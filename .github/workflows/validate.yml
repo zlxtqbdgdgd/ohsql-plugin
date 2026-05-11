@@ -1,0 +1,49 @@
+name: validate
+
+on:
+  pull_request:
+    paths:
+      - "plugins/**"
+      - ".claude-plugin/**"
+      - "tools/build/**"
+      - "package.json"
+      - ".github/workflows/validate.yml"
+  push:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Validate marketplace + plugin manifests
+        run: node tools/build/validate.mjs
+      - name: Verify required artifacts
+        run: |
+          set -e
+          # Each plugin must have its plugin.json, README, and at least one skill
+          for plugin in plugins/*/; do
+            test -f "${plugin}.claude-plugin/plugin.json" || { echo "Missing $plugin/.claude-plugin/plugin.json"; exit 1; }
+            test -f "${plugin}README.md" || echo "Warn: $plugin missing README.md"
+            ls "${plugin}skills/" >/dev/null
+          done
+          # perf-kp-sql specifics (case library scheme E · markdown-only · 无 SQLite/native dep)
+          test -f plugins/perf-kp-sql/skills/perf-kp-sql/SKILL.md
+          test -x plugins/perf-kp-sql/skills/perf-kp-sql-setup/scripts/check-health
+          # case library markdown bundles (cases + best-practice 双索引 / 双 CASES)
+          test -f plugins/perf-kp-sql/data/cases/INDEX.md
+          test -f plugins/perf-kp-sql/data/cases/CASES.md
+          test -f plugins/perf-kp-sql/data/best-practice/INDEX.md
+          test -f plugins/perf-kp-sql/data/best-practice/CASES.md
+          # 主流程脚本(SSH wrapper / NLM / 报告渲染 / 火焰图 wrapper)
+          test -f plugins/perf-kp-sql/scripts/ssh.mjs
+          test -f plugins/perf-kp-sql/scripts/notebooklm.mjs
+          test -f plugins/perf-kp-sql/scripts/format-chat.mjs
+          test -f plugins/perf-kp-sql/scripts/capture-flamegraph.mjs
+          # cpu-flamegraph 姐妹 plugin(perf-kp-sql 的硬依赖)
+          test -f plugins/cpu-flamegraph/skills/cpu-flamegraph/scripts/capture.mjs
+          test -f plugins/cpu-flamegraph/skills/cpu-flamegraph/vendor/flamegraph.pl
+          echo "All required artifacts present."

@@ -1,0 +1,13 @@
+flamegraph.pl 来自上游：
+  https://github.com/brendangregg/FlameGraph
+
+许可证：CDDL-1.0（见文件头部 "CDDL HEADER START" 段）
+全文：http://opensource.org/licenses/CDDL-1.0
+
+版权：
+  Copyright 2016 Netflix, Inc.
+  Copyright 2011 Joyent, Inc.  All rights reserved.
+  Copyright 2011 Brendan Gregg.  All rights reserved.
+
+本目录原样保留 flamegraph.pl 不做修改；按 CDDL-1.0 §3.1 仅以源代码形式
+分发，未做衍生修改，不需要在产物中追加版权或修改记录。

@@ -1,0 +1,9 @@
+node_modules/
+*.log
+.DS_Store
+dist/
+.tmp/
+.npmrc
+
+# rules.json 备份 (audit 修复时手动产生 · 不入仓)
+*.json.bak-*

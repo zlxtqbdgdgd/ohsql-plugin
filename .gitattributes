@@ -1,0 +1,3 @@
+# CI-built esbuild bundles — committed for zero-install plugin runtime,
+# but treat them as generated so PR diffs stay readable.
+plugins/*/scripts/*.mjs linguist-generated=true

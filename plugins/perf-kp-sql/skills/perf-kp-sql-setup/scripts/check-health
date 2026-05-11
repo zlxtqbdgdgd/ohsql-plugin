@@ -1,0 +1,158 @@
+#!/usr/bin/env bash
+# perf-kp-sql native dependency health check
+#
+# Probes:
+#   - Node.js >= 18
+#   - data/{cases,best-practice}/{CASES.md,INDEX.md} 存在性
+#
+# v0.12.0: ssh2 已下线 — cli-ssh.ts 改走 spawn(本地 OpenSSH ssh CLI) +
+# SSH_ASKPASS,不再需要 ssh2 native module。
+#
+# Output style mirrors EveryInc/ce-setup/check-health: 🟢/🔴/🟡 per item,
+# with hints to fix.
+#
+# Modes:
+#   (default)        Human-readable diagnose. Exit code = number of issues.
+#   --list-missing   Suppress all human output; print one npm install spec per
+#                    line for items that are absent (NOT for ABI mismatches —
+#                    those need rebuild, not install). Exit 0 even if some
+#                    items still need attention via rebuild.
+
+set -o pipefail
+
+# --list-missing: 抑制 human-readable 输出, 只把"应该 npm install 的 spec"
+# 一行一个写到 stdout. 让 SKILL.md 据此精准 install, 已经存在的不再重装.
+LIST_MISSING=0
+for arg in "$@"; do
+  case "$arg" in
+    --list-missing) LIST_MISSING=1 ;;
+  esac
+done
+
+# Priority: env var (any harness) → derive from script location
+PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-${OHSQL_PLUGIN_ROOT:-}}"
+if [ -z "$PLUGIN_ROOT" ]; then
+  # Fallback: derive from script location (skills/perf-kp-sql-setup/scripts/check-health)
+  PLUGIN_ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
+fi
+
+if [ ! -d "$PLUGIN_ROOT" ]; then
+  msg="🔴  Cannot resolve plugin root (env vars unset, dirname fallback failed)"
+  if [ "$LIST_MISSING" = 1 ]; then echo "$msg" >&2; else echo "$msg"; fi
+  exit 1
+fi
+
+cd "$PLUGIN_ROOT" || exit 1
+
+if [ "$LIST_MISSING" = 1 ]; then
+  ok()    { :; }
+  warn()  { :; }
+  fail()  { :; }
+  hint()  { :; }
+  header(){ :; }
+else
+  ok()    { echo "  🟢  $1"; }
+  warn()  { echo "  🟡  $1"; }
+  fail()  { echo "  🔴  $1"; }
+  hint()  { echo "      → $1"; }
+  header(){ echo ""; echo " $1"; }
+fi
+
+issues=0
+needed_install=()  # npm install 候选(只装缺的, ABI mismatch 走 rebuild 不进这里)
+
+header "Plugin"
+ok "root: $PLUGIN_ROOT"
+ok "name: ${OHSQL_PLUGIN_NAME:-(env unset)}"
+ok "version: ${OHSQL_PLUGIN_VERSION:-(env unset)}"
+
+header "Runtime"
+NODE_VERSION="$(node --version 2>/dev/null | sed 's/v//')"
+if [ -z "$NODE_VERSION" ]; then
+  fail "Node.js not found"
+  hint "install node >= 18"
+  issues=$((issues + 1))
+else
+  MAJOR="${NODE_VERSION%%.*}"
+  if [ "$MAJOR" -lt 18 ]; then
+    fail "Node.js $NODE_VERSION (need >= 18)"
+    issues=$((issues + 1))
+  else
+    ok "node v$NODE_VERSION"
+  fi
+fi
+
+header "Data"
+
+# ----- case library markdown files (cases + best-practice) -----
+all_cases_ok=1
+for cases_file in "data/cases/CASES.md" "data/cases/INDEX.md" "data/best-practice/CASES.md" "data/best-practice/INDEX.md"; do
+  if [ ! -f "$PLUGIN_ROOT/$cases_file" ]; then
+    fail "$cases_file missing"
+    hint "fix: /plugin reinstall perf-kp-sql"
+    issues=$((issues + 1))
+    all_cases_ok=0
+  fi
+done
+if [ "$all_cases_ok" = 1 ]; then
+  ok "data/cases/ + data/best-practice/ (4 files present)"
+fi
+
+# ----- NotebookLM CLI (optional enhancement) -----
+nlm_installed=0
+if command -v notebooklm >/dev/null 2>&1; then
+  nlm_installed=1
+  ok "notebooklm CLI"
+  # check auth · 两层 (本地 cookie sanity + 真打 API 验 Google 侧 session)
+  nlm_check_json="$(node "$PLUGIN_ROOT/scripts/notebooklm.mjs" --op check --json 2>/dev/null)"
+  nlm_authed="$(echo "$nlm_check_json" | python3 -c "import sys,json; d=json.load(sys.stdin); print('1' if d.get('authenticated') else '0')" 2>/dev/null || echo 0)"
+  if [ "$nlm_authed" = "1" ]; then
+    ok "notebooklm auth (Google API 验证通过)"
+  else
+    warn "notebooklm auth: Google 侧 cookie 过期 / 失效"
+    hint "fix: 在任意浏览器中登录 https://notebooklm.google.com/ 后重跑 /perf-kp-sql-setup"
+  fi
+  # rookiepy 可用性检查
+  rookiepy_ok="$(python3 -c "import rookiepy; print('ok')" 2>&1)"
+  if [ "$rookiepy_ok" = "ok" ]; then
+    ok "rookiepy (浏览器 cookie 提取)"
+  else
+    warn "rookiepy not installed"
+    # 推断 venv 对应的 pip
+    nlm_python="$(head -1 "$(which notebooklm)" 2>/dev/null | sed -nE 's|^#![ 	]*([^ 	]+).*|\1|p')"
+    if [ -z "$nlm_python" ] || [ ! -x "$nlm_python" ]; then nlm_python="python3"; fi
+    nlm_pip="$(echo "$nlm_python" | sed -E 's|/python[0-9.]*$|/pip|')"
+    [ -x "$nlm_pip" ] || nlm_pip="pip3"
+    hint "fix: $nlm_pip install rookiepy"
+  fi
+  # check config
+  NLM_CFG="$HOME/.perf-kp-sql/notebooklm.json"
+  if [ -f "$NLM_CFG" ]; then
+    ok "notebooklm.json config present"
+  else
+    warn "notebooklm.json not found (notebooks not yet created)"
+    hint "fix: node '$PLUGIN_ROOT/scripts/notebooklm.mjs' --op setup --json"
+  fi
+else
+  warn "notebooklm CLI not installed (optional: NotebookLM 增强)"
+  hint "fix: pip install notebooklm-py rookiepy"
+fi
+
+# ----- --list-missing 模式: 只 emit 待装 spec, 一行一个; exit 0 -----
+if [ "$LIST_MISSING" = 1 ]; then
+  for p in "${needed_install[@]}"; do
+    echo "$p"
+  done
+  exit 0
+fi
+
+# ----- summary -----
+echo ""
+if [ "$issues" = 0 ]; then
+  echo " ✅ All required dependencies present."
+else
+  echo " 🔴 $issues issue(s) need attention."
+fi
+echo ""
+
+exit "$issues"

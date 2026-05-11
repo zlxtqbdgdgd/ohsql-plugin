@@ -1,0 +1,30 @@
+{
+  "name": "perf-kp-sql",
+  "version": "0.54.0",
+  "description": "Kunpeng + MongoDB joint perf diagnosis. SSH-based collection + 202-case distilled markdown case library (LLM-orchestrated 6-phase pipeline · CASES.md + INDEX.md routing) + NotebookLM authoritative refresh + flamegraph stack pattern matching. Harness-agnostic (Anthropic Agent Skills standard).",
+  "author": {
+    "name": "zlxtqbdgdgd",
+    "url": "https://github.com/zlxtqbdgdgd"
+  },
+  "homepage": "https://github.com/zlxtqbdgdgd/ohsql-plugin",
+  "repository": "https://github.com/zlxtqbdgdgd/ohsql-plugin",
+  "license": "MIT",
+  "keywords": ["sql", "perf", "mongo", "kunpeng", "ssh"],
+  "skills": "./skills/",
+  "x-plugin-dependencies": {
+    "cpu-flamegraph": "^0.4.0"
+  },
+  "x-setup-skill": "perf-kp-sql-setup",
+  "interface": {
+    "displayName": "Kunpeng SQL Perf",
+    "shortDescription": "Kunpeng ARM64 + MongoDB perf diagnosis",
+    "longDescription": "SSH-based remote collection (8-cmd 环境画像 + per-case 命令拉指标), 6-phase LLM-orchestrated pipeline routing user symptoms against 202-case markdown case library (cases/INDEX.md + best-practice/INDEX.md) with NotebookLM as authoritative refresh, and emits an impact-ranked markdown report. First-time use: run /perf-kp-sql-setup to register NotebookLM.",
+    "developerName": "zlxtqbdgdgd",
+    "category": "Developer Tools",
+    "capabilities": ["Interactive", "Write"],
+    "websiteURL": "https://github.com/zlxtqbdgdgd/ohsql-plugin/tree/main/plugins/perf-kp-sql",
+    "defaultPrompt": [
+      "诊断 mongo 数据库性能问题: host=10.0.0.1 user=root privateKeyPath=~/.ssh/id_ed25519"
+    ]
+  }
+}
